@@ -74,11 +74,12 @@ typedef struct {
 } RevengeInfo;
 static RevengeInfo revengeinfo[] = {
     { CR_NONE,		"NONE",		0, 0, 0,	"Disabled" },
-    { CR_DEOP,		"DEOP",		0, 0, 1,	"Mode -o (DeOp)" },
-    { CR_KICK,		"KICK",		0, 1, 0,	"Kick" },
-    { CR_NICKBAN,	"NICKBAN",	0, 1, 1,	"Ban (user!*@*)" },
-    { CR_USERBAN,	"MASKBAN",	1, 0, 0,	"Ban (*!*user@*.host)" },
-    { CR_HOSTBAN,	"HOSTBAN",	1, 0, 1,	"Ban (*!*@host)" },
+    { CR_REVERSE,	"REVERSE",	0, 0, 1,	"Reverse Activity" },
+    { CR_DEOP,		"DEOP",		0, 1, 0,	"Mode -o (DeOp)" },
+    { CR_KICK,		"KICK",		0, 1, 1,	"Kick" },
+    { CR_NICKBAN,	"NICKBAN",	1, 0, 0,	"Ban (user!*@*)" },
+    { CR_USERBAN,	"MASKBAN",	1, 0, 1,	"Ban (*!*user@*.host)" },
+    { CR_HOSTBAN,	"HOSTBAN",	1, 1, 0,	"Ban (*!*@host)" },
     { CR_MIRROR,	"MIRROR",	1, 1, 1,	"Mirror Activity" },
     { -1 }
 };
@@ -361,8 +362,10 @@ void chanserv(const char *source, char *buf)
 		{ "USER*",	H_NONE,	do_users },
 		{ "WHO*",	H_NONE,	do_users },
 		{ "V*",		H_NONE,	do_voice },
+		{ "DV*",	H_NONE,	do_devoice },
 		{ "DEV*",	H_NONE,	do_devoice },
 		{ "OP*",	H_NONE,	do_op },
+		{ "DOP*",	H_NONE,	do_deop },
 		{ "DEOP*",	H_NONE,	do_deop },
 		{ "CLEAR",	H_NONE,	do_clear },
 		{ "LEVEL*",	H_NONE,	do_level },
@@ -990,13 +993,12 @@ int check_kick(User *user, const char *chan)
 
 void record_topic(const char *chan)
 {
-  if(services_level==1) {
-    Channel *c = findchan(chan);
-    ChannelInfo *ci = cs_findchan(chan);
+    if(services_level==1) {
+	Channel *c = findchan(chan);
+	ChannelInfo *ci = cs_findchan(chan);
 
-    if (!c || !ci)
-	return;
-    if (!(ci->flags & CI_SUSPENDED)) {
+	if (!c || !ci || (ci->flags & CI_SUSPENDED))
+	    return;
 	if (ci->last_topic)
 	    free(ci->last_topic);
 	if (c->topic)
@@ -1006,7 +1008,6 @@ void record_topic(const char *chan)
 	strscpy(ci->last_topic_setter, c->topic_setter, NICKMAX);
 	ci->last_topic_time = c->topic_time;
     }
-  }
 }
 
 /*************************************************************************/
@@ -1147,7 +1148,7 @@ void restore_topic(const char *chan)
     Channel *c = findchan(chan);
     ChannelInfo *ci = cs_findchan(chan);
 
-    if (!c || !ci || !(ci->flags & CI_KEEPTOPIC))
+    if (!c || !ci || !(ci->flags & (CI_KEEPTOPIC | CI_SUSPENDED)))
 	return;
     if (c->topic)
 	free(c->topic);
@@ -1183,7 +1184,7 @@ int check_topiclock(const char *chan)
     Channel *c = findchan(chan);
     ChannelInfo *ci = cs_findchan(chan);
 
-    if (!c || !ci || !((ci->flags & CI_TOPICLOCK) || (ci->flags & CI_SUSPENDED)))
+    if (!c || !ci || !(ci->flags & (CI_TOPICLOCK | CI_SUSPENDED)))
 	return 0;
     if (c->topic)
 	free(c->topic);
@@ -1311,6 +1312,7 @@ int delchan(ChannelInfo *ci)
     }
 #endif /* NEWS */
 
+    do_cs_part(ci->name);
     if (ci->next)
 	ci->next->prev = ci->prev;
     if (ci->prev)
@@ -1413,8 +1415,11 @@ int get_access(User *user, ChannelInfo *ci)
     if(ci->flags & CI_SUSPENDED)
     	if(is_services_op(user->nick))
 	    return ci->cmd_access[CA_FOUNDER];
+	else if(is_oper(user->nick))
+	    return ci->cmd_access[CA_AUTOVOICE];
 	else
 	    return 0;
+
     if (is_founder(user, ni, ci))
 	return ci->cmd_access[CA_FOUNDER];
     for (access = ci->access, i = 0; i < ci->accesscount; ++access, ++i)
@@ -2228,7 +2233,7 @@ static void do_set_revenge(User *u, ChannelInfo *ci, char *param)
     char *source = u->nick, *chan = ci->name;
     int i;
 
-    for (i=0;revengeinfo[i].what>=0;i++)
+    for (i=0;revengeinfo[i].what>=0;++i)
         if (stricmp(param, revengeinfo[i].cmd)==0) {
 	    if (revengeinfo[i].rev1==1)	ci->flags |= CI_REV1;
 	    else			ci->flags &= ~CI_REV1;
@@ -2258,33 +2263,38 @@ static void do_set_revenge(User *u, ChannelInfo *ci, char *param)
 	}
 }
 
+/* This is one UUUUUUUGLY function. */
+
 int get_revenge_level(ChannelInfo *ci)
 {
     int i;
 
     for (i=0;revengeinfo[i].what>=0;i++)
-	if (revengeinfo[i].rev1==1 && (ci->flags & CI_REV1))
-	    if (revengeinfo[i].rev2==1 && (ci->flags & CI_REV2))
+	if (revengeinfo[i].rev1==1 && (ci->flags & CI_REV1)) {
+	    if (revengeinfo[i].rev2==1 && (ci->flags & CI_REV2)) {
 		if (revengeinfo[i].rev3==1 && (ci->flags & CI_REV3))
-		    return revengeinfo[i].what;
+/*111*/		    return revengeinfo[i].what;
 		else if (revengeinfo[i].rev3==0 && !(ci->flags & CI_REV3))
-		    return revengeinfo[i].what;
-	    else if (revengeinfo[i].rev2==0 && !(ci->flags & CI_REV2))
+/*110*/		    return revengeinfo[i].what;
+	    } else if (revengeinfo[i].rev2==0 && !(ci->flags & CI_REV2)) {
 		if (revengeinfo[i].rev3==1 && (ci->flags & CI_REV3))
-		    return revengeinfo[i].what;
+/*101*/		    return revengeinfo[i].what;
 		else if (revengeinfo[i].rev3==0 && !(ci->flags & CI_REV3))
-		    return revengeinfo[i].what;
-	else if (revengeinfo[i].rev1==0 && !(ci->flags & CI_REV1))
-	    if (revengeinfo[i].rev2==1 && (ci->flags & CI_REV2))
+/*100*/		    return revengeinfo[i].what;
+	    }
+	} else if (revengeinfo[i].rev1==0 && !(ci->flags & CI_REV1)) {
+	    if (revengeinfo[i].rev2==1 && (ci->flags & CI_REV2)) {
 		if (revengeinfo[i].rev3==1 && (ci->flags & CI_REV3))
-		    return revengeinfo[i].what;
+/*011*/		    return revengeinfo[i].what;
 		else if (revengeinfo[i].rev3==0 && !(ci->flags & CI_REV3))
-		    return revengeinfo[i].what;
-	    else if (revengeinfo[i].rev2==0 && !(ci->flags & CI_REV2))
+/*010*/		    return revengeinfo[i].what;
+	    } else if (revengeinfo[i].rev2==0 && !(ci->flags & CI_REV2)) {
 		if (revengeinfo[i].rev3==1 && (ci->flags & CI_REV3))
-		    return revengeinfo[i].what;
+/*001*/		    return revengeinfo[i].what;
 		else if (revengeinfo[i].rev3==0 && !(ci->flags & CI_REV3))
-		    return revengeinfo[i].what;
+/*000*/		    return revengeinfo[i].what;
+	    }
+	}
     return 0;
 }
 
@@ -2833,8 +2843,14 @@ void do_akick_add (const char *source, char *chan)
 		if(!(mask[i]=='*' || mask[i]=='?' || mask[i]=='.'))
 		    nonchr++;
 	    if(nonchr<STARTHRESH && !check_access(u, ci, CA_STARAKICK)) {
-		notice(s_ChanServ, source, "Must have at least %d non- *, ? or . characters.", STARTHRESH);
+		notice(s_ChanServ, source, "Must have at least %d non- *, ? or . characters in host.", STARTHRESH);
 		return;
+	    } else if (nonchr<STARTHRESH) {
+		for(i--;i>0 && (mask[i]=='*' || mask[i]=='?');i--) ;
+		if (!i) {
+		    notice(s_ChanServ, source, "Must have at least 1 non- *, ? or . characters.", STARTHRESH);
+		    return;
+		}
 	    }
 	}
 	if (get_justaccess(mask, ci)>=get_access(u,ci)) {
@@ -3070,6 +3086,24 @@ static void do_info(const char *source)
 	    notice(s_ChanServ, source, "  Revenge Level: %s.",
 					revengeinfo[i].desc);
 
+#ifdef IRCOP_OVERRIDE
+	if (!(ci->flags & CI_PRIVATE) || is_oper(source)) {
+#else
+	if (!(ci->flags & CI_PRIVATE)) {
+#endif
+	    Channel *c = findchan(chan);
+	    if (c) {
+		int ops, users, voices;
+		struct c_userlist *data;
+		for (data = c->users, users = 0; data; data = data->next) users++;
+		for (data = c->voices, voices = 0; data; data = data->next) voices++;
+		for (data = c->chanops, ops = 0; data; data = data->next) ops++;
+		notice(s_ChanServ, source, "  Channel Stats: %d user%s, %d voice%s, %d op%s.",
+					users,  users  == 1 ? "" : "s",
+					voices, voices == 1 ? "" : "s",
+					ops,    ops    == 1 ? "" : "s");
+	    }
+	}
 	if (!ci->flags)
 	    snprintf(s, 6, "None\n");
 	else {
@@ -3198,7 +3232,11 @@ static void do_users(const char *source)
     else if (!(ci = cs_findchan(chan)))
 	notice(s_ChanServ, source, "Channel %s is not registered.", chan);
 
+#ifdef IRCOP_OVERRIDE
     else if ((!u || !check_access(u, ci, CA_CMDINVITE)) && !is_oper(source))
+#else
+    else if ((!u || !check_access(u, ci, CA_CMDINVITE)))
+#endif
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
 	else
@@ -3478,15 +3516,12 @@ static void do_unban(const char *source)
     int i;
 
 #ifdef IRCOP_OVERRIDE
-    if (!is_oper(source))
+    if (!is_oper(source) || !unban_params)
 #endif
 	u = finduser(source);
 #ifdef IRCOP_OVERRIDE
     else
-	if (unban_params)
-	    u = finduser(unban_params);
-	else
-	    u = finduser(source);
+	u = finduser(unban_params);
 #endif
 
     if (!chan) {
@@ -3505,16 +3540,16 @@ static void do_unban(const char *source)
 	notice(s_ChanServ, source, "Channel %s is not registered.", chan);
 
 #ifdef IRCOP_OVERRIDE
-    else if ((!u || check_access(u, ci, CA_CMDUNBAN)) && !is_oper(source))
+    else if ((!u || !(check_access(u, ci, CA_CMDUNBAN)) || is_oper(source))) {
 #else
-    else if (!u || check_access(u, ci, CA_CMDUNBAN))
+    else if (!u || !check_access(u, ci, CA_CMDUNBAN)) {
 #endif
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
 	else
     	    notice(s_ChanServ, source, "Access denied.");
 
-    else {
+    } else {
 	for (i = 0; i < c->bancount; i++)
 	    if (match_usermask(c->bans[i], u)) {
 		change_cmode(s_ChanServ, c->name, "-b", c->bans[i]);
@@ -3663,8 +3698,10 @@ static void do_forbid(const char *source)
     if(services_level!=1)
 	notice(s_ChanServ, source,
 	    "Warning: Services is in read-only mode.  Changes will not be saved.");
-    if (ci = cs_findchan(chan))
+    if (ci = cs_findchan(chan)) {
 	delchan(ci);
+	wallops(s_ChanServ, "\2%s\2 used FORBID on channel \2%s\2", source, chan);
+    }
     if (ci = makechan(chan)) {
     	log("%s: %s set FORBID for channel %s", s_ChanServ, source, chan);
 	ci->flags |= CI_VERBOTEN;
@@ -3697,10 +3734,11 @@ static void do_suspend(const char *source)
     if (!(ci = cs_findchan(chan)))
 	notice(s_ChanServ, source,
 		"Channel \2%s\2 does not exist", chan);
+    else if (ci->flags & CI_SUSPENDED)
+	notice(s_ChanServ, source,
+	    "Channel %s is already suspended.", chan);
     else {
 	ci->flags |= CI_SUSPENDED;
-	ci->flags |= CI_KEEPTOPIC;
-	ci->flags |= CI_TOPICLOCK;
 
 	if (ci->last_topic)
 	    free(ci->last_topic);
@@ -3762,12 +3800,11 @@ static void do_unsuspend(const char *source)
     if (!(ci = cs_findchan(chan)))
 	notice(s_ChanServ, source,
 		"Channel \2%s\2 does not exist", chan);
-    else if (ci->flags & CI_SUSPENDED)
+    else if (!(ci->flags & CI_SUSPENDED))
 	notice(s_ChanServ, source,
 	    "Channel %s is not suspended.", chan);
     else {
 	ci->flags &= ~CI_SUSPENDED;
-	ci->flags &= ~CI_TOPICLOCK;
 
 	if (ci->last_topic)
 	    free(ci->last_topic);

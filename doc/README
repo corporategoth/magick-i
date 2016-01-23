@@ -1,0 +1,281 @@
+Magick -- a system of IRC services for IRC networks
+---------------------------------------------------
+
+Magick is copyright (c) 1996-1997 Preston A. Elder.  Magick may be
+freely redistributed; see the GNU General Public License (in the file
+"COPYING") for details.
+
+
+1. INTRODUCTION
+
+     Magick is a system of services to be used with Internet Relay Chat
+networks.  Magick provides for definitive nickname and channel ownership,
+as well as the ability to send messages ("memos") to offline users, and
+gives IRC operators considerably more control over the network, enabling
+them to change modes in any channel and place network-wide bans, among
+other things.
+     Magick runs as a server on an IRC network, and is designed to use
+the RFC 1459 IRC protocol, with some additions discussed at the end of this
+document.
+     Also, Magick will not work with the reference implementation of RFC
+1459 (irc2.x); an extension to the code is required to allow Services to
+change channel modes without requiring channel operator status.  The DALnet
+extension to ircd (which can be found at ftp.dal.net:/pub/dalnet/server) is
+one implementation with the necessary extension.
+
+
+2. CONFIGURATION, COMPILATION AND INSTALLATION
+
+     In order to compile Magick, you'll need a Bourne shell or
+compatible shell (such as GNU bash), GNU make or a compatible make (which
+needs to support the "include" directive), and an ANSI C compiler (gcc
+recommended).
+     Before trying to compile Magick, there are some manual configuration
+tasks that need to be done: run the "configure" script, edit config.h, and
+edit the top section of the Makefile.
+     The "configure" script will try to learn how things work on your
+system, and set up appropriate Makefile and C source definitions.  It will
+also ask you a few questions about how you want Services set up.  (It will
+ask all of the questions before doing any of the automated tests.)  If you
+get an error while running the script, get bash (if you don't already have
+it) and run "bash configure".  IMPORTANT NOTE:  Make sure you select the
+correct IRC server style!  If Magick compiles correctly but you only get
+messages like "Sorry, registration failed", the most likely cause is that
+you chose the wrong IRC server style.
+     config.h contains all of the basic definitions for Magick -- uplink
+server, data directory, etc.  Most of these can be changed with
+command-line options (see below), but you may find it more convenient to
+set them as defaults.
+     The Makefile has a section at the top allowing you to configure
+Magick general mode of operation.  
+     Finally, there's one definition in operserv.c (which really should be
+moved out, I know) which you'll want to edit: s_GlobalNoticer, which sends
+out global notices when OperServ's GLOBAL command is used.  It defaults to
+"DarkerNet", which is probably not appropriate for your network. ;^)
+     Once these steps are done, you should be able to compile Magick
+with little trouble.  If Magick fails to compile on your system, or if
+you have to tweak configure's output to get it to work, let me know what
+went wrong so I can try and incorporate a fix into the configure script
+or the main code.
+     Once Magick is compiled, type "make install" to copy the programs
+files to their destinations.  If you are installing Magick for the first
+time, you also need to run "make install-data" to copy the data files to
+the destination data directory.  Care should be taken that only authorized
+people have access to these files; passwords are NOT encrypted at present,
+so unauthorized access to the files could be a big problem!
+
+     NOTE:  The HelpServ data files (data/helpfiles/*) are set up for the
+DarkerNet IRC network; you'll want to change them before starting up
+Magick on your own network.
+     NOTE 2:  Magick databases are endian-specific; that is, databases
+created on a little-endian machine won't work on a big-endian one and
+vice-versa (except in the degenerate case of an empty database).
+Currently, this means that Magick can't be moved from or to an Intel x86
+machine without manually converting the databases, until Intel gets their
+act together and starts making big-endian processors like the rest of the
+world.
+
+
+3. OPERATION
+
+     This section does not detail the operation of the individual pieces of
+Magick; that information can be found in the online help files
+("/msg *Serv help" or read lib/*serv/index).  It only describes how to
+start Magick itself.
+     Normally, Magick can be run simply by invoking the "magick"
+executable.  Magick will then use the defaults specified in the config.h
+file, and connect to the specified uplink server.  Alternatively, any of
+the following command-line options can be specified to change the default
+values:
+	-remote server[:port]	Connect to the specified server
+	-name servername	Our server name (e.g. hell.darker.net)
+	-desc string		Description of us (e.g. DarkerNet Services)
+	-user username		Username for Services' nicks (e.g. services)
+	-host hostname		Hostname for Services' nicks (e.g. darker.net)
+	-prefix prefix		Prefix for Magick Outlet (see config.h)
+				    (e.g. "Magick-")
+	-dir directory		Directory containing Services' data files
+				    (e.g. /usr/local/lib/services)
+	-log filename		Services log filename (e.g. magick.log)
+	-tz timezone		Name of Services' timezone (e.g. EST)
+	-update secs		How often to update databases, in seconds
+	-debug			Enable debugging mode--more info sent to log
+	-relink secs		Specify seconds to re-attempt link if SQUIT
+	-norelink		Die on SQUIT or kill -1
+	-level level		Specify services level (>1 = backup)
+
+     Upon starting, Magick will parse its command-line parameters, open
+its logfile, then (assuming all went well) detach itself and run in the
+background.
+     If Magick is compiled with SERVICES_LEVEL > 1, it can serve as a
+"backup" to the full version of Services.  A "full" version of Services
+(of level 1) will automatically reintroduce its pseudo-clients on nick
+collide, while a "backup" Services will not, thus allowing full Services
+to be brought up at any time without disrupting the network (and without
+having to take backup Services down beforehand).
+     Two additional programs available in addition to the main executable:
+"listnicks" and "listchans", both installed as hard links to the main
+executable.  The programs will list all registered nicknames and channels,
+respectively; or, if given the -c option, will display the number of
+registered nicknames or channels.
+     If you have anykind of "relink" mode active (ie. you didnt undef the
+SERVER_RELINK define or set it to -1, or didnt use the -norelink flag),
+only an OperServ QUIT or SHUTDOWN or a kill -9 will stop Magick.  A SQUIT
+will just cause relink (after period specified with SERVER_RELINK or the
+-relink flag), as will a kill -1 (both causing the databases to be reloaded).
+
+4. OVERVIEW OF SERVICES CLIENTS
+
+     This is a brief introduction to the various clients available from
+Magick.  All *Serv clients can be /msg'd with "help" for a general
+introduction.
+     NickServ is the nickname server; it allows users to register and
+control nicknames, and will (at the user's choice) /kill any unauthorized
+user who tries to use that nick after a warning.
+     ChanServ is the channel server; as NickServ, it allows users to
+register and control channels.  There is a much wider array of controls
+available via ChanServ than NickServ, since there are considerably more
+features available.  These include automatic mode setting, topic
+retention (active by default, this will cause the channel's topic to be
+saved while the channel is empty and restored when a user joins it again),
+and automatic opping (and kicking) of selected users.
+     MemoServ allows users to send short messages to other users, which can
+be stored and retrieved at the recipient's convenience.
+     HelpServ is Services' help system; it will, on request, send a help
+text to a user.  Other Services clients also call on HelpServ for their
+own help functions.  (So, for example, "/msg ChanServ help register" is the
+same as "/msg HelpServ chanserv register".
+     IrcIIHelp is HelpServ under another name, and allows ircII users to
+simply type "/help <topic>" to get help on the ircII client.
+     OperServ provides services to IRC operators, including the ability to
+change the mode of any channel, kick any user from a channel, and add and
+remove network-wide bans (similar to classic K:lines, but applying to all
+servers on the network).  A certain set of operators can be defined (in
+config.h) as Services operators, and can perform additional functions, such
+as manually updating Magick' databases or shutting Magick down.
+(Note that Magick will not recognize a user as a Services operator unless
+that user is in the SERVICES_OPS definition, has identified with NickServ and
+is oper'd up.)  Obviously, all these functions should be used with care.
+     DevNull is just like its Unix equivalent /dev/null: it ignores
+anything sent to it.  It can be removed without affecting the rest of
+Magick in any way.
+     Death is the global noticer: when Magick is instructed to send a
+notice to all clients on the network, this nickname sends the message.
+Obviously, you should change it to the name of your network (or some other
+useful name)!  See operserv.c for the name definition.
+
+
+5. IRC PROTOCOL ADDITIONS
+
+Magick has not been tested on bare (non-TS8) irc2.x servers; please
+report any problems.
+
+The following commands, not defined in RFC 1459, are used by Magick:
+
+AKILL
+
+    Syntax: AKILL <hostmask> <usermask> <reason>
+
+    Adds an AutoKill to the network; this is like a K:line, but is
+    propogated to all servers.  Any user matching the usermask and
+    hostmask will not be allowed to connect.
+
+    Example:  :hell.darker.net AKILL *.lame.com lamer :Flooding
+        Disallows any client matching "lamer@*.lame.com" from connecting
+        to the network.
+
+RAKILL
+
+    Syntax: RAKILL <hostmask> <usermask>
+
+    Removes an AutoKill line from all servers.
+
+    Example:  :hell.darker.net RAKILL *.lame.com lamer
+        Removes the AutoKill described in the previous example.
+
+GLOBOPS
+
+    Syntax: GLOBOPS <message>
+
+    Sends a message to all users with user mode +og.
+
+    Example:  :PreZ GLOBOPS :Watch out for flooders from *.lame.com.
+
+GOPER
+
+    Syntax: GOPER <message>
+
+    Sends a message to all IRC operators, regardless of other user modes.
+
+    Example:  :hell.darker.net GOPER :WARNING -- clones detected from
+                      ppp1-9.lame.com
+
+ALSO for recent DALnet ircd's (4.4.15+) the specialised services code is
+used to enable greater control via. services, and enable greater intergration
+including:
+
+SVSMODE
+
+    Syntax: SVSMODE <user> <mode>
+
+    Changes a USER mode.
+
+    Example:  :hell.darker.net SVSMODE BadOper -o
+
+SVSNOOP
+
+    Syntax: SVSNOOP <server> <+|->
+
+    Restricts all IRC Operators on a server local IRC Operators (works exactly
+    like a Q: line on that server in the ircd.conf).
+
+    Example:  :hell.darker.net SVSNOOP testlink.darker.net +
+
+SVSKILL
+
+    Syntax: SVSKILL <user> <reason>
+
+    Terminates a user's IRC session, but with no indication of who did it, or
+    even that it was a person and not the server that did it.
+
+    Example:  :hell.darker.net SVSKILL Lamer :Connection reset by peer
+
+SQLINE
+
+    Syntax: SQLINE <nick> <reason>
+
+    Forbids the nick from being used by anyone who is not an IRC Operator
+    works exactly like a Q: line on that nick in the ircd.conf).
+
+    Example:  :hell.darker.net SQLINE OperServ :Reserved for services
+
+UNSQLINE
+
+    Syntax: UNSQLINE <nick>
+
+    Re-allows the nick to be used by anyone (reverses QLINE)
+
+    Example:  :hell.darker.net UNSQLINE OperServ
+
+SVSNICK
+
+    Syntax: SVSNICK <nick> <new-nick>
+
+    Changes the nick of a user forcibly.
+
+    Example:  :hell.darker.net SVSNICK SlowUser SlowUser_
+
+
+6. REACHING THE AUTHOR
+
+     I can be reached via E-mail at prez@antisocial.com.  Please feel
+free to send comments, suggestions, problem reports, diffs, or whatever,
+though you may not receive any reply.  Please do NOT ask for or expect
+direct online help, as I am quite busy and cannot spare the time to set up
+Magick myself on every system where it will be used.  If you do ask,
+expect to be abruptly dismissed or ignored.
+
+     If you are on the DarkerNet, RelicNet, Xnet IRC networks and want to
+leave me a memo via MemoServ rather than sending E-mail, please include your
+problem or suggestion _in the memo_.  Don't just say "I need to talk to you";
+such memos will be ignored.

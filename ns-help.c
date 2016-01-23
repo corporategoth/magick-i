@@ -86,6 +86,18 @@ NULL
 
 /*************************************************************************/
 
+static const char *listoper_help[] = {
+"Syntax: \2SET LISTOPER \37pattern\37\2",
+"",
+"Lists nicknames that have the IRC Operator flag set.",
+"Works exactly as the \2/MSG NickServ LIST\2 command",
+"does."
+"Limited to \2IRC Operators\2.",
+NULL
+};
+
+/*************************************************************************/
+
 static const char *deop_help[] = {
 "Syntax: \2SET DEOP \37nick\37\2",
 "",

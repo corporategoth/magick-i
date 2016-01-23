@@ -38,6 +38,9 @@ E const char s_IrcIIHelp[];
 #ifdef DEVNULL
 E const char s_DevNull[];
 #endif
+#ifdef OUTLET
+E char s_Outlet[];
+#endif
 
 
 /**** channels.c ****/
@@ -138,6 +141,7 @@ E void check_file_version(FILE *f, const char *filename);
 E void write_file_version(FILE *f, const char *filename);
 E const char *any_service();
 E int is_services_nick(const char *nick);
+E int is_justservices_nick(const char *nick);
 E void introduce_users(const char *user);
 E int is_server(const char *nick);
 
@@ -207,6 +211,7 @@ E char *strupper(char *s);
 E char *strlower(char *s);
 E char *read_string(FILE *f, const char *filename);
 E char *write_string(const char *s, FILE *f, const char *filename);
+E char *itoa(int num);
 E Hash *get_hash(const char *source, const char *cmd, Hash *hash_table);
 E Hash_NI *get_ni_hash(const char *source, const char *cmd, Hash_NI *hash_table);
 E Hash_CI *get_ci_hash(const char *source, const char *cmd, Hash_CI *hash_table);
@@ -240,6 +245,20 @@ E NickInfo *findnick(const char *nick);
 
 #ifdef OPERSERV
 E void operserv(const char *source, char *buf);
+E char sops[MAXSOPS][NICKMAX];
+E int nsop;
+E int sop_size;
+E void load_sop(void);
+E void save_sop(void);
+E int is_services_op(const char *nick);
+E int is_justservices_op(const char *nick);
+#ifdef GLOBALNOTICER
+E Message *messages;
+E int nmessage;
+E int message_size;
+E void load_message(void);
+E void save_message(void);
+#endif
 #ifdef AKILL
 E Akill *akills;
 E int nakill;
@@ -297,7 +316,8 @@ E void disconn(int s);
 E int usercnt, opcnt, maxusercnt;
 E User *userlist;
 
-E void send_user_list(const char *who, const char *user, const char *s);
+E void send_user_list(const char *who, const char *user, const char *x);
+E void send_usermask_list(const char *who, const char *user, const char *x);
 E void get_user_stats(long *nusers, long *memuse);
 E User *finduser(const char *nick);
 E User *findusermask(const char *mask, int matchno);
@@ -308,11 +328,14 @@ E void do_nick(const char *source, int ac, char **av);
 E void do_join(const char *source, int ac, char **av);
 E void do_part(const char *source, int ac, char **av);
 E void do_kick(const char *source, int ac, char **av);
+E void do_svumode(const char *source, int ac, char **av);
 E void do_umode(const char *source, int ac, char **av);
 E void do_quit(const char *source, int ac, char **av);
 E void do_kill(const char *source, int ac, char **av);
+E void delete_user(User *user);
 
-E int is_services_op(const char *nick);
+E int is_services_admin(const char *nick);
+E int is_justservices_admin(const char *nick);
 E int is_oper(const char *nick);
 E int is_on_chan(const char *nick, const char *chan);
 E int is_chanop(const char *nick, const char *chan);

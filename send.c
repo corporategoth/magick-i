@@ -19,7 +19,7 @@ void send_cmd(const char *source, const char *fmt, ...)
 
     va_start(args, fmt);
     vsend_cmd(source, fmt, args);
-    va_end(args);
+    va_end(args); 
 }
 
 void vsend_cmd(const char *source, const char *fmt, va_list args)
@@ -28,7 +28,12 @@ void vsend_cmd(const char *source, const char *fmt, va_list args)
 
     vsnprintf(buf, sizeof(buf), fmt, args);
     if (source) {
-	sockprintf(servsock, ":%s %s\r\n", source, buf);
+#ifdef OUTLET
+	if (stricmp(source, s_OperServ)==0 && finduser(s_OperServ))
+	    sockprintf(servsock, ":%s %s\r\n", s_Outlet, buf);
+	else
+#endif
+	    sockprintf(servsock, ":%s %s\r\n", source, buf);
 	if(debug)
 	    log("debug: Sent: :%s %s", source, buf);
     } else {

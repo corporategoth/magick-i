@@ -50,7 +50,7 @@ void change_user_nick(User *user, const char *nick)
 
 /* Remove and free a User structure. */
 
-static void delete_user(User *user)
+void delete_user(User *user)
 {
     struct u_chanlist *c, *c2;
 #ifdef CHANSERV
@@ -151,16 +151,52 @@ void send_user_list(const char *who, const char *source, const char *x)
 	buf[0] = 0;
 	s = buf;
 	for (c = u->chans; c; c = c->next)
-	    s += snprintf(s, sizeof(c->chan->name)+2, " %s", c->chan->name);
+	    s += snprintf(s, BUFSIZE, " %s", c->chan->name);
 	notice(who, source, "%s%s", u->nick, buf);
 #ifdef CHANSERV
 	buf[0] = 0;
 	s = buf;
 	for (ci = u->founder_chans; ci; ci = ci->next)
-	    s += snprintf(s, sizeof(ci->chan->name)+2, " %s", ci->chan->name);
+	    s += snprintf(s, BUFSIZE, " %s", ci->chan->name);
 	notice(who, source, "%s%s", u->nick, buf);
 #endif
       }
+}
+
+/*************************************************************************/
+
+/* Send the current list of users to the named user. */
+
+void send_usermask_list(const char *who, const char *source, const char *x)
+{
+    char assym[BUFSIZE];
+    User *u;
+
+    for (u = userlist; u; u = u->next) {
+      snprintf(assym, BUFSIZE, "%s@%s", u->username, u->host);
+      if (!x || match_wild_nocase(x, assym)) {
+	char buf[BUFSIZE], *s;
+	struct u_chanlist *c;
+	struct u_chaninfolist *ci;
+	notice(who, source, "%s!%s@%s +%s%s%s%s%s %ld %s :%s",
+		u->nick, u->username, u->host,
+		(u->mode&UMODE_G)?"g":"", (u->mode&UMODE_I)?"i":"",
+		(u->mode&UMODE_O)?"o":"", (u->mode&UMODE_S)?"s":"",
+		(u->mode&UMODE_W)?"w":"", u->signon, u->server, u->realname);
+	buf[0] = 0;
+	s = buf;
+	for (c = u->chans; c; c = c->next)
+	    s += snprintf(s, BUFSIZE, " %s", c->chan->name);
+	notice(who, source, "%s%s", u->nick, buf);
+#ifdef CHANSERV
+	buf[0] = 0;
+	s = buf;
+	for (ci = u->founder_chans; ci; ci = ci->next)
+	    s += snprintf(s, BUFSIZE, " %s", ci->chan->name);
+	notice(who, source, "%s%s", u->nick, buf);
+#endif
+      }
+    }
 }
 
 /*************************************************************************/
@@ -228,11 +264,6 @@ void do_nick(const char *source, int ac, char **av)
 
     if (!*source) {
 	/* This is a new user; create a User structure for it. */
-#ifdef GLOBALNOTICER
-	FILE *f;
-	char buf[BUFSIZE];
-#endif
-
 	if(debug)
 	    log("debug: new user: %s", av[0]);
 
@@ -261,19 +292,17 @@ void do_nick(const char *source, int ac, char **av)
 
 	/* Check to see if it looks like clones. */
 #ifdef CLONES
-	if (!is_services_nick(av[0])) clones_add(av[0], user->host);
+	if (!is_services_nick(av[0])) clones_add(av[0], av[4]);
 #endif
 
 #ifdef GLOBALNOTICER
 	/* Send global message to user when they log on */
-	if (!is_services_nick(av[0]))
-	    if (f = fopen(LOGON_MSG, "r")) {
-		while (fgets(buf, sizeof(buf), f)) {
-		    buf[strlen(buf)-1] = 0;
-		    notice(s_GlobalNoticer, av[0], "%s", buf ? buf : " ");
-		}
-		fclose(f);
-	    }
+	if (!is_services_nick(av[0])) {
+	    int i;
+	    for (i=0; i<nmessage; ++i)
+		if (messages[i].type == M_LOGON)
+		    notice(s_GlobalNoticer, av[0], "%s", messages[i].text);
+	}
 #endif
 
     } else {
@@ -420,7 +449,7 @@ void do_kick(const char *source, int ac, char **av)
 	if (!user) {
 	    log("user: KICK for nonexistent user %s on %s: %s", s, av[0],
 						merge_args(ac-2, av+2));
-	    continue;
+	    return;
 	}
 	if(debug)
 	    log("debug: kicking %s from %s", s, av[0]);
@@ -457,21 +486,22 @@ void do_kick(const char *source, int ac, char **av)
 
 void do_umode(const char *source, int ac, char **av)
 {
-    User *user;
-    char *s;
-    int add = 1;		/* 1 if adding modes, 0 if deleting */
-
-#ifdef GLOBALNOTICER
-    FILE *f;
-    char buf[BUFSIZE];
-#endif
-
-
     if (stricmp(source, av[0]) != 0 && !is_services_nick(source)) {
 	log("user: MODE %s %s from different nick %s!", av[0], av[1], source);
 	wallops(NULL, "%s attempted to change mode %s for %s", source, av[1], av[0]);
 	return;
     }
+    do_svumode(source, ac, av);
+}
+
+void do_svumode(const char *source, int ac, char **av)
+{
+    User *user;
+    char *s;
+    int add = 1;		/* 1 if adding modes, 0 if deleting */
+
+    /* Moved checking of who changed it to umode, this is now svumode */
+
     user = finduser(av[0]);
     if (!user) {
 	log("user: MODE %s for nonexistent nick %s: %s", av[1], av[0],
@@ -499,19 +529,23 @@ void do_umode(const char *source, int ac, char **av)
 #endif
 	    case 'o':
 		if (add) {
+		    NickInfo *ni;
 		    user->mode |= UMODE_O;
 		    ++opcnt;
 #ifdef GLOBALNOTICER
 		    /* Send global message to user when they oper up */
 		    if(!is_services_nick(av[0])) {
-			if (f = fopen(OPER_MSG, "r")) {
-			    while (fgets(buf, sizeof(buf), f)) {
-				buf[strlen(buf)-1] = 0;
-				notice(s_GlobalNoticer, av[0], "\37[\37\2OPER\2\37]\37 %s", buf ? buf : " ");
-			    }
-			    fclose(f);
-			}
+			int i;
+			for (i=0; i<nmessage; ++i)
+			    if (messages[i].type == M_OPER)
+				notice(s_GlobalNoticer, source, "%s", messages[i].text);
 		    }
+#endif
+#ifdef NICKSERV
+		    if ((ni = findnick(source)) && (ni->flags & NI_IDENTIFIED)
+		    				&& !(ni->flags & NI_IRCOP))
+			notice(s_NickServ, source,
+		"You have not set the \2IRC Operator\2 flag for your nick.  Please set this with \2/msg %s SET IRCOP ON\2.", s_NickServ);
 #endif
 #ifdef DAL_SERV
 		    if (is_services_op(av[0]))
@@ -595,9 +629,9 @@ int is_oper(const char *nick)
 
 /*************************************************************************/
 
-/* Is the given nick a Services op? */
+/* Is the given nick a Services Admin? */
 
-int is_services_op(const char *nick)
+int is_services_admin(const char *nick)
 {
 #ifdef NICKSERV
     NickInfo *ni;
@@ -608,15 +642,26 @@ int is_services_op(const char *nick)
     tmp[0] = ' ';
     tmp[strlen(tmp)+1] = 0;
     tmp[strlen(tmp)] = ' ';
-    if (stristr(" " SERVICES_OPS " ", tmp) == NULL)
+    if (stristr(" " SERVICES_ADMIN " ", tmp) == NULL)
 	return 0;
-#ifndef NICKSERV
-    return 1;
-#else
+#ifdef NICKSERV
     if ((ni = findnick(nick)) && (ni->flags & NI_IDENTIFIED) && is_oper(nick))
+#endif
 	return 1;
     return 0;
-#endif
+}
+
+int is_justservices_admin(const char *nick)
+{
+    char tmp[NICKMAX+2];
+
+    strscpy(tmp+1, nick, NICKMAX);
+    tmp[0] = ' ';
+    tmp[strlen(tmp)+1] = 0;
+    tmp[strlen(tmp)] = ' ';
+    if (stristr(" " SERVICES_ADMIN " ", tmp) == NULL)
+	return 0;
+    return 1;
 }
 
 /*************************************************************************/
@@ -762,7 +807,7 @@ char *create_mask(User *u)
     char *mask, *s, *end;
 
     end = mask = smalloc(strlen(u->username) + strlen(u->host) + 2);
-    end += snprintf(end, sizeof(end), "*%s@", u->username);
+    end += sprintf(end, "*%s@", u->username);
     if (strspn(u->host, "0123456789.") == strlen(u->host)) {	/* IP addr */
 	s = sstrdup(u->host);
 	*strrchr(s, '.') = 0;
@@ -770,7 +815,7 @@ char *create_mask(User *u)
 	    *strrchr(s, '.') = 0;
 	if (atoi(u->host) < 128)
 	    *strrchr(s, '.') = 0;
-	snprintf(end, sizeof(end), "%s.*", s);
+	sprintf(end, "%s.*", s);
 	free(s);
     } else {
 	if ((s = strchr(u->host, '.')) && strchr(s+1, '.')) {

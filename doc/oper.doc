@@ -1,0 +1,743 @@
+i			Magick Manual (IRC Operator)
+			----------------------------
+					Revision 1.0
+
+Contents
+========
+
+1	Introduction
+1.0	Author Information
+1.1	Disclaimer
+1.2	IRC in General
+1.2.0	Wildcards
+1.2.1	Hostmasks
+1.3	Documentation Key
+
+2	Things you should know.
+2.0	Compile-Time Options
+2.1	NickServ
+2.1.0	LISTOPER
+2.1.1	SET IRCOP
+2.1.2	DROP
+2.1.3	GETPASS
+2.1.4	FORBID
+2.1.5	SUSPEND
+2.1.6	UNSUSPEND
+2.1.7	DEOP
+2.2	ChanServ
+2.2.0	DROP
+2.2.1	GETPASS
+2.2.2	FORBID
+2.2.3	SUSPEND
+2.2.4	UNSUSPEND
+2.3	MemoServ
+2.3.1	OPERSEND
+
+3	OperServ
+3.0	IRC Operators
+3.0.0	MODE
+3.0.1	KICK
+3.0.2	AKILL
+3.0.3	GLOBAL
+3.0.4	STATS
+3.0.5	SETTINGS
+3.0.6	BREAKDOWN
+3.0.7	USERLIST
+3.0.8	MASKLIST
+3.0.9	CHANLIST
+3.1	Services Operators
+3.1.0	PAKILL
+3.1.1	CLONE
+3.1.2	IGNORE
+3.1.3	JUPE
+3.1.4	UPDATE
+3.1.5	LOGONMSG
+3.2	Services Admins
+3.2.0	SOP
+3.2.1	OPERMSG
+3.2.2	QUIT
+3.2.3	SHUTDOWN
+3.2.4	OFF / ON
+
+4	DalNet 4.4.15+ ircd
+4.0	QLINE
+4.1	UNQLINE
+4.2	MODE
+4.3	KILL
+4.4	NOOP
+
+5	Conclusion
+5.0	FAQ Answers
+
+------------------------------------------------------------------------------
+
+1	Introduction
+====================
+--------------------
+
+Magick is a program that supplies IRC Services to an IRC Network.  They are
+based originally on the ones developed for EsperNet by Andrew Church
+(achurch@dragonfire.net).  I took them up because I found they were lacking
+many things (including documentation!), and have since added MANY things to
+the original base, that they can now be called nothing but my own.
+
+IRC Services are basically a program that looks like another server that sits
+on the network, but has 'special powers' (called a U: line in technicial
+terms) - this is sortov why I called mine Magick.  They allow people to
+to hold nicknames and channels.  They also allow people to store memos online
+for their friends to get when they just cant wait up for them.  They also help
+IRC Operators regulate a network with things like clone protection, and
+various juditerary measures.
+
+I have written this document because noone else has, and far too many people
+are too lazy to look up the online help.  Not only that, many wont browse the
+help files to see what functions are available.  This gives them all to you.
+It also tells you some things you wont find in the documentation.
+
+1.0	Author Information
+==========================
+
+My name is Preston A. Elder.  I'm a 19 year old Amature Programmer.  I dont
+get a brass penny for programming services, being online in any way, or
+writing this documentation (so I DONT want complaints! you get what you pay
+for!).  I am fully trained to be a Computer Technician, a Systems or Network
+Administrator, and many other things.  I own a business called Shadow Realm,
+a hobbyist ISP based in Sydney, Australia.
+
+I welcome any bug reports, suggestion, or offers of help on services
+themselves.  I accept donations (tho having no luck with these!) too. :)
+I sit on 4 IRC networks mainly:
+	DarkerNet	irc.darker.net	(Network Administrator)
+	RelicNet	irc.relic.net	(IRC Administrator)
+	Xnet		irc.xnet.org	(IRC Operator)
+	EFNet		find one...
+
+I am contactable by email at prez@antisocial.com
+or by post (if you must!) at:
+	PO Box 893
+	SUTHERLAND
+	NSW, AUS, 2232
+
+1.1	Disclaimer
+==================
+
+Magick is guarenteed to do absolutely nothing but take up hard disk space.  I
+claim no responcibilty if it crashes your system, decides to go on a holidy to
+a lovely little island in the tropics, or gets mischievious and make up users
+and channels, or steal someone else's and say 'Nyh Nyh Ni Nyh Nyh!".
+
+1.2	IRC in General
+======================
+
+There is a perfectly good document on IRC in general to be found at:
+	HTTP://www.irchelp.org
+
+1.2.0	Wildcards
+-----------------
+
+There are 2 wildcard characters used throughout services, used in patterns,
+hostmasks, and many other places.
+
+These are:
+	*	depicting any amount of characters (even none).
+		*.srealm.net.au would match:
+			N.outpost.srealm.net.au
+			Honshey.village.srealm.net.au
+			castle.srealm.net.au
+	?	depicts one character.
+		?.outpost.srealm.net.au would match:
+			N.outpost.srealm.net.au
+			S.outpost.srealm.net.au
+		but would NOT match:
+			NE.outpost.srealm.net.au
+			outpost.srealm.net.au
+
+1.2.1	Hostmasks
+-----------------
+
+A hostmask is used to term nick!user@host.
+	Nick being a nickname
+	User being the username (see a /whois on anyone)
+	Host being their ISP host (see a /whois on anyone)
+
+If a host is signified as *.host, it means to cut everything before the first
+'.' character.  ie. slsys23.ozemail.com.au would become *.ozemail.com.au,
+and ppp-219.tig.com.au would become *.tig.com.au.
+
+Sometimes (like in case of nickname ACCESS list) the hostmask is used to just
+depict the user@host or user@*.host.  For the nickname access list, it is
+recommended you enter masks of *user@*.host (ie. *prez@*.srealm.net.au).  Use
+the default hostmask (the one added auto when you register (2.0.0) as a guide.
+
+1.3	Documentation Key
+=========================
+
+Something in <>'s denotes a REQUIRED value.
+Something in []'s deontes an OPTIONAL value.
+
+A | denotes OR.  eg. if you see <nick|channel> this means either a nick
+OR a channel.  or if you see <hostmask|num> this means the hostmask itself,
+or a number (usually derived from the appropriate LIST command).
+
+References that have USER: infront of them are from the Public manual.
+
+
+------------------------------------------------------------------------------
+
+2	Things you should know
+==============================
+------------------------------
+
+There are essential 3 levels once you get past user.  IRC Operator, Services
+Operator, and Services Admin.  IRC Operator just means you have a global O:
+line.  Services Operators are added and removed by Services Admins with the
+SOP command (3.2.0), and Services Admins are compiled into the services
+themselves (therefore takes most effort to add/remove).
+
+Being at the level where you need this manual - I will say now, your aim
+should be to use the special features outlayed within as little as possible.
+If you can manage users, etc from equal footing, etc - then you are a far
+better Operator than one who uses services to gain the upper hand each time.
+
+2.0	Compile-Time Options
+============================
+
+When services are compiled, there are certain 'options' that are compiled
+into them - I'll list the excert from services listing these, along with the
+letter they are associated with in the services Version Reply (obtained with
+/quote version <services-server> or /raw version <services-server>).
+
+#define	NICKSERV	/* */						N
+#define	CHANSERV	/* relies on NICKSERV */			C
+#define	IRCOP_OVERRIDE	/* relies on CHANSERV */			V
+#define	HELPSERV	/* */						H
+#define	IRCIIHELP	/* */						I
+#define	MEMOSERV	/* relies on NICKSERV and (MEMOS or NEWS) */	M
+#define	MEMOS		/* relies on MEMOSERV */			W
+#define	NEWS		/* relies on MEMOSERV and CHANSERV */		N
+#define	DEVNULL		/* */						D
+#define	OPERSERV	/* */						O
+#define OUTLET		/* relies on OPERSERV */			T
+#define	AKILL		/* relies on OPERSERV */			A
+#define	CLONES		/* relies on OPERSERV */			L
+#define	GLOBALNOTICER	/* relies on OPERSERV */			G
+
+If the version reply shows the letter in lower case, the option is NOT
+compiled into services, if it is upper case, it is.  Other important things
+compiled into services are listable with SETTINGS (3.0.5).
+
+2.1	NickServ
+================
+
+NickServ has 2 IRC Operator, and 5 Services Operator specific commands.
+
+2.1.0	LISTOPER (IRC Operator)
+----------------
+
+SYNTAX:	/MSG NickServ LISTOPER <pattern>
+
+This works exactly like a normal LIST (USER:2.2.1), except it will only list
+nicknames that have the IRC Operator flag set.
+
+2.1.1	SET IRCOP (IRC Operator)
+-----------------
+
+SYNTAX:	/MSG NickServ SET IRCOP <on|off>
+
+This will set the IRC Operator flag.  Users with this flag set will not
+expire, and will gain an extra 'option' in their INFO (USER:2.2.0) profile.
+Only users who have this flag set may be elegable to become a Services
+Operator.  This flag is used for MemoServ OPERSEND (2.3.1).  You will be
+reminded of this flag not being set each time you identify and are oper'd.
+
+2.1.2	DROP (Services Operator)
+------------
+
+SYNTAX:	/MSG NickServ DROP <nick>
+
+This will de-register a user's nickname, freeing it up for use by someone
+else.  It works exactly the same as if the user had done it themselves.
+
+2.1.3	GETPASS (Services Operator)
+---------------
+
+SYNTAX:	/MSG NickServ GETPASS <nick>
+
+This will retrieve the password for a nickname.  Each time this command is
+used, services will send a global message (GLOBOP or WALLOP) to alert other
+IRC Operators it has been done (to seek justification).
+
+2.1.4	FORBID (Services Operator)
+--------------
+
+SYNTAX:	/MSG NickServ FORBID <nick>
+
+This will forbid a nickname from being used (except by IRC Operators).  If
+the nickname is currently registered, it will drop it first, then forbid it
+(aleting all IRC Operators via. a GLOBOP or WALLOP of the fact).  You cannot
+forbid a user who has the IRC Operator flag set.
+
+2.1.5	SUSPEND (Services Operator)
+---------------
+
+SYNTAX:	/MSG NickServ SUSPEND <nick> <reason>
+
+This will stop a user from being able to IDENTIFY (USER:2.0.1), and everything
+it entales.  It will mean they cannot retrieve memos (infact, suspended users
+have everyone on ignore), they cannot DROP (USER:2.2.6) their nick, or modify
+their Access List (USER:2.0.2) or SET's (USER:2.1).  They will also not be
+able to get ops on SECURE channels, or join RESTRICTED ones. They WILL still
+be able to USE the nick though.  This is a tempory action only.
+
+2.1.6	UNSUSPEND (Services Operator)
+-----------------
+
+SYNTAX:	/MSG NickServ UNSUSPEND <nick>
+
+This will reverse a nickname SUSPEND.  When executed, everything is just as
+it was before the suspension, except they have no Last Seen Address (which is
+fixed next time they logon or identify).
+
+2.1.7	DEOP (Services Operator)
+------------
+
+SYNTAX:	/MSG NickServ DEOP <nick>
+
+This will remove the IRC Operator flag from another user (useful if a server
+has been delinked, or an IRC Operator has retired).  You cannot do this on
+a fellow Services Operator.
+
+2.2	ChanServ
+================
+
+ChanServ has 5 Services Operator specific commands.
+
+2.2.0	DROP (Services Operator)
+------------
+
+SYNTAX:	/MSG ChanServ DROP <channel>
+
+This will de-register a channel, freeing it up for registration by someone
+else.  It works exactly the same as if the founder had done it themselves.
+
+2.2.1	GETPASS (Services Operator)
+---------------
+
+SYNTAX:	/MSG ChanServ GETPASS <channel>
+
+This will retrieve the password for a channel.  Each time this command is
+used, services will send a global message (GLOBOP or WALLOP) to alert other
+IRC Operators it has been done (to seek justification).
+
+2.2.2	FORBID (Services Operator)
+--------------
+
+SYNTAX:	/MSG ChanServ FORBID <channel>
+
+This will forbid a channel from being used (except by IRC Operators).  If
+the channel is currently registered, it will drop it first, then forbid it
+(aleting all IRC Operators via. a GLOBOP or WALLOP of the fact).
+
+2.2.3	SUSPEND (Services Operator)
+---------------
+
+SYNTAX:	/MSG ChanServ SUSPEND <channel> <reason>
+
+This will make the access list of a channel irrelivant.  You and all other
+Services Operators will become equivilant to founders, and IRC Operatos will
+become auto-voices, while everyone else (including previous founder) will be
+equivilant to 0.  Invite (USER:3.2.4) becomes a public command.  SecureOps
+(USER:3.1.9) will apply.  SECURE (USER:3.1.8) and RESTRICTED (USER:3.1.10)
+will be irrelivant.  The topic is locked with the suspension reason.  The
+channel will still be able to be used.  This is a temporary action only.
+
+2.2.4	UNSUSPEND (Services Operator)
+-----------------
+
+SYNTAX:	/MSG ChanServ UNSUSPEND <channel>
+
+This will reverse a channel SUSPEND.  When executed, everything is just as
+it was before the suspension, except the topic is cleared (which is fixed
+by simply changing it!)
+
+2.3	MemoServ
+================
+
+ChanServ has 1 IRC Operator specific command.
+
+2.3.1	OPERSEND (IRC Operator)
+----------------
+
+SYNTAX:	/MSG MemoServ OPERSEND <text>
+
+This will send a memo prefixed with [OPER] to all users who have the IRC
+Operator (2.1.1) flag set.  Other than that, it works exactly like a normal
+SEND (USER:4.1) command.
+
+------------------------------------------------------------------------------
+
+3	OperServ
+================
+----------------
+
+OperServ is basically your ticket to GOD Mode.  It is not my responcibility
+to teach you disgression in using OperServ, or ANY IRC Operator powers, that
+should be up to your Admin or Network Co-Ordinator - I'm merely here to tell
+you just what IS At your fingertips should the need arise to use it.  I will
+say tho, the less you use this, the better IRC Operator you are.
+
+OperServ has a tendancy to say nothing if you stuff up, or even if it works.
+You will have to in most cases judge if it worked by results.
+
+3.0	IRC Operators
+=====================
+
+3.0.0	MODE
+------------
+
+SYNTAX:	/MSG OperServ MODE <nick|channel> [mode]
+
+If no paramaters are specified, this will display the modes (or at least, the
+modes that are important to services) that a user or channel has set.  If a
+mode is specified, it will SET that mode (for channels only!).
+
+3.0.1	KICK
+------------
+
+SYNTAX:	/MSG OperServ KICK <channel> <user> <reason>
+
+This will kick a user from any channel.  It is advised you use this sparingly,
+as users tend not to like you intervening in their channel.
+
+3.0.2	AKILL
+-------------
+
+SYNTAX:	/MSG OperServ AKILL ADD <hostmask> <reason>
+	/MSG OperServ AKILL DEL <hostmask|num>
+	/MSG OperServ AKILL LIST [pattern]
+
+The AutoKILL list is used to ban users from the entire network.  A reason for
+the autokill is nessicary.  AutoKill's will expire after a set period of time
+(see SETTINGS to find out how long).
+
+ADD will add a hostmask (1.2.1) to the AutoKill list.  You must specify a
+	user@host and the reason for their banning from the network.
+DEL will delete a hostmask (1.2.1) from the AutoKill list.  You must specify
+	a user@host, or entry number (displayed with LIST).
+LIST will display all AutoKill's currently in force, along with the reason
+	for their existance, who set them, and when they were set.  Specifying
+	a pattern will only display entries that match the pattern.
+
+3.0.3	GLOBAL
+--------------
+
+SYNTAX:	/MSG OperServ GLOBAL <message>
+
+This will send a message to ALL users from the Global Noticer (USER:5.1).  It
+is advised you use this only sparingly, as it confuses users.  All messages
+will be in the format that each user prefers (be it NOTICE or PRIVMSG).
+
+3.0.4	STATS
+-------------
+
+SYNTAX:	/MSG OperServ STATS [ALL]
+
+This displays things like how long services has been online, current user
+levels, and maximum user levels.  If ALL is specified (may only be specified
+by Services Operators), it also shows the number of records for each service
+currently in memory, and the memory consumption of each.
+
+3.0.5	SETTINGS
+----------------
+
+SYNTAX:	/MSG OperServ SETTINGS
+
+This displays some of the hard-coded settings compiled into services (that
+cant be obtained with the VERSION replay of services).  Things like expiry
+times, maximums for various things (AKICKS, SOPS, etc), who the Services
+Admin's are, and various timings (how long nicks are kept, etc).
+
+3.0.6	BREAKDOWN
+-----------------
+
+SYNTAX:	/MSG OperServ BREAKDOWN
+
+No, this wont cause an automatic shutdown and corruption of databases ...
+
+This will outpust a list of servers, along with the amount of users on each
+server, and the percentage of the total network this server constetutes.
+
+3.0.7	USERLIST
+----------------
+
+SYNTAX:	/MSG OperServ USERLIST [pattern]
+
+This will display a list of users online (regardless of the +i (invisible)
+flag).  It will display what server they are on, any channels they are on,
+and all other details about them.  The pattern specified matches nicknames.
+
+3.0.8	MASKLIST
+----------------
+
+SYNTAX:	/MSG OperServ MASKLIST [pattern]
+
+This will display a list of users online (regardless of the +i (invisible)
+flag).  It will display what server they are on, any channels they are on,
+and all other details about them.  The pattern specified matches user@host
+hostmasks (1.2.1).
+
+3.0.9	CHANLIST
+----------------
+
+SYNTAX:	/MSG OperServ CHANLIST [pattern]
+
+This will display a list of channels currently formed (regardless of any +p
+(private) or +s (secret) flags).  It will display who is in the channels,
+who is in them, and other details such as topic of them.
+
+3.1	Services Operators
+==========================
+
+3.1.0	PAKILL
+--------------
+
+SYNTAX:	/MSG OperServ PAKILL ADD <hostmask> <reason>
+	/MSG OperServ PAKILL DEL <hostmask|num>
+
+This works exactly as the AKILL (3.0.2), except any AKILL added with this
+command will NOT expire.  Use this only on constant pests.  You must use
+PAKILL DEL to remove any akills added with PAKILL ADD.
+
+3.1.1	CLONE
+-------------
+
+SYNTAX:	/MSG OperServ CLONE ADD <host> <limit> <reason>
+	/MSG OperServ CLONE DEL <host|num>
+	/MSG OperServ CLONE LIST [pattern]
+
+This will add hosts to an 'exceptions' list to the standard Clone limit.  If
+you have a host (or range of hosts (ie. can have wildcards)) that needs more
+connections than the standard limit compiled into services (seen with SETTINGS
+(3.0.5)).
+
+ADD will add a host to the Clone Override list.  You must specify a host, the
+	number of connections, and a reason for the exception being granted.
+DEL will delete a mask from the Clone Override list.  You must specify a host,
+	or entry number (displayed with LIST).
+LIST will display all exceptions's currently granted, along with the reason
+	for their existance, when they were set, new limit, and who set them.
+	Specifying a pattern will only display entries that match the pattern.
+
+3.1.2	IGNORE
+--------------
+
+SYNTAX:	/MSG OperServ IGNORE ON
+	/MSG OperServ IGNORE OFF
+	/MSG OperServ IGNORE LIST [pattern]
+
+Services keeps an 'ignore' list.  This is a list of people services will
+ignore for various reasons (usually because they requested something that took
+far too long).
+
+ON will turn on services Auto-Ignore (default).
+OFF will turn off services Auto-Ignore.
+LIST will list people currently on ignore by services.  Specifying a pattern
+	will only display entries that match match the pattern.
+
+3.1.3	JUPE
+------------
+
+SYNTAX:	/MSG OperServ JUPE <server>
+
+This will 'link' a server to services, or more accurately, make the server
+appear linked (usually force all other servers refuse that server, a duplicate
+link).  This is usually used when a server is first delinked (when there is
+some kind of contraversy or rebel oper's on it).
+
+3.1.4	UPDATE
+--------------
+
+SYNTAX:	/MSG OperServ UPDATE
+
+This will update (save) the databases of services (ie. nickserv records,
+chanserv records, news articles, memos, etc etc).  This is done once every so
+often (seen with SETTINGS (3.0.5)) anyway, but its sometimes convenient to
+update them before this time (just before a QUIT is good!).
+
+3.1.5	LOGONMSG
+----------------
+
+SYNTAX:	/MSG OperServ LOGONMSG ADD <text>
+	/MSG OperServ LOGONMSG DEL <num>
+	/MSG OperServ LOGONMSG LIST
+
+This will modify the messages a user sees when they log onto IRC, or set BACK
+from being AWAY.  Messages on this list will be sent from the Global Noticer.
+
+ADD will add a message to the list of messages sent to users.
+DEL will delete a message from the list of messages sent to users.  You MUST
+	specify the number of the message as shown with LIST.
+LIST will display a numbered list of all messages that will be sent to users.
+
+3.2	Services Admins
+=======================
+
+3.2.0	SOP
+-----------
+
+SYNTAX:	/MSG OperServ SOP ADD <user>
+	/MSG OperServ SOP DEL <user|num>
+	/MSG OperServ SOP LIST [pattern]
+
+This will modify the list of Services Operators.  In older versions of Magick,
+the services operators were compiled into services themselves.  Now they are
+added and removed here (only ADMINS are compiled into services).
+
+ADD will add a user to the Services Operator list.  You must specify a
+	registered nickname that has the IRC Operator flag set.
+DEL will delete a user from the Services Operator list.  You must specify a
+	nickname on the list, or an entry number (shown with LIST).
+LIST will display a numbered list of all Services Operators.  If a pattern is
+	specified, only entries matching it will be displayed.
+
+3.2.1	OPERMSG
+---------------
+
+SYNTAX:	/MSG OperServ OPERMSG ADD <text>
+	/MSG OperServ OPERMSG DEL <num>
+	/MSG OperServ OPERMSG LIST
+
+This will modify the messages a user sees when they /oper (user mode +o), or
+set BACK from being AWAY and are oper'd (have mode +o set).  Messages on this
+list will be sent from the Global Noticer.
+
+ADD will add a message to the list of messages sent to users.
+DEL will delete a message from the list of messages sent to users.  You MUST
+	specify the number of the message as shown with LIST.
+LIST will display a numbered list of all messages that will be sent to users.
+
+3.2.2	QUIT
+------------
+
+SYNTAX:	/MSG OperServ QUIT [reason]
+
+This will stop services completely, if a reason is specified, it will be used
+as the SQUIT reason.  MAKE SURE you know what you are doing, as you will have
+to restart services MANUALLY (from the shell) after this command is executed.
+This will not save the databases, an UPDATE (3.1.4) is recommended beforehand.
+
+3.2.3	SHUTDOWN
+----------------
+
+SYNTAX:	/MSG OperServ SHUTDOWN [reason]
+
+This will perform in exactly the same way as QUIT does, except it will save
+the databases before quitting.  RECOMMENDED you use this over QUIT.
+
+3.2.4	OFF / ON
+----------------
+
+SYNTAX:	/MSG OperServ OFF [reason]
+	/MSG OperServ ON
+
+This will stop services responding to ANY commands users send them.  All non-
+interactive functions will still operate as normal, but users will not be able
+to use services in an interactive fassion while they are OFF.  Users will
+recieve notification of services being OFF when they go offline, and again
+when they come back online.  All attempts at interaction from users will be
+replied with a message saying services are offline.  If a reason is specified,
+it will be attached with the reason they are offline (in both the notification
+of them being offline, and at all attempts of interaction).  The only command
+services will accept in an OFF state is the ON command.  When the OFF command
+is used the physical log files are closed (thus this command is often used
+when the admin wishes to copy and remove the existing log file to start anew).
+
+OFF will stop services replying to any commands given to them except ON.
+ON will return services to interactive mode.
+
+------------------------------------------------------------------------------
+
+4	DalNet 4.4.15+ ircd
+===========================
+
+When Magick is used in conjunction with DalNet ircd versions 4.4.15 and above,
+certain extra features become available to IRC Operators.  Support for these
+special features has been in-built into services, and is listed below.
+
+Above and beyond this, 4.4.15 implemented the user mode +a, which toggles the
+user display "Is a services administrator" in the /whois information.  Magick
+will set and remove this as needed when used with this ircd.
+
+There are 2 IRC Operator, 2 Services Operators, and 1 Services Admin extension
+over standard services.
+
+4.0	QLINE (IRC Operator)
+-------------
+
+SYNTAX:	/MSG OperServ QLINE <nick> [reason]
+
+In most IRC Servers, theres a function called Q:line, which has two purposes,
+first to Quarentine a server, making its IRC Operators equiviland to Local
+Operators (4.4), and second is to Forbid any non-IRC Operator from using a
+nick.  This OperServ function in services impose the same nick restriction,
+but on ALL servers, not just one.  All IRC Operators will be notified of the
+placement of a Q: line.
+
+4.1	UNQLINE (IRC Operator)
+---------------
+
+SYNTAX:	/MSG OperServ UNQLINE <nick>
+
+This will remove a 'Nick Quarentine' from all servers (as set with QLINE).
+All IRC Operators will be notified of the removal of a Q: line.
+
+4.2	MODE (Services Operator)
+------------
+
+With Dal4.4.15+, Services Operators may also change USER modes via. services
+and the use of the MODE (3.0.0) command.
+
+4.3	KILL (Services Operator)
+------------
+
+SYNTAX:	/MSG OperServ KILL <user> <reason>
+
+This will kill a user, just as if you'd typed /kill ... but with a twist.  The
+kill reason will not be prefixed with a "Killed (Your-Name (".  Meaning you
+can literally kill a user, and it would look like a normal server dump, or
+worse, like they had quit of their own accord.
+
+4.4	NOOP (Services Admin)
+------------
+
+SYNTAX:	/MSG OperServ NOOP <server> <+|->
+
+This will make the IRC Operators of the specified server just as if they were
+LOCAL O: lines - ie. unable to effect the rest of the network in any way.
+This is just as if a server Q: line had been placed on the uplink's server
+(the difference being, no matter where they link, this will still be in
+effect).  + and - are used to denote SET and REMOVE.  All IRC Operators will
+be notified when this command is executed.
+
+------------------------------------------------------------------------------
+
+5	Conclusion
+==================
+
+Please make sure you re-read 1.1 - Money APPRICIATED :)
+And before you bug me - Read The Fucking Manual.
+
+Thanks to ...
+
+	Coca Cola - life sustinance.
+	Lord Striker - for bein there all the way.
+	Tschaicovski - If you dont know? you wouldnt understand.
+	Anyone who found a bug and TOLD me about it!
+	Whoever invented Cut and Paste :P
+
+5.1	FAQ Answers
+-------------------
+
+I've simply listed some of the most common questions, and the section of the
+manual they are answered in.
+

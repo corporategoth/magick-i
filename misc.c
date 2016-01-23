@@ -212,32 +212,32 @@ char *strsignal(int signum)
 {
     static char buf[32];
     switch (signum) {
-	case SIGHUP:	strcpy(buf, "Hangup"); break;
-	case SIGINT:	strcpy(buf, "Interrupt"); break;
-	case SIGQUIT:	strcpy(buf, "Quit"); break;
+	case SIGHUP:	strscpy(buf, "Hangup", sizeof(buf)); break;
+	case SIGINT:	strscpy(buf, "Interrupt", sizeof(buf)); break;
+	case SIGQUIT:	strscpy(buf, "Quit", sizeof(buf)); break;
 #ifdef SIGILL
-	case SIGILL:	strcpy(buf, "Illegal instruction"); break;
+	case SIGILL:	strscpy(buf, "Illegal instruction", sizeof(buf)); break;
 #endif
 #ifdef SIGABRT
-	case SIGABRT:	strcpy(buf, "Abort"); break;
+	case SIGABRT:	strscpy(buf, "Abort", sizeof(buf)); break;
 #endif
 #if defined(SIGIOT) && (!defined(SIGABRT) || SIGIOT != SIGABRT)
-	case SIGIOT:	strcpy(buf, "IOT trap"); break;
+	case SIGIOT:	strscpy(buf, "IOT trap", sizeof(buf)); break;
 #endif
 #ifdef SIGBUS
-	case SIGBUS:	strcpy(buf, "Bus error"); break;
+	case SIGBUS:	strscpy(buf, "Bus error", sizeof(buf)); break;
 #endif
-	case SIGFPE:	strcpy(buf, "Floating point exception"); break;
-	case SIGKILL:	strcpy(buf, "Killed"); break;
-	case SIGUSR1:	strcpy(buf, "User signal 1"); break;
-	case SIGSEGV:	strcpy(buf, "Segmentation fault"); break;
-	case SIGUSR2:	strcpy(buf, "User signal 2"); break;
-	case SIGPIPE:	strcpy(buf, "Broken pipe"); break;
-	case SIGALRM:	strcpy(buf, "Alarm clock"); break;
-	case SIGTERM:	strcpy(buf, "Terminated"); break;
-	case SIGSTOP:	strcpy(buf, "Suspended (signal)"); break;
-	case SIGTSTP:	strcpy(buf, "Suspended"); break;
-	case SIGIO:	strcpy(buf, "I/O error"); break;
+	case SIGFPE:	strscpy(buf, "Floating point exception", sizeof(buf)); break;
+	case SIGKILL:	strscpy(buf, "Killed", sizeof(buf)); break;
+	case SIGUSR1:	strscpy(buf, "User signal 1", sizeof(buf)); break;
+	case SIGSEGV:	strscpy(buf, "Segmentation fault", sizeof(buf)); break;
+	case SIGUSR2:	strscpy(buf, "User signal 2", sizeof(buf)); break;
+	case SIGPIPE:	strscpy(buf, "Broken pipe", sizeof(buf)); break;
+	case SIGALRM:	strscpy(buf, "Alarm clock", sizeof(buf)); break;
+	case SIGTERM:	strscpy(buf, "Terminated", sizeof(buf)); break;
+	case SIGSTOP:	strscpy(buf, "Suspended (signal)", sizeof(buf)); break;
+	case SIGTSTP:	strscpy(buf, "Suspended", sizeof(buf)); break;
+	case SIGIO:	strscpy(buf, "I/O error", sizeof(buf)); break;
 	default:	snprintf(buf, sizeof(buf), "Signal %d\n", signum); break;
     }
     return buf;
@@ -403,6 +403,38 @@ char *strlower(char *s)
 
 /*************************************************************************/
 
+/* Convert a number to a string (reverse of atoi). */
+
+char *itoa(int num)
+{
+    static char ret[7] = "";
+    int i = 0, j, k;
+    float x;
+
+    if (num<0) {
+	ret[0]='-';
+	i++;
+    }
+
+    /* Find size of integer! */
+    for(j=0, x = 1;j<sizeof(num);j++)
+	x *= 256;
+    for(k=0;x>=10;x/=10, k++) ;
+    for(j=0, x=1;j<k;j++)
+ 	x *= 10;
+
+    for (j=abs(num); x>1; x/=10)
+	if (j>=x) {
+	    for (k=0; j>=x; j-=x, k++) ;
+	    ret[i]=k+48; ret[i+1]=0; i++;
+	}
+    ret[i]=j+48; ret[i+1]=0;
+
+    return ret;
+}
+
+/*************************************************************************/
+
 /* read_string, write_string:
  *	Read a string from a file, or write a string to a file, with the
  *	string length prefixed as a two-byte big-endian integer.  The
@@ -441,6 +473,7 @@ Hash *get_hash(const char *source, const char *cmd, Hash *hash_table)
 	if (match_wild_nocase(hash_table->accept, cmd))
 	    if ((hash_table->access==H_OPER && is_oper(source)) ||
 		(hash_table->access==H_SOP  && is_services_op(source)) ||
+		(hash_table->access==H_ADMIN  && is_services_admin(source)) ||
 		(hash_table->access==H_NONE))
 		return hash_table;
     return NULL;
@@ -452,6 +485,7 @@ Hash_NI *get_ni_hash(const char *source, const char *cmd, Hash_NI *hash_table)
 	if (match_wild_nocase(hash_table->accept, cmd))
 	    if ((hash_table->access==H_OPER && is_oper(source)) ||
 		(hash_table->access==H_SOP  && is_services_op(source)) ||
+		(hash_table->access==H_ADMIN  && is_services_admin(source)) ||
 		(hash_table->access==H_NONE))
 		return hash_table;
     return NULL;
@@ -463,6 +497,7 @@ Hash_CI *get_ci_hash(const char *source, const char *cmd, Hash_CI *hash_table)
 	if (match_wild_nocase(hash_table->accept, cmd))
 	    if ((hash_table->access==H_OPER && is_oper(source)) ||
 		(hash_table->access==H_SOP  && is_services_op(source)) ||
+		(hash_table->access==H_ADMIN  && is_services_admin(source)) ||
 		(hash_table->access==H_NONE))
 		return hash_table;
     return NULL;
@@ -474,6 +509,7 @@ Hash_HELP *get_help_hash(const char *source, const char *cmd, Hash_HELP *hash_ta
 	if (match_wild_nocase(hash_table->accept, cmd))
 	    if ((hash_table->access==H_OPER && is_oper(source)) ||
 		(hash_table->access==H_SOP  && is_services_op(source)) ||
+		(hash_table->access==H_ADMIN  && is_services_admin(source)) ||
 		(hash_table->access==H_NONE))
 		return hash_table;
     return NULL;
@@ -485,6 +521,7 @@ Hash_CHAN *get_chan_hash(const char *source, const char *cmd, Hash_CHAN *hash_ta
 	if (match_wild_nocase(hash_table->accept, cmd))
 	    if ((hash_table->access==H_OPER && is_oper(source)) ||
 		(hash_table->access==H_SOP  && is_services_op(source)) ||
+		(hash_table->access==H_ADMIN  && is_services_admin(source)) ||
 		(hash_table->access==H_NONE))
 		return hash_table;
     return NULL;

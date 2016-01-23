@@ -106,7 +106,7 @@ void send_channel_users(const char *who, const char *user, const char *chan)
     for (u = c->users; u; u = u->next)
 	if (strlen(buf)+strlen(u->user->nick)>=512) {
 	    notice(who, user, "%s", buf);
-	    strcpy(buf, "");
+	    strscpy(buf, "", BUFSIZE);
 	} else
 	    snprintf(buf, BUFSIZE, "%s %s%s", buf, is_chanop(u->user->nick, chan) ? "@" :
 				is_voiced(u->user->nick, chan) ? "+" : "",
@@ -371,7 +371,7 @@ void do_cmode(const char *source, int ac, char **av)
 			    user = findusermask(chan->bans[chan->bancount-1], i);
 			    if (get_access(user, ci)>banlev) {
 				banlev = get_access(user, ci);
-				strcpy(banee, user->nick);
+				strscpy(banee, user->nick, NICKMAX);
 			    }
 			    i--;
 			}
@@ -383,8 +383,9 @@ void do_cmode(const char *source, int ac, char **av)
 
 		    if (banlev >= setlev) {
 			char mask[strlen(chan->bans[chan->bancount-1])+1];
-			strcpy(mask,chan->bans[chan->bancount-1]);
-			change_cmode(s_ChanServ, chan->name, "-b", mask);
+			strscpy(mask,chan->bans[chan->bancount-1], strlen(chan->bans[chan->bancount-1])+1);
+			if (get_revenge_level(ci) >= CR_REVERSE)
+			    change_cmode(s_ChanServ, chan->name, "-b", mask);
 			do_revenge(chan->name, source, banee, get_bantype(mask));
 		    }
 		}
@@ -461,7 +462,8 @@ void do_cmode(const char *source, int ac, char **av)
 			change_cmode(s_ChanServ, chan->name, "+o", nick);
 		} else
 		    if (do_cs_revenge(chan->name, source, nick, CR_DEOP))
-			change_cmode(s_ChanServ, chan->name, "+o", nick);
+			if (get_revenge_level(cs_findchan(chan->name))>=CR_REVERSE)
+			    change_cmode(s_ChanServ, chan->name, "+o", nick);
 #endif
 	    }
 	    break;

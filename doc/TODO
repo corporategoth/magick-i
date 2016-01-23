@@ -1,0 +1,17 @@
+Scheduled for 1.3
+=================
+
+* ChanServ will maintain MLOCK +k channels (but will set them +s when no other
+  users are in them).
+* Add SPLIT Awareness - if user was recognized before, they are on rejoin.
+* Re-Write the DELETION functions of some routines (AKICK and ACCESS in
+  particular) to accept MASK deletion (like AKILL currently does).
+* Nick Linking - Shared Access List, and all other details (also stay
+  IDENTIFIED if you change nicks to another of your equivilant nicks).
+  (Indipendant "Registered" and "Last On" times (Last On updating MAIN)).
+
+Scheduled for whenever
+======================
+
+* A way to send commands to the services (especially OperServ) from shell.
+* Do something about repeated password failures.

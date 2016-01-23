@@ -9,12 +9,10 @@ is specified, the current revenge level is displayed.
 
 Levels are:
   NONE    - Will disable all revenge.
+  REVERSE - Will reverse what has been done.
   DEOP    - Will deop (mode -o) offender.
   KICK    - Will kick offender.
   NICKBAN - Will nick ban (user!*@*) offender.
   MASKBAN - Will mask ban (*!*user@*.host) offender.
   HOSTBAN - Will host ban (*!*@host) offender.
   MIRROR  - Will do whatever offender did back to them.
-
-No matter what revenge setting your channel is at, however,
-all action against higher levels will be reversed.

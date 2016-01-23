@@ -308,9 +308,10 @@ void check_memos(const char *nick)
     if (ml = find_memolist(nick)) {
 	notice(s_MemoServ, nick, "You have %d memo%s.", ml->n_memos,
 		ml->n_memos == 1 ? "" : "s");
-	notice(s_MemoServ, nick, "Type \2/msg %s %s\2 to %s.",
+	notice(s_MemoServ, nick, "Type \2/msg %s %s%s\2 to %s.",
 		s_MemoServ,
-		ml->n_memos == 1 ? "READ 1" : "LIST",
+		ml->n_memos == 1 ? "READ " : "LIST",
+		ml->n_memos == 1 ? itoa(ml->memos->number) : "",
 		ml->n_memos == 1 ? "read it" : "list them");
     }
 }
@@ -334,11 +335,12 @@ void check_newss(const char *chan, const char *source)
 		nl->n_newss,
 		nl->n_newss == 1 ? "" : "s",
 		chan);
-	    notice(s_MemoServ, source, "Type \2/msg %s %s %s%s\2 to %s.",
+	    notice(s_MemoServ, source, "Type \2/msg %s %s %s %s%s\2to %s.",
 		s_MemoServ,
 		nl->n_newss == 1 ? "READ" : "LIST",
 		chan,
-		nl->n_newss == 1 ? " 1"    : "",
+		nl->n_newss == 1 ? itoa(nl->newss->number) : "",
+		nl->n_newss == 1 ? " " : "",
 		nl->n_newss == 1 ? "read it" : "list them");
 	}
 }
@@ -1006,10 +1008,10 @@ static void do_forward(const char *source)
 		char s[NICKMAX+CHANMAX+2];
 		char whofrom[NICKMAX];
 		m = &nl->newss[i];
-		strcpy(s, m->sender);
+		strscpy(s, m->sender, NICKMAX);
 		strcat(s, "/");
 		strcat(s, ci->name);
-		strcpy(whofrom, source);
+		strscpy(whofrom, source, NICKMAX);
 		do_fwd2(whofrom, s, arg3, m->text);
 	    }
 	}
@@ -1029,7 +1031,7 @@ static void do_forward(const char *source)
 		notice(s_MemoServ, source, "Memo %d does not exist!", num);
 	    else {
 		char whofrom[NICKMAX];
-		strcpy(whofrom, source);
+		strscpy(whofrom, source, NICKMAX);
 		m = &ml->memos[i];
 #ifdef NEWS
 		if (arg3)

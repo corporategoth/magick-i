@@ -44,7 +44,7 @@ void add_ignore(const char *nick, time_t delta)
 	    ign->time = now + delta;
     else {
 	ign = smalloc(sizeof(*ign));
-	strcpy(ign->who, who);
+	strscpy(ign->who, who, NICKMAX);
 	ign->time = now + delta;
 	ign->next = *whichlist;
 	*whichlist = ign;
@@ -155,7 +155,7 @@ void process()
 	while (isspace(*++s))
 	    ;
 	strscpy(source, buf+1, sizeof(source));
-	strcpy(buf, s);
+	strscpy(buf, s, BUFSIZE);
     } else
 	*source = 0;
     if (!*buf)
@@ -177,14 +177,16 @@ void process()
 	send_cmd(server_name, "PONG %s %s", ac>1 ? av[1] : server_name, av[0]);
 
     } else if (stricmp(cmd, "436") == 0) {  /* Nick collision caused by us */
+	User *u;
 	if(services_level==1) introduce_user(av[0]);
+	if((u = finduser(av[0]))) delete_user(u);
+
+    } else if (stricmp(cmd, "401") == 0) {  /* Non-Existant User/Channel */
+	User *u;
+	if((u = finduser(av[1]))) delete_user(u);
 
     } else if (stricmp(cmd, "AWAY") == 0) {
-#ifdef GLOBALNOTICER
-	FILE *f;
-	char buf[BUFSIZE];
-#endif
-
+	int i;
 	if (ac == 0 || *av[0] == 0) {	/* un-away */
 #ifdef MEMOS
 	    if (services_level==1)
@@ -193,22 +195,14 @@ void process()
 
 #ifdef GLOBALNOTICER
 	    /* Send global message to user when they set back */
-	    if (f = fopen(LOGON_MSG, "r")) {
-		while (fgets(buf, sizeof(buf), f)) {
-		    buf[strlen(buf)-1] = 0;
-		    notice(s_GlobalNoticer, source, "%s", buf ? buf : " ");
-		}
-		fclose(f);
-	    }
+	    for (i=0; i<nmessage; ++i)
+		if (messages[i].type == M_LOGON)
+		    notice(s_GlobalNoticer, source, "%s", messages[i].text);
 	    /* Send global message to user when they set back */
 	    if (is_oper(source))
-		if (f = fopen(OPER_MSG, "r")) {
-		    while (fgets(buf, sizeof(buf), f)) {
-			buf[strlen(buf)-1] = 0;
-			notice(s_GlobalNoticer, source, "\37[\37\2OPER\2\37]\37 %s", buf ? buf : " ");
-		    }
-		    fclose(f);
-		}
+		for (i=0; i<nmessage; ++i)
+		    if (messages[i].type == M_OPER)
+			notice(s_GlobalNoticer, source, "%s", messages[i].text);
 #endif
 	}
 
@@ -219,6 +213,7 @@ void process()
 	    || stricmp(cmd, "SQLINE"  ) == 0
 	    || stricmp(cmd, "UNSQLINE") == 0
 	    || stricmp(cmd, "SVSNOOP") == 0
+	    || stricmp(cmd, "AKILL") == 0
 	    ) {
 
 	/* Do nothing */
@@ -234,10 +229,23 @@ void process()
 	do_kick(source, ac, av);
 
     } else if (stricmp(cmd, "KILL") == 0 || stricmp(cmd, "SVSKILL") == 0) {
+	int i;
+	ChannelInfo *ci;
 	if (ac != 2)
 	    return;
 	do_kill(source, ac, av);
 	if (is_services_nick(av[0])) introduce_user(av[0]);
+#ifdef CHANSERV
+	if (stricmp(av[0], s_ChanServ)==0)
+	    for (i = 33; i < 256; ++i) {
+		ci = chanlists[i];
+		while (ci) {
+		    if (ci->flags & CI_JOIN)
+			do_cs_join(ci->name);
+		    ci = ci->next;
+		}
+	    }	
+#endif
 
     } else if (stricmp(cmd, "MODE") == 0 || stricmp(cmd, "SVSMODE") == 0) {
 	if (*av[0] == '#' || *av[0] == '&') {
@@ -247,7 +255,10 @@ void process()
 	} else {
 	    if (ac != 2)
 		return;
-	    do_umode(source, ac, av);
+	    if (stricmp(cmd, "SVSMODE") == 0)
+		do_svumode(source, ac, av);
+	    else
+		do_umode(source, ac, av);
 	}
 
     } else if (stricmp(cmd, "MOTD") == 0) {
@@ -319,6 +330,14 @@ void process()
 	    else
 		notice(s_OperServ, source, "Access denied.");
 	    if (mode==0) return;
+#ifdef OUTLET
+	} else if (stricmp(av[0], s_Outlet) == 0) {
+	    if (is_oper(source))
+		operserv(source, av[1]);
+	    else
+		notice(s_Outlet, source, "Access denied.");
+	    if (mode==0) return;
+#endif
 	} else if(mode!=0) {
 #endif
 #ifdef NICKSERV
@@ -340,7 +359,7 @@ void process()
 #ifdef IRCIIHELP
 	if (stricmp(av[0], s_IrcIIHelp) == 0) {
 	    char *s = smalloc(strlen(av[1]) + 7);
-	    snprintf(s, sizeof(s), "ircII %s", av[1]);
+	    sprintf(s, "ircII %s", av[1]);
 	    helpserv(s_IrcIIHelp, source, s);
 	    free(s);
 	}
@@ -356,40 +375,50 @@ void process()
 #endif
 #ifdef DAL_SERV
 #ifdef OPERSERV
-	snprintf(buf, sizeof(buf), "%s@%s", s_OperServ, SERVER_NAME);
+	snprintf(buf, sizeof(buf), "%s@%s", s_OperServ, server_name);
 	if (stricmp(av[0], buf) == 0) {
 	    if (is_oper(source))
 		operserv(source, av[1]);
 	    else
 		notice(s_OperServ, source, "Access denied.");
 	    if (mode==0) return;
+#ifdef OUTLET
+	}
+	snprintf(buf, sizeof(buf), "%s@%s", s_Outlet, server_name);
+	if (stricmp(av[0], buf) == 0) {
+	    if (is_oper(source))
+		operserv(source, av[1]);
+	    else
+		notice(s_Outlet, source, "Access denied.");
+	    if (mode==0) return;
+#endif
 	} else if (mode!=0) {
 #endif
 #ifdef NICKSERV
-	snprintf(buf, sizeof(buf), "%s@%s", s_NickServ, SERVER_NAME);
+	snprintf(buf, sizeof(buf), "%s@%s", s_NickServ, server_name);
 	if (stricmp(av[0], buf) == 0)
 	    nickserv(source, av[1]);
 #endif
 #ifdef CHANSERV
-	snprintf(buf, sizeof(buf), "%s@%s", s_ChanServ, SERVER_NAME);
+	snprintf(buf, sizeof(buf), "%s@%s", s_ChanServ, server_name);
 	if (stricmp(av[0], buf) == 0)
 	    chanserv(source, av[1]);
 #endif
 #ifdef MEMOSERV
-	snprintf(buf, sizeof(buf), "%s@%s", s_MemoServ, SERVER_NAME);
+	snprintf(buf, sizeof(buf), "%s@%s", s_MemoServ, server_name);
 	if (stricmp(av[0], buf) == 0)
 	    memoserv(source, av[1]);
 #endif
 #ifdef HELPSERV
-	snprintf(buf, sizeof(buf), "%s@%s", s_HelpServ, SERVER_NAME);
+	snprintf(buf, sizeof(buf), "%s@%s", s_HelpServ, server_name);
 	if (stricmp(av[0], buf) == 0)
 	    helpserv(s_HelpServ, source, av[1]);
 #endif
 #ifdef IRCIIHELP
-	snprintf(buf, sizeof(buf), "%s@%s", s_IrcIIHelp, SERVER_NAME);
+	snprintf(buf, sizeof(buf), "%s@%s", s_IrcIIHelp, server_name);
 	if (stricmp(av[0], buf) == 0) {
 	    char *s = smalloc(strlen(av[1]) + 7);
-	    snprintf(s, sizeof(s), "ircII %s", av[1]);
+	    sprintf(s, "ircII %s", av[1]);
 	    helpserv(s_IrcIIHelp, source, s);
 	    free(s);
 	}
@@ -476,7 +505,7 @@ void process()
 
     } else if (stricmp(cmd, "VERSION") == 0) {
 	if (source)
-	    send_cmd(server_name, "351 %s Magick %s v%s (%s%s%s%s%s%s%s%s%s%s%s%s%d) :-- %s%s",
+	    send_cmd(server_name, "351 %s Magick %s v%s (%s%s%s%s%s%s%s%s%s%s%s%s%s%d) :-- %s%s",
 			source, server_name, version_number,
 #ifdef NICKSERV
 			"N",
@@ -532,6 +561,11 @@ void process()
 			"L",
 #else
 			"l",
+#endif
+#ifdef OUTLET
+			"T",
+#else
+			"t",
 #endif
 #ifdef GLOBALNOTICER
 			"G",

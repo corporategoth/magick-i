@@ -7,6 +7,7 @@ Sets various nickname options.  option can be one of:
     KILL       Turn kill protection on or off
     SECURE     Turn nickname security on or off
     PASSWORD   Set your nickname password
+    PRIVMSG    Use /msg's instead of /notice's
 
 In order to use this command, you must first identify
 with your password (/msg NickServ HELP IDENTIFY for more

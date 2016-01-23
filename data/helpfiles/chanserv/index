@@ -14,7 +14,7 @@ specific command, type /msg ChanServ help command.
     DROP       Cancel the registration of a channel
     LEVEL      Change the level required for functions
 
-Other commands: INFO, LIST, INVITE, CLEAR, UNBAN
+Other commands: INFO, LIST, USERS, INVITE, CLEAR,
                 UNBAN, OP, DEOP, VOICE, DEVOICE
 
 Note that any channel which is not used for two weeks

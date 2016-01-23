@@ -49,9 +49,10 @@
 #define	NEWS		/* relies on MEMOSERV and CHANSERV */
 #define	DEVNULL		/* */
 #define	OPERSERV	/* */
+#define OUTLET		/* relies on OPERSERV */
 #define	AKILL		/* relies on OPERSERV */
 #define	CLONES		/* relies on OPERSERV */
-#define	GLOBALNOTICER	/* */
+#define	GLOBALNOTICER	/* relies on OPERSERV */
 
 /* NOTES ON MODULES:
  *     - NICKSERV, CHANSERV, HELPSERV, IRCIIHELP, MEMOSERV, DEVNULL
@@ -63,6 +64,7 @@
  *       (hense the term OVERRIDE).
  *     - MEMOS activates USER memos.
  *     - NEWS activates CHANNEL memos.
+ *     - OUTLET activates an OperServ clone (see below).
  *     - AKILL activates the Auto KILL list.
  *     - CLONES activates the internal clone detection/noticing.
  */
@@ -78,17 +80,21 @@
 #define	DEVNULL_NAME		"DevNull"
 #define	IRCIIHELP_NAME		"IrcIIHelp"
 
+/* This is an outlet equivilant to operserv, that is always
+ * there, and is named SERVICES_PREFIX-SERVICES_LEVEL, ie.
+ * if this is "Magick-" and your services_level is 1, the nick
+ * would be Magick-1, for services_level 2, it would be Magick-2
+ * and so on.  This is so you can still access all versions of
+ * Services at once (no matter which is currently 'OperServ').
+ */
+#define SERVICES_PREFIX		"Magick-"
+
+
 /* Log filename in services directory */
 #define	LOG_FILENAME	"magick.log"
 
 /* File for Message of the Dat (/motd) */
 #define	MOTD_FILENAME	"magick.motd"
-
-/* File for message to user upon logon */
-#define	LOGON_MSG	"magick.msg"
-
-/* File for message to user upon /oper */
-#define	OPER_MSG	"magick.omsg"
 
 /* Database filenames */
 #define	NICKSERV_DB	"nick.db"
@@ -97,6 +103,8 @@
 #define	NEWSSERV_DB	"news.db"
 #define	AKILL_DB	"akill.db"
 #define	CLONE_DB	"clone.db"
+#define SOP_DB		"sop.db"
+#define MESSAGE_DB	"message.db"
 
 /* File containing process ID */
 #define	PID_FILE	"magick.pid"
@@ -165,17 +173,16 @@
 
 /******* OperServ configuration *******/
 
-/* Who are the Services ops? (space-separated list of NICKNAMES ONLY)
- * Note that to use commands limited to Services ops, a user must both:
+/* Who are the Services Admins? (space-separated list of NICKNAMES ONLY)
+ * Note that to modify the Services OP List the user must:
  *	- Have a nickname in the list below
+ *      - Be an IRC Operator (have mode +o enabled)
  *	- Identify with NickServ (therefore, the nick must be registered)
  */
-#define	SERVICES_OPS		"PreZ Lord_Striker"
+#define	SERVICES_ADMIN		"PreZ"
 
-/* Super Password (IMPORTANT) - Services OP's with this password can
- * QUIT, SHUTDOWN, RAW and do the ON/OFF commands
- */
-#define	SUPERPASS		"MyPassword"
+/* Maximum number of Services Operators allowed */
+#define MAXSOPS			64
 
 /* Number of days before erasing akills not set with PAKILL */
 #define	AKILL_EXPIRE		7

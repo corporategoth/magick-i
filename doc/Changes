@@ -1,0 +1,278 @@
+Magick I (PreZ <prez@antisocial.com>)
+--------
+
+Renamed to this to avoid conflicting version numbers, etc and finally
+rid myself of all the excess EsperNet baggage.
+
+1997/12/30 .2	Added new revenge level (REVERSE, now NONE will do NOTHING).
+		Fixed a few minor bugs (with unsuspension, breakdown
+		    percentages, and handling nick collides, etc).
+		Moved Services OP list to a access list-style format.
+		Removed the SUPER_PASSWORD - now only the SERVICES_ADMINS
+		    (hardcoded in config.h) can do that :)
+		Added removing by number to ALL lists now :)
+		Added OperServ MASKLIST (like USERLIST but accepts user@host).
+		Removed the magick.msg and magick.omsg in favour of the new
+		    OperServ LOGONMSG and OPERMSG commands :)
+		Wrote both user and oper documentation for ALL commands!
+1997/12/17 .1a	Bug fixes only ... nothing new.
+1997/12/15 .1	Optimized code and implemented hash tables (if you dont know,
+		    dont worry - just take it as a good thing!).
+		Added some of Andy Church's services routines (overflow stuff,
+		    some socket stuff, and the configure script mainly).
+		Removed upaccess - people should have used it, or not need it.
+		Added MemoServ OPERSEND.
+		Fixed user/oper counting when SQUIT.
+		Fixed ghost command and Channel/Nick expiry bugs.
+		Added Users on Servers breakdown (OperServ)
+		OFF/ON commands now close/open logs aswell.
+1997/12/08 .0	Forgot the new services.h for Services 3.0.9, included here.
+		Veriable ChanServ levels implemented (finally).
+		Added deletion of user from access lists, and all
+		    a user's channels when a user is deleted.
+		Moved names for services to config.h
+		Magick know more about their own actions (dont laugh!)
+		IrcOP's dont trigger clone protection (are ignored).
+		Added ability to use PRIVMSG instead of NOTICE.
+		Added ChanServ JOIN ability (some like it - I dont).
+		Added ChanServ REVENGE module, for protecting userlist.
+		AKILL and CLONE may now be removed by number.
+
+
+Version 3.0 (PreZ <prez@antisocial.com>)
+-----------
+
+1997/11/30 .9	Little maintinance (checked all various compiles, etc).
+		Fixed MAJOR bug with list-duplication on re-connect.
+		Minor bugfixes and adds (OFF reasons, pidfile fix, etc)
+1997/11/26 .8	Changed the way CLONE detection works (MAJORLY!)
+		Added "CLONE" for allowing more than "Default max clones"
+		Fixed bug that didnt reset "current online" lists.
+		Added "is already there" and "kill all matching" to akill
+		Added chanserv Auto-Unban for when ppls are banned on a
+		    channel by someone equal to or lower than them.
+		Capped the chanserv levels (to stop the "10000" bug).
+		Fixed the chanserv UNBAN option so it does ALL bans.
+		Added 'bounce bans on link' for def_level[2]+ (10 usually)
+1997/11/20 .7	Fixed a few bugs (nickserv IDENT, Globals and Mass -v's)
+		Removed SKELETON defines - obsolite by Pick 'n' Choose.
+		Removed test/ directory - was old, outdated and useless!
+		Added (optional) mask restrictions to USERLIST and CHANLIST.
+		AKILL mask's must be >7 chars in length (stop *@*.com).
+		Added Services Restart/Reconnect - see config.h for details.
+		Added Services Leveling to replace READONLY - better way of
+		    implementing backup services versions, etc.
+1997/11/10 .6	Fixed up the "Pick 'n' Choose" section of config.h so it
+		    now actually makes the end result smaller :)
+		Added ChanServ and NickServ SUSPEND/UNSUSPEND functions
+		AKILL's will now expire after a time specified in config.h
+		Added PAKILL - non-expiring AKILLS settable by SOP's
+		Channel/Nick memos will get erased with the channel/nick
+		Added ON/OFF so u can enable/disable services without QUIT
+		ON, OFF, QUIT, SHUTDOWN and RAW are passworded (config.h)
+1997/11/05 .5	Implemented DAL4.4.15+ Services Support, Including:
+		    Killing users without a Killed (IrcOp (reason))
+		    Server and Nick quarentining via. OperServ
+		    Setting of nick's modes with MODE command.
+		    CHANGE nick instead of KILL it on nick protection
+		SOP's get help for their commands in /msg OperServ HELP
+		Memo Forwarding To/From Nick/Channel (in any combo)
+		Message to users when they /oper (services.omsg)
+		Made use of the till now unused def_access in chanserv.c
+1997/10/30 .4	Added support for DAL4.4.15+ servers.
+		Moved up all chanserv levels by 5 - 5 is now auto-voice.
+		Added /msg operserv listsops (FINALLY!)
+		SOPS now need to be /oper'd to be SOPS (oops)
+		Oper override of chanserv now #definable (in config.h)
+1997/10/22 .3	Fixed a bug in ignore (was stuffing ACCESS list)
+		Added OperServ Mode #channel returning current modes
+		Opers can override chanserv op/deop/invite/unban
+		SOPs can override chanserv clear
+1997/10/21 .2	Added READ ALL to MemoServ (channel and nick)
+		Added ability for oper to op, deop, invite, unban (ChanServ)
+		Added ability for SOP to use clear (ChanServ)
+		Added hard-coded /msg HelpServ Credits (so sue me).
+		Added memo IGNORE list to nickserv.
+		Fixed the nickserv SET IRCOP function
+1997/09/15 .1	Only Lvl 20 or sender can delete channel news
+		Fixed bug in NickServ that Mis-Saved URL/NICK fields
+1997/09/15 .0	Services now respawn if /kill'd
+		Message to users when logon added (services.msg)
+		Disabled @* (and @*.*, etc) AKILLS except for SOPS
+		Disabled @* (and @*.*, etc) AKICKS except for Level 20's
+		Created FILE_VERSION 3 (autoconverts from 2)
+		Added NickServ URL and EMAIL fields (v3)
+		Added ChanServ URL field (v3)
+		Added NEWS system (Basically Channel MEMO's)
+		Added IRC Operator NickServ flag (no nick expiry)
+		Added ChanServ level 20 (can set all but PASS and FOUNDER)
+		Added CURRENT TIME to info displays
+
+Version 2.2 (Alcan <achurch@dragonfire.net>
+-----------
+
+1997/08/23 .26	Fixed a minor bug in the configure script which caused
+		    compilation errors on systems without strerror().
+1997/08/21 .25	Fixed a stupid bug in introduce_user() w.r.t. classic ircd.
+1997/08/08 .24	Kludged around duplicate QUIT syndrome of Undernet ircd.
+1997/08/06	Added multi-server support to introduce_user().
+1997/07/24 .23	Fixed user leak caused by autokills.
+1997/07/20 .22	Fixed crashes in ChanServ CLEAR {OPS|VOICES}.
+1997/07/19	Added ALL option to OperServ STATS command to display
+		    Services memory usage.
+1997/07/??	Added initial support for different IRC servers.
+1997/07/15	Removed remaining occurrences of #define'd parameters
+		    (SERVER_NAME, etc.) and replaced them with runtime
+		    variables.
+1997/07/15	Added "Topic set by" field to ChanServ INFO command.
+1997/07/07 .21	Fixed bug in ChanServ CLEAR USERS command causing crashes.
+1997/07/02 .20	Removed last vestiges of domain dependence (global notice
+		    and MOTD).
+1997/07/02	Made IRC operators and Services ops immune from ChanServ
+		    channel restrictions (auto-deop, AKICK, and FORBID).
+1997/07/02	Made ChanServ SECURE mode actually work.
+1997/06/09 .19	Added ChanServ CLEAR command.
+1997/06/09	Fixed up UNBAN command (hopefully).
+1997/06/05 .18	Fixed a compilation error in process.c.
+1997/06/02 .17	Added workaround for servers that send a prefix with a
+		    NICK command for a new user.
+1997/05/30	Fixed the missing-character problem again (hopefully for
+		    good this time).
+1997/05/18 .16	Removed bug causing crashes when deleting AKILLs.
+1997/05/18	Made "<unknown>" work right this time.
+1997/05/04	Replaced empty string for AKILL setter with "<unknown>".
+1997/05/02	Touched up OperServ AKILL VIEW output (now includes the
+		    time each AKILL was set as well as who set it).
+1997/05/01 .15	Fixed security hole in MemoServ allowing anyone to read or
+		    delete another user's memos or send memos as another
+		    user.  (Reported by Arnold Hendriks)
+1997/04/30 .14	Fixed a nasty little problem which could cause the first
+		    character of an input line to be discarded.
+1997/04/30	Added OperServ AKILL VIEW command to list the creator
+		    of an autokill as well as the mask and reason.
+1997/04/30	Fixed up configure, which had been broken on machines
+		    where sh != bash.
+1997/04/25	Cosmetic fixes to KILL messages.
+1997/04/21      Changed AKILL to show who added an autokill in the list.
+1997/04/16 .13	Minor cosmetic fix in ChanServ ACCESS LIST.
+1997/04/16	Fixed security hole allowing users to add entries to
+		    channel access lists at levels higher than their own.
+		    (Reported by Jonathan Bobin)
+1997/04/06	Fixed bug causing crashes when trying to delete an AKILL
+		    which did not contain an "@" character.  Also
+		    disallowed adding any AKILLs without an "@" character.
+1997/04/05 .12	Fixed potential file descriptor leak in sockutil.c/conn().
+1997/04/05	RUNGROUP is now (correctly) no longer defined in sysconf.h
+		    if it is empty.
+1997/04/05	Fixed bug in install-script (source and destination
+		    reversed).
+1997/04/05	Cosmetic fixes in configure.
+1997/04/01	Added "Secure" option to ChanServ channel information
+		    display.
+1997/04/01 .11	Separated data installation routine from "make install"; it
+		    must now be called separately as "make install-data".
+1997/04/01	Fixed a bug which caused Services to crash randomly when
+		    the ChanServ ACCESS DEL command was used with an entry
+		    number instead of literal mask or nickname.
+1997/04/01	Fixed a cosmetic bug which could imply that certain entries
+		    existed on a channel access list when they in fact did
+		    not.
+1997/04/01	Plugged a security hole allowing users to effectively delete
+		    higher-level users from channel access lists.
+1997/04/01 .10	Corrected error in memo number when reporting a new memo to
+		    a user.
+1997/03/18	Fixed problem with ChanServ SET SECURE actually setting the
+		    Secure Ops flag.
+1997/03/16	Clarified help messages for oper forms of DROP command in
+		    NickServ and ChanServ.
+1997/03/08 .9	Fixed large security hole in ChanServ allowing users to
+		    delete other users with higher or equal access levels
+		    from channel access lists.
+1997/03/06	Nick and channel expiration is now logged.
+1997/03/06	Minor beautification work in OperServ STATS output.
+1997/03/04 .8	Services now sends KILL command before new NICK command
+		    when kill-enforcing a nick.
+1997/03/04	Changed default channel-expire period from 21 days to 14.
+1997/03/04	Implemented "suicide protection"; users can no longer
+		    ghost/recover themselves.
+1997/03/01	Fixed failure to remove autokilled users from user list.
+1997/03/01	Added note to FORBID help text that DROP command will
+		    reverse effect of FORBID.
+1997/02/09 .7	Added more debugging output for -debug
+1997/02/04	Fixed bug causing crash on channel MODE +/-v
+1997/02/02 .6	Fixed bug in MemoServ READ command.
+1997/02/02	Modified version.sh to recreate instead of modify version.h.
+1997/01/19	Fixed cosmetic bug in "listnicks" invocation of Services.
+1997/01/18 .5	Fixed big in ChanServ/NickServ LIST introduced by FORBID.
+1997/01/18	Fixed minor typo in ChanServ FORBID help text.
+1997/01/18	Made nick-kill timeouts a bit smarter about checking for
+		    changed/new nicks.
+1997/01/18 .4	FORBID command added to disallow certain channels and
+		    nicknames.
+1997/01/18	Use of log file increased: use of REGISTER, IDENTIFY, and
+		    DROP commands for NickServ and ChanServ is now logged.
+1997/01/18	Services ops can now drop channels and nicks in READONLY
+		    mode.
+1997/01/17 .3	Fixed potentially serious bug in ignore code.
+1997/01/15	Fixed compilation problem under SKELETON mode (last_check
+		    undeclared).
+1997/01/15	Fixed crash on OperServ RAW command with no parameters.
+1997/01/14 .2	Services now saves databases and quits upon receipt of
+		    SIGHUP.
+1997/01/14	Fixed Services op recognition.
+1997/01/14      Added DEOP command to ChanServ.
+1997/01/13 .1	Moved some configuration options from Makefile to
+		    configure.
+1997/01/12	Moved Services ops definition from operserv.c to config.h.
+1997/01/12 .0	Added patch-level version number.
+1997/01/12	Added SET IGNORE command to OperServ to enable/disable
+		    ignore code.
+1997/01/10	Created "configure" script.
+
+
+Version 2.1
+-----------
+
+1997/01/10	Added OP command to ChanServ.
+1996/12/30	Added "clean quit" which saves the databases (shutdown).
+1996/12/30	Added MOTD command to Services, changed DevNull/EsperNet
+		    default modes to +i.
+1996/12/22	Added JUPE command to OperServ.
+1996/12/14	Fixed MemoServ "READ <num>" behavior.
+1996/12/14	Added strspn() to misc.c for systems with a buggy
+		    implementation.
+1996/12/14	Fixed crash on server PING.
+1996/11/24	Added ignore code to protect against denial of service.
+
+
+Version 2.0
+-----------
+
+1996/11/23	Corrected PING/PONG behavior.
+1996/11/23	Corrected bug in AutoKick list size limit.
+		Fixed null-pointer bug in operserv.c/do_akill().
+		Set up main Services to recover from nick collisions (such
+		    as when a net-join brings backup Services online at the
+		    same time as regular Services).
+		Moved NickServ/ChanServ/MemoServ help messages into
+		    HelpServ database.
+		Added SECURE options to NickServ and ChanServ.
+		Added GLOBAL (send global notice) and STATS
+		    (network/Services statistics) commands to OperServ.
+		Added limit to size of AutoKick list for a registered
+		    channel.
+		Implemented "read-only" mode for backup copies of Services.
+		Fixed channel mode-locking of keys.
+		Fixed restoration of blank topics.
+		Kludged to get ChanServ SET TOPIC working.
+		Fixed ChanServ's failure to record topic changes for
+		    registered channels with topic retention set.
+		Created HelpServ.
+
+===========================================================================
+
+Version 1.1
+-----------
+
+1996/08/29	Added VERSION reply.
+1996/08/29	Created this file.

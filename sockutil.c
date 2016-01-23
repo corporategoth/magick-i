@@ -79,7 +79,7 @@ int sputs(char *str, int s)
 
 int sockprintf(int s, char *fmt, ...)
 {
-    va_list args;
+    va_list args; int i;
 
     va_start(args, fmt);
     if (s >= filescnt) {
@@ -100,7 +100,9 @@ int sockprintf(int s, char *fmt, ...)
 	    return 0;
 	setbuf(files[s], NULL);
     }
-    return vfprintf(files[s], fmt, args);
+    i = vfprintf(files[s], fmt, args);
+    fflush(files[s]);
+    return i;
 }
 
 /*************************************************************************/

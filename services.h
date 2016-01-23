@@ -7,7 +7,7 @@
  */
 
 #ifndef SERVICES_H
-#define SERVICES_H
+#define	SERVICES_H
 
 /*************************************************************************/
 
@@ -30,8 +30,8 @@
 /* We have our own versions of toupper()/tolower(). */
 #undef tolower
 #undef toupper
-#define tolower tolower_
-#define toupper toupper_
+#define	tolower tolower_
+#define	toupper toupper_
 extern int toupper(char), tolower(char);
 
 /* These should be read by config.h */
@@ -68,6 +68,8 @@ extern int toupper(char), tolower(char);
 #  undef MEMOSERV
 #endif
 #ifndef OPERSERV
+#  undef GLOBALNOTICER
+#  undef OUTLET
 #  undef AKILL
 #  undef CLONES
 #endif
@@ -147,17 +149,17 @@ struct nickinfo_ {
     long reserved[4];	/* For future expansion -- set to 0 */
 };
 
-#define NI_KILLPROTECT	0x00000001  /* Kill others who take this nick */
-#define NI_SECURE	0x00000002  /* Don't recognize unless IDENTIFY'd */
-#define NI_VERBOTEN	0x00000004  /* Nick may not be registered or used */
-#define NI_IRCOP	0x00000008  /* IrcOP - Nick will not expire */
-#define NI_PRIVATE	0x00000010  /* Private - Dont show up in list */
-#define NI_SUSPENDED	0x00000020  /* Suspended - May not IDENTIFY */
-#define NI_PRIVMSG	0x00000040  /* use PRIVMSG instead of NOTICE */
+#define	NI_KILLPROTECT	0x00000001  /* Kill others who take this nick */
+#define	NI_SECURE	0x00000002  /* Don't recognize unless IDENTIFY'd */
+#define	NI_VERBOTEN	0x00000004  /* Nick may not be registered or used */
+#define	NI_IRCOP	0x00000008  /* IrcOP - Nick will not expire */
+#define	NI_PRIVATE	0x00000010  /* Private - Dont show up in list */
+#define	NI_SUSPENDED	0x00000020  /* Suspended - May not IDENTIFY */
+#define	NI_PRIVMSG	0x00000040  /* use PRIVMSG instead of NOTICE */
 
-#define NI_IDENTIFIED	0x80000000  /* User has IDENTIFY'd */
-#define NI_RECOGNIZED	0x40000000  /* User comes from a known addy */
-#define NI_KILL_HELD	0x20000000  /* Nick is being held after a kill */
+#define	NI_IDENTIFIED	0x80000000  /* User has IDENTIFY'd */
+#define	NI_RECOGNIZED	0x40000000  /* User comes from a known addy */
+#define	NI_KILL_HELD	0x20000000  /* Nick is being held after a kill */
 #endif /* NICKSERV */
 
 /*************************************************************************/
@@ -214,63 +216,64 @@ struct chaninfo_ {
 };
 
 /* Retain topic even after last person leaves channel */
-#define CI_KEEPTOPIC	0x00000001
+#define	CI_KEEPTOPIC	0x00000001
 /* Don't allow non-authorized users to be opped */
-#define CI_SECUREOPS	0x00000002
+#define	CI_SECUREOPS	0x00000002
 /* Hide channel from ChanServ LIST command */
-#define CI_PRIVATE	0x00000004
+#define	CI_PRIVATE	0x00000004
 /* Topic can only be changed by SET TOPIC */
-#define CI_TOPICLOCK	0x00000008
+#define	CI_TOPICLOCK	0x00000008
 /* Those not allowed ops are kickbanned */
-#define CI_RESTRICTED	0x00000010
+#define	CI_RESTRICTED	0x00000010
 /* Don't auto-deop anyone */
-#define CI_LEAVEOPS	0x00000020
+#define	CI_LEAVEOPS	0x00000020
 /* Don't allow any privileges unless a user is IDENTIFY'd with NickServ */
-#define CI_SECURE	0x00000040
+#define	CI_SECURE	0x00000040
 /* Don't allow the channel to be registered or used */
-#define CI_VERBOTEN	0x00000080
+#define	CI_VERBOTEN	0x00000080
 /* Dont honour channel access list or founder */
-#define CI_SUSPENDED	0x00000100
+#define	CI_SUSPENDED	0x00000100
 /* ChanServ joins channel when its established */
-#define CI_JOIN		0x00000200
+#define	CI_JOIN		0x00000200
 /* Revenge flags */
-#define CI_REV1		0x80000000
-#define CI_REV2		0x40000000
-#define CI_REV3		0x20000000
+#define	CI_REV1		0x80000000
+#define	CI_REV2		0x40000000
+#define	CI_REV3		0x20000000
 
 /* Revenge levels */
-#define CR_NONE		0
-#define CR_DEOP		1
-#define CR_KICK		2
-#define CR_NICKBAN	3
-#define CR_USERBAN	4
-#define CR_HOSTBAN	5
-#define CR_MIRROR	7
+#define	CR_NONE		0
+#define	CR_REVERSE	1
+#define	CR_DEOP		2
+#define	CR_KICK		3
+#define	CR_NICKBAN	4
+#define	CR_USERBAN	5
+#define	CR_HOSTBAN	6
+#define	CR_MIRROR	7
 
 /* Indices for cmd_access[]: */
-#define CA_AUTODEOP	0
-#define CA_AUTOVOICE	1
-#define CA_AUTOOP	2
-#define CA_READMEMO	3
-#define CA_WRITEMEMO	4
-#define CA_DELMEMO	5
-#define CA_AKICK	6
-#define CA_STARAKICK	7
-#define CA_UNBAN	8
-#define CA_ACCESS	9
-#define CA_SET		10	/* NOT FOUNDER and PASSWORD */
+#define	CA_AUTODEOP	0
+#define	CA_AUTOVOICE	1
+#define	CA_AUTOOP	2
+#define	CA_READMEMO	3
+#define	CA_WRITEMEMO	4
+#define	CA_DELMEMO	5
+#define	CA_AKICK	6
+#define	CA_STARAKICK	7
+#define	CA_UNBAN	8
+#define	CA_ACCESS	9
+#define	CA_SET		10	/* NOT FOUNDER and PASSWORD */
 
-#define CA_CMDINVITE	11
-#define CA_CMDUNBAN	12
-#define CA_CMDVOICE	13
-#define CA_CMDOP	14
-#define CA_CMDCLEAR	15
+#define	CA_CMDINVITE	11
+#define	CA_CMDUNBAN	12
+#define	CA_CMDVOICE	13
+#define	CA_CMDOP	14
+#define	CA_CMDCLEAR	15
 
-#define CA_FLOOR	16
-#define CA_CAP		17
-#define CA_FOUNDER	18
+#define	CA_FLOOR	16
+#define	CA_CAP		17
+#define	CA_FOUNDER	18
 
-#define CA_SIZE		19	/* <--- DO NOT DELETE */
+#define	CA_SIZE		19	/* <--- DO NOT DELETE */
 #endif
 
 /*************************************************************************/
@@ -350,11 +353,11 @@ struct user_ {
 #endif
 };
 
-#define UMODE_O 0x0001
-#define UMODE_I 0x0002
-#define UMODE_S 0x0004
-#define UMODE_W 0x0008
-#define UMODE_G 0x0010
+#define	UMODE_O	0x0001
+#define	UMODE_I	0x0002
+#define	UMODE_S	0x0004
+#define	UMODE_W	0x0008
+#define	UMODE_G	0x0010
 
 #ifdef CLONES
 struct clone_ {
@@ -382,18 +385,19 @@ struct channel_ {
     } *users, *chanops, *voices;
 };
 
-#define CMODE_I 0x01
-#define CMODE_M 0x02
-#define CMODE_N 0x04
-#define CMODE_P 0x08
-#define CMODE_S 0x10
-#define CMODE_T 0x20
-#define CMODE_K 0x40			/* These two used only by ChanServ */
-#define CMODE_L 0x80
+#define	CMODE_I	0x01
+#define	CMODE_M	0x02
+#define	CMODE_N	0x04
+#define	CMODE_P	0x08
+#define	CMODE_S	0x10
+#define	CMODE_T	0x20
+#define	CMODE_K	0x40			/* These two used only by ChanServ */
+#define	CMODE_L	0x80
 
 /*************************************************************************/
 
 typedef struct servers_ Servers;
+typedef struct message_ Message;
 #ifdef AKILL
 typedef struct akill_ Akill;
 #endif
@@ -414,6 +418,15 @@ struct servers_ {
     int hops;
     char *desc;
 };
+
+struct message_ {
+    char *text;
+    short type;
+    char who[NICKMAX];
+    time_t time;
+};
+#define	M_LOGON	0
+#define	M_OPER	1
 
 #ifdef AKILL
 struct akill_ {
@@ -440,8 +453,8 @@ struct timeout_ {
     time_t settime, timeout;
     int type;
 };
-#define TO_COLLIDE	0	/* Collide the user with this nick */
-#define TO_RELEASE	1	/* Release a collided nick */
+#define	TO_COLLIDE	0	/* Collide the user with this nick */
+#define	TO_RELEASE	1	/* Release a collided nick */
 
 /*************************************************************************/
 
@@ -483,9 +496,10 @@ struct hash_chan_ {
     void (*process)(const char *source, char *chan);
 };
 
-#define H_NONE	0
-#define H_OPER	1
-#define H_SOP	2
+#define	H_NONE	0
+#define	H_OPER	1
+#define	H_SOP	2
+#define	H_ADMIN	3
 
 /*************************************************************************/
 

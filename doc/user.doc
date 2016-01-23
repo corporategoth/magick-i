@@ -1,0 +1,1099 @@
+			Magick Manual (Public)
+			----------------------
+				  Revision 1.1
+
+Contents
+========
+
+1	Introduction
+1.0	Author Information
+1.1	Disclaimer
+1.2	IRC in General
+1.2.0	Wildcards
+1.2.1	Hostmasks
+1.3	Documentation Key
+
+2	NickServ
+2.0	Where to Start
+2.0.0	REGISTER
+2.0.1	IDENTIFY
+2.0.2	ACCESS
+2.1	Getting Established
+2.1.0	SET EMAIL
+2.1.1	SET URL
+2.1.2	SET KILL
+2.1.3	SET SECURE
+2.1.4	SET PASSWORD
+2.1.5	SET PRIVMSG
+2.1.6	SET PRIVATE
+2.2	What else does it do?
+2.2.0	INFO
+2.2.1	LIST
+2.2.2	GHOST
+2.2.3	RECOVER
+2.2.4	RELEASE
+2.2.5	IGNORE
+2.2.6	DROP
+
+3	ChanServ
+3.0	Where to Start
+3.0.0	REGISTER
+3.0.1	IDENTIFY
+3.0.2	ACCESS
+3.1	Getting Established
+3.1.0	SET FOUNDER
+3.1.1	SET PASSWORD
+3.1.2	SET DESC
+3.1.3	SET URL
+3.1.4	SET MLOCK
+3.1.5	SET KEEPTOPIC
+3.1.6	SET TOPICLOCK
+3.1.7	SET TOPIC
+3.1.8	SET SECURE
+3.1.9	SET SECUREOPS
+3.1.10	SET RESTRICTED
+3.1.11	SET PRIVATE
+3.1.12	SET REVENGE
+3.1.13	SET JOIN
+3.1.14	LEVEL
+3.2	What else does it do?
+3.2.0	INFO
+3.2.1	LIST
+3.2.2	AKICK
+3.2.3	USERS
+3.2.4	INVITE
+3.2.5	VOICE / DEVOICE
+3.2.6	OP / DEOP
+3.2.7	UNBAN
+3.2.8	CLEAR
+3.2.9	DROP
+
+4	MemoServ
+4.1	SEND
+4.2	LIST
+4.3	READ
+4.4	DEL
+4.5	FORWARD
+
+5	Other Services
+5.0	HelpServ
+5.1	Global Noticer
+5.2	DevNull
+
+6	IRC/Services Operators
+6.0	How do they effect me?
+6.1	How do they effect my nick?
+6.2	How do they effect my channel?
+
+7	Conclusion
+7.0	FAQ Answers
+
+------------------------------------------------------------------------------
+
+1	Introduction
+====================
+--------------------
+
+Magick is a program that supplies IRC Services to an IRC Network.  They are
+based originally on the ones developed for EsperNet by Andrew Church
+(achurch@dragonfire.net).  I took them up because I found they were lacking
+many things (including documentation!), and have since added MANY things to
+the original base, that they can now be called nothing but my own.
+
+IRC Services are basically a program that looks like another server that sits
+on the network, but has 'special powers' (called a U: line in technicial
+terms) - this is sortov why I called mine Magick.  They allow people to
+to hold nicknames and channels.  They also allow people to store memos online
+for their friends to get when they just cant wait up for them.  They also help
+IRC Operators regulate a network with things like clone protection, and
+various juditerary measures.
+
+I have written this document because noone else has, and far too many people
+are too lazy to look up the online help.  Not only that, many wont browse the
+help files to see what functions are available.  This gives them all to you.
+It also tells you some things you wont find in the documentation.
+
+1.0	Author Information
+==========================
+
+My name is Preston A. Elder.  I'm a 19 year old Amature Programmer.  I dont
+get a brass penny for programming services, being online in any way, or
+writing this documentation (so I DONT want complaints! you get what you pay
+for!).  I am fully trained to be a Computer Technician, a Systems or Network
+Administrator, and many other things.  I own a business called Shadow Realm,
+a hobbyist ISP based in Sydney, Australia.
+
+I welcome any bug reports, suggestion, or offers of help on services
+themselves.  I accept donations (tho having no luck with these!) too. :)
+I sit on 4 IRC networks mainly:
+	DarkerNet	irc.darker.net	(Network Administrator)
+	RelicNet	irc.relic.net	(IRC Administrator)
+	Xnet		irc.xnet.org	(IRC Operator)
+	EFNet		find one...
+
+I am contactable by email at prez@antisocial.com
+or by post (if you must!) at:
+	PO Box 893
+	SUTHERLAND
+	NSW, AUS, 2232
+
+1.1	Disclaimer
+==================
+
+Magick is guarenteed to do absolutely nothing but take up hard disk space.  I
+claim no responcibilty if it crashes your system, decides to go on a holidy to
+a lovely little island in the tropics, or gets mischievious and make up users
+and channels, or steal someone else's and say 'Nyh Nyh Ni Nyh Nyh!".
+
+1.2	IRC in General
+======================
+
+There is a perfectly good document on IRC in general to be found at:
+	HTTP://www.irchelp.org
+
+1.2.0	Wildcards
+-----------------
+
+There are 2 wildcard characters used throughout services, used in patterns,
+hostmasks, and many other places.
+
+These are:
+	*	depicting any amount of characters (even none).
+		*.srealm.net.au would match:
+			N.outpost.srealm.net.au
+			Honshey.village.srealm.net.au
+			castle.srealm.net.au
+	?	depicts one character.
+		?.outpost.srealm.net.au would match:
+			N.outpost.srealm.net.au
+			S.outpost.srealm.net.au
+		but would NOT match:
+			NE.outpost.srealm.net.au
+			outpost.srealm.net.au
+
+1.2.1	Hostmasks
+-----------------
+
+A hostmask is used to term nick!user@host.
+	Nick being a nickname
+	User being the username (see a /whois on anyone)
+	Host being their ISP host (see a /whois on anyone)
+
+If a host is signified as *.host, it means to cut everything before the first
+'.' character.  ie. slsys23.ozemail.com.au would become *.ozemail.com.au,
+and ppp-219.tig.com.au would become *.tig.com.au.
+
+Sometimes (like in case of nickname ACCESS list) the hostmask is used to just
+depict the user@host or user@*.host.  For the nickname access list, it is
+recommended you enter masks of *user@*.host (ie. *prez@*.srealm.net.au).  Use
+the default hostmask (the one added auto when you register (2.0.0) as a guide.
+
+1.3	Documentation Key
+=========================
+
+Something in <>'s denotes a REQUIRED value.
+Something in []'s deontes an OPTIONAL value.
+
+A | denotes OR.  eg. if you see <nick|channel> this means either a nick
+OR a channel.  or if you see <hostmask|num> this means the hostmask itself,
+or a number (usually derived from the appropriate LIST command).
+
+------------------------------------------------------------------------------
+
+2	NickServ
+================
+----------------
+
+NickServ is a function of Magick that allows a user to Register their IRC
+nickname so that no-one else can use it and be mistaken as them.  It also
+allows them to regain it if it is taken by someone else (if KILL protection
+is off (2.1.2)), allows them to send and recieve memos (4), and have a more
+secure entry on any channel's Access List (3.0.2).
+
+NOTE: Nicknames will expire in 28 days (if it has not been changed)
+
+2.0	Where to Start
+======================
+
+Beginning your NickServ expierience starts with 1 simple step (Registering),
+and can then be further refined with 2 more, Identifying and modifying your
+personal Access List.
+
+How do they work together? Well, Registering will establish your record in
+NickServ, making it 'know' you.  When you registered, you are automatically
+'identified', meaning you can do all functions on NickServ without identifying
+again.  If you log off and on again however, its another story.
+
+If you logon from the same hostmask (1.2.1) as last time you logged on, you
+will be recognized, but not 'identified'.  To be able to certain functions
+with NickServ (such as change your SET's (2.1) or read/write Memos (4)) you
+need to be identified.  Enter the IDENTIFY command - executing this will
+set you as identified.
+
+If you logon from a different hostmask (1.2.1), you will be asked to identify
+or be logged off (or your nick changed on some IRC servers).  The same
+IDENTIFY command will work.  If this different hostmask is a REGULAR hostmask
+you log on from, you will want to tell NickServ to recognise you there also,
+enter the ACCESS list - this is a list of places you will be recognized from
+(ie. not have to identify each logon).
+
+
+2.0.0	REGISTER
+----------------
+
+SYNTAX:	/MSG NickServ REGISTER <password>
+
+The password specified is one of your own choosing.  Please keep this in
+a safe place, and dont tell it to anyone.  If you lose this, you can contact
+a Services Operator (6) about getting it back.
+
+This command actually does two things.  First, creates your nickname record,
+also making you 'identified' for this session.  Secondly, it adds you current
+hostmask (1.2.1) to your personal Access List.
+
+By default, KILL Protection (2.1.2) is set ON.
+
+2.0.1	IDENTIFY
+----------------
+
+SYNTAX:	/MSG NickServ IDENTIFY <password>
+
+Identifying to NickServ has two purposes.  Firstly, it will allow you to use
+your nick from a place that is not specified in your personal Access List,
+and secondly, it will allow you to use many functions that require you to
+be Identified (such as writing/reading Memos (4) or modifying your personal
+Access List).
+
+2.0.2	ACCESS
+--------------
+
+SYNTAX:	/MSG NickServ ACCESS ADD <hostmask>
+	/MSG NickServ ACCESS DEL <hostmask|num>
+	/MSG NickServ ACCESS LIST
+
+The Access List maintains a list of places that you will be 'recognized' from.
+Being recognized means you can use your nickname (unless set SECURE (2.1.3))
+without having to IDENTIFY each time you logon.
+
+ADD will add a hostmask (1.2.1) to your Access List.  You must specify the
+	hostmask to add.
+DEL will remove a hostmask (1.2.1) from your Access List.  You must specify
+	either the hostmask or the hostmask number (shown by LIST).
+LIST will display a numbered list of the hostmasks (1.2.1) you will currently
+	be recognized from.
+
+2.1	Getting Established
+===========================
+
+NickServ does not, however begin and end with just making your own record, and
+telling it where you are coming from.  Though this is a big part of it, there
+are many other things you may wish to do once you are registered, and started.
+
+This section outlines how you configure your NickServ record to suit you, and
+how to change the password set with REGISTER (2.0.0).  All functions in this
+section require you to be identified (2.0.1) before executing them.
+
+2.1.0	SET EMAIL
+-----------------
+
+SYNTAX:	/MSG NickServ SET EMAIL <email>
+
+This field is totally informational, and by default is set to nothing.  If
+this is set however, when someone lists the INFO (2.2.0) of your nickname,
+it will display this address.
+
+To reset this to nothing, simply put your email as "none" (no quotes).
+
+2.1.1	SET URL
+---------------
+
+SYNTAX:	/MSG NickServ SET URL <url>
+
+This field is totally informational, and by default is set to nothing.  If
+this is set however, when someone lists the INFO (2.2.0) of your nickname,
+it will display this URL.
+
+To reset this to nothing, simply put your url as "none" (no quotes).
+
+2.1.2	SET KILL
+----------------
+
+SYNTAX:	/MSG NickServ SET KILL <on|off>
+
+This function will set wether to KILL (or force nickname change on some IRC
+servers) a user who is using your nick from an un-recognized hostmask (1.2.1).
+
+If set to ON, any user who is not recognized will have 60 seconds to change
+their nickname or IDENTIFY (2.0.1).
+If the nickname is set SECURE, they will have to IDENTIFY (2.0.1) anyway.
+
+2.1.3	SET SECURE
+------------------
+
+SYNTAX:	/MSG NickServ SET SECURE <on|off>
+
+This will make any user using this nick IDENTIFY (2.0.1) on EVERY connection,
+regardless of wether they are on the Access List or not.
+
+2.1.4	SET PASSWORD
+--------------------
+
+SYNTAX:	/MSG NickServ SET PASSWORD <password>
+
+This will change the password that was set with REGISTER (2.0.0).
+It is a good idea to do this at least once a month, of if someone else has
+found it out (or right after you have needed to get it back from a Services
+Operator (6)).
+
+2.1.5	SET PRIVMSG
+-------------------
+
+SYNTAX:	/MSG NickServ SET PRIVMSG <on|off>
+
+This will tell NickServ to respond to you with the RAW command PRIVMSG (aka.
+MSG or QUERY), instead of with NOTICE.  By default this is off, and NickServ
+will send all responces to your commands via. notices.
+
+2.1.6	SET PRIVATE
+-------------------
+
+SYNTAX: /MSG NickServ SET PRIVATE <on|off>
+
+This will make you not appear in the LIST command (2.2.1), and will also hide
+your hostmask in an INFO (2.2.0) command.
+
+2.2	What else does it do?
+=============================
+
+Ok - now your setup and configured and ready to roll ... right?  But wait,
+theres more!  NickServ has a few little extra features you might want to know
+about aswell.  These features vary from the purely informational, to the
+almost-but-not-quite essential :)
+
+2.2.0	INFO
+------------
+
+SYNTAX:	/MSG NickServ INFO <nick>
+
+This will display a profile of another nickname.  It displays things such
+as their last 'real name', EMAIL (2.1.0) and URL (2.1.1) if set, the last
+host mask they were on (if not PRIVATE (2.1.6), their settings (eg. kill
+protection), when they registered, when they were last on, etc.
+
+2.2.1	LIST
+------------
+
+SYNTAX:	/MSG NickServ LIST <pattern>
+
+This will display a list of nickname's matching a pattern up until 50 matches
+have been shown.  It will also show the last hostmask (1.2.1) they were seen
+on also.  Users set PRIVATE (2.1.6) will not show up.
+
+Listing looks like this:
+
+/MSG NickServ LIST pre*
+-NickServ- List of entries matching pre*:
+-NickServ-     PreZ                  prez@castle.srealm.net.au
+-NickServ-     PreZ-away             prez@castle.srealm.net.au
+-NickServ-     Prespor               user@dialup2.magick.net
+-NickServ- End of list - 3/3 matches shown.
+
+2.2.2	GHOST
+-------------
+
+SYNTAX:	/MSG NickServ GHOST <nick> <password>
+
+This will kill a ghost connection from IRC.  Its a fact of life that sometimes
+your connection 'dies', and is still remaining when you log onto IRC again, or
+that your ISP might hang up on you and you redial and get back on again, and
+your still there!  This is a way for you to kill off that phantom connection
+so you can take your nick back.
+
+2.2.3	RECOVER
+---------------
+
+SYNTAX:	/MSG NickServ RECOVER <nick> <password>
+
+This is for the times when you DONT have KILL (2.1.2) protection on, and
+someone else has taken your nick.  It will basically cause services to kill
+off their connection, and take the nick themselves for 60 seconds (just as if
+KILL (2.1.2) protection was on, and they did not identify).
+To get your nick back from services before the 60s, use the RELEASE command.
+
+2.2.4	RELEASE
+---------------
+
+SYNTAX:	/MSG NickServ RELEASE <nick> <password>
+
+This will release (free up) any nick that services is currently holding.  If
+you you didnt identify fast enough (with KILL (2.1.2) protection on), or you
+used the RECOVER command, this will remove service's hold on your nick, and
+allow you to take your own nick back again.
+
+2.2.5	IGNORE
+--------------
+
+SYNTAX:	/MSG NickServ IGNORE ADD <nick>
+	/MSG NickServ IGNORE DEL <nick|num>
+	/MSG NickServ IGNORE LIST
+
+The ignore list is very closely linked into MemoServ (4).  Anyone who is on
+your ignore list will not be able to send you a Memo, simple as that.  An IRC
+Operater can override your ignore list however.  If you are being ignored by
+a user, it shows up when you do an INFO on them.
+
+ADD will add a nickname to your Ignorance List.  You must specify a registered
+	nickname.
+DEL will remove a nickname from your Ignorance List.  You must specify either
+	the nickname or the nickname number (shown by LIST).
+LIST will display a numbered list of the nicknames you are currently ignoring.
+
+2.2.6	DROP
+------------
+
+SYNTAX:	/MSG NickServ DROP
+
+This will de-register your nickname, and free it up for anyone else to be able
+to use at will, etc.  If you select a new nickname, please do this.
+
+------------------------------------------------------------------------------
+
+3	ChanServ
+================
+----------------
+
+ChanServ is a function of Magick that allows a user to Register a channel
+on IRC, so that firstly noone else can takeover and disrupt their favourite
+meeting place, second they can specify who gets ops, etc and not need a bot
+to maintina all that, and third decide who DOESNT get in, and enforce that
+with something that cant really be nuked :)
+
+NOTE: Channels will expire in 14 days (if it has not been changed)
+
+3.0	Where to start
+======================
+
+Beginning your ChanServ expierience starts with 1 simple step (Registering),
+and can then be further refined with 2 more, Identifying and modifying your
+personal Access List.
+
+How do they work together? Well, Registering will establish your record in
+ChanServ, making it 'know' the channel.  When you registered, you are
+automatically set as founder and 'identified', meaning you can do all the
+functions on ChanServ without identifying again.  If you log off and on
+again however, its another story.
+
+Next time you join channel you will have the equivilant of no access to the
+channel, you'll even be DEOP'd! - enter the IDENTIFY command.  This command
+will put you back to 'founder', and you'll be able to do all the ChanServ
+commands once more :)
+
+This is a bit inconvenient tho, isnt it? Well, enter the Acccess List.  This
+tells ChanServ who has access to the channel, and how much access they have!
+These levels range from -1 up to 30.  Once identified, you should be able to
+add yourself to the access list and have no worries about ops, or anything
+(until you start playin round with no docs, anyway :)
+
+3.0.0	REGISTER
+----------------
+
+SYNTAX:	/MSG ChanServ REGISTER <channel> <password> <description>
+
+The password specified is one of your own choosing.  Please keep this in
+a safe place, and dont tell it to anyone.  If you lose this, you can contact
+a Services Operator (6) about getting it back.
+
+The description is just a brief little speil about your channel for people
+to see in an INFO (3.2.0) or LIST (3.2.1).  Its a good idea to make this
+accurate so you get the right kind of people in your channel that you want.
+
+By default, KEEPTOPIC (3.1.5) is set ON.
+
+3.0.1	IDENTIFY
+----------------
+
+SYNTAX:	/MSG ChanServ IDENTIFY <channel> <password>
+
+Identifying to ChanServ has two purposes.  Firstly, it will allow you to use
+your nick from a place that is not specified in your personal Access List,
+and secondly, it will allow you to use many functions that require you to
+be Identified (such as writing/reading Memos (4) or modifying your personal
+Access List).
+
+3.0.2	ACCESS
+--------------
+
+SYNTAX:	/MSG ChanServ ACCESS <channel> ADD <user|hostmask> <level>
+	/MSG ChanServ ACCESS <channel> DEL <user|hostmask|num>
+	/MSG ChanServ ACCESS <channel> LIST [pattern|level]
+
+The channel Access List maintains a list of people with access to your
+channel (be it good or bad).  The access list is a way for you to be able
+to give people ops, or let them change things on your channel, etc etc
+without having to sit a BOT or some other automated process in the channel
+to keep track of it all.  It also establishes something of a ranking system
+which can be used by REVENGE (2.1.12) to establish a pecking order, and the
+LEVEL (3.1.14) system to enable certain functions to certain users.
+
+With SECUREOPS (3.1.9), only people on Access List may be opped.  With
+SECURE (3.1.8), only registered nicknames may be added to the access list.
+With RESTRICTED (3.1.10) only people on the access list will be allowed into
+channel at all.
+
+
+3.1	Getting Established
+===========================
+
+ChanServ does not, however begin and end with just making your channel record,
+setting up its access list.  Though this is a big part of it, there are many
+other things you may wish to do once you've registered and started.
+
+This section outlines how you configure a ChanServ record to suit you, and
+how to change the password set with REGISTER (3.0.0).  Most things in this
+section need you to be a high-access level (see 3.1.14) to be able to set,
+them, except PASSWORD, FOUNDER and LEVEL, which require founder (ie. you to
+identify for channel (3.0.1)).
+
+3.1.0	SET FOUNDER
+-------------------
+
+SYNTAX:	/MSG ChanServ SET <channel> FOUNDER <nick>
+
+This changes who has the 'last word' as far as the channel is concerned.  ie.
+the one who is above the access list itself, can remove/add anyone, no matter
+what level they are.  When you REGISTER (3.0.0) a channel, this is set to you
+by default, but if you wish to hand the channel over to someone else, this
+command is used.  You muse IDENTIFY (3.0.1) to be able to use this, and the
+nick specified must be registered (2.0.0).
+
+3.1.1	SET PASSWORD
+--------------------
+
+SYNTAX:	/MSG ChanServ SET <channel> PASSWORD <password>
+
+This will change the password that was set with REGISTER (3.0.0).
+It is a good idea to do this at least once a month, of if someone else has
+found it out (or right after you have needed to get it back from a Services
+Operator (6)).
+
+3.1.2	SET DESC
+----------------
+
+SYNTAX:	/MSG ChanServ SET <channel> DESC <description>
+
+This changes the brief little speil about your channel (purely informational,
+used for INFO (3.2.0) and LIST (3.2.1) displays only) that was set with
+REGISTER (3.0.0).  The description is important to tell people browsing
+through the channel list what kind of people are wanted in the channel, and
+what the channel itself is all about.
+
+3.1.3	SET URL
+---------------
+
+SYNTAX:	/MSG ChanServ SET <channel> URL <url>
+
+This field is totally informational, and by default is set to nothing.  If
+this is set however, when someone lists the INFO (3.2.0) of the channel,
+it will display this URL.
+
+To reset this to nothing, simply put your url as "none" (no quotes).
+
+3.1.4	SET MLOCK
+-----------------
+
+SYNTAX:	/MSG ChanServ SET <channel> MLOCK <modes>
+
+This will lock channel modes, meaning if something contrary to what is set
+here is set, ChanServ will automatically set it back.  Also, ChanServ will
+set these modes when a channel is created (someone joins for first time).
+By default, ChanServ will not lock any modes.
+
+NOTE: You can specify both + and - modes.  If you dont want anyone to be able
+to set mode +i, then set -i in the mlock, else its open game.  ChanServ will
+only adhere to whats in the mlock.
+
+3.1.5	SET KEEPTOPIC
+---------------------
+
+SYNTAX:	/MSG ChanServ SET <channel> KEEPTOPIC <on|off>
+
+This will tell ChanServ to keep a record of the last topic when everyone
+leaves the channel, and to set it to that topic when someone joins.  This is
+the default activity.  If set off, ChanServ will not set a topic when the
+channel is re-created.
+
+3.1.6	SET TOPICLOCK
+---------------------
+
+SYNTAX:	/MSG ChanServ SET <channel> TOPICLOCK <on|off>
+
+This will forbid the changing of the channel topic except by use of the SET
+TOPIC command, and will change the topic back to the one stored as the Last
+Topic if the topic is changed.
+
+3.1.7	SET TOPIC
+-----------------
+
+SYNTAX:	/MSG ChanServ SET <channel> TOPIC <topic>
+
+This will change the current topic of a channel via. ChanServ.  Use of this
+function is required if TOPICLOCK is set on a channel.
+
+3.1.8	SET SECURE
+------------------
+
+SYNTAX:	/MSG ChanServ SET <channel> SECURE <on|off>
+
+This will firstly restrict the Access List (3.0.2) to conatining only
+REGISTERED (2.0.0) nicknames, and secondly, will not honour the levels
+depicted in the Access List unless the user is identified (2.0.1) to NickServ.
+
+3.1.9	SET SECUREOPS
+---------------------
+
+SYNTAX:	/MSG ChanServ SET <channel> SECUREOPS <on|off>
+
+This will forbid anyone who is not on the channel Access List (3.0.2) Channel
+Operator status (mode +o).
+
+3.1.10	SET RESTRICTED
+----------------------
+
+SYNTAX:	/MSG ChanServ SET <channel> RESTRICTED <on|off>
+
+With this set, only people on the channel Access List will be allowed to enter
+the channel.  For users who are not on the Access List, it will behave just as
+if they were on the AKICK (3.2.2) list.
+
+When used with SECURE, Users are forced first to identify to NickServ before
+joining the channel, or be booted out again.
+
+3.1.11	SET PRIVATE
+-------------------
+
+SYNTAX:	/MSG ChanServ SET <channel> PRIVATE <on|off>
+
+This will stop the displaying of a channel in a LIST (3.2.1), and will also
+disable the use of the USERS (3.2.3) function.
+
+3.1.12	SET REVENGE
+-------------------
+
+SYNTAX:	/MSG ChanServ SET <channel> REVENGE <level>
+
+If a user bans someone who is equal to or higher to them on the access list,
+or kick/deop's someone who is higher them on the access list, it will trigger
+ChanServ's REVENGE function.  What happens when this is triggered is defined
+here.  By default, the revenge level is set to NONE, but if changed, the below
+actions will occur:
+
+	NONE	Nothing will happen.
+	REVERSE	The offending action (if ban or deop) is reversed, but no
+		further action is taken.
+	DEOP	The offender is deoped (mode -o).
+	KICK	The offender is kicked from channel.
+	NICKBAN	The offender is banned (nick!*@*) and kicked.
+	MASKBAN	The offender is banned (*!*user@*.host) and kicked.
+	HOSTBAN	The offender is banned (*!*@host) and kicked.
+	MIRROR	Whatever triggered the Revenge is done back to offender.
+
+3.1.13	SET JOIN
+----------------
+
+SYNTAX:	/MSG ChanServ SET <channel> JOIN <on|off>
+
+This will make ChanServ join the channel when it is created (ie. someone
+joins).  ChanServ will automatically OP itself.  If kicked, it will rejoin
+and re-op itself.  If deoped, it will re-op itself.  Setting this OFF will
+make ChanServ part channel again.
+
+3.1.14	LEVEL
+-------------
+
+SYNTAX:	/MSG ChanServ LEVEL <channel> SET <type> <level>
+	/MSG ChanServ LEVEL <channel> RESET <type>
+	/MSG ChanServ LEVEL <channel> LIST [pattern]
+
+This will set what level is needed on the Access List (3.0.2) to be able to
+do certain things.  The types, and default level are listed with the
+command: /MSG ChanServ HELP LEVEL LIST
+
+SET will set the access level required for <type> to <level>.
+RESET will reset the access level required for <type> to the default.
+LIST (for users) will show what types/functions you have access to on that
+	specific channel.
+LIST (for founder or people with SET access) will show a listing of types
+	and what access level is required for each.
+
+3.2	What else does it do?
+=============================
+
+Ok - now your channel is setup and configured and ready to roll ... right?
+But wait, theres more!  ChanServ has a few little extra features you might
+want to know about aswell.  These features vary from the purely informational,
+to the almost-but-not-quite essential :)
+
+3.2.0	INFO
+------------
+
+SYNTAX:	/MSG ChanServ INFO <channel>
+
+This will display a profile a channel.  It displays things such as the
+description of the channel (3.1.2), channel URL (3.1.3) if set, the last
+topic, the founder (3.1.0), their settings (eg. topic lock, private, etc),
+when it was registered, when it was last used, etc.
+
+3.2.1	LIST
+------------
+
+SYNTAX:	/MSG ChanServ LIST <pattern>
+
+This will display a list of channels matching a pattern up until 50 matches
+have been shown.  It will also show the channel description (3.1.2).  Channels
+set PRIVATE (3.1.11) will not show up.
+
+Listing looks like this:
+
+/MSG ChanServ LIST #dar*
+-ChanServ- List of entries matching #dark*:
+-ChanServ-     #DarkerNet            Admin/Operator Help Channel
+-ChanServ-     #DarkWave             Haven for the Darker Soul'd
+-ChanServ-     #DarkerNet-Help       General IRC Help Channel
+-ChanServ- End of list - 3/3 matches shown.
+
+3.2.2	AKICK
+-------------
+
+SYNTAX:	/MSG ChanServ AKICK <channel> ADD <nick|hostmask> [reason]
+	/MSG ChanServ AKICK <channel> DEL <nick|hostmask|num>
+	/MSG ChanServ AKICK <channel> LIST [pattern]
+
+This will auto-kick and ban a user (or hostmask (1.2.1)) upon joining the
+channel.  If a reason is specified, it is used in the Kick reason, else the
+default reason is used.
+
+ADD will add a nickname or hostmask (1.2.1) to the AutoKick list.  You must
+	specify either a registered nickname or hostmask.  A reason is
+	optional, but recommended.
+DEL will remove a nickname or hostmask (1.2.1) from the AutoKick list.  You
+	must specify a nickname, hostmask or entry number (shown with LIST).
+LIST will display a numbered list of all entries on the AutoKick list.  If an
+	optional pattern is specified, it will display all that match it.
+
+3.2.3	USERS
+-------------
+
+SYNTAX:	/MSG ChanServ USERS <channel>
+
+This will display the users currently in a channel.  + in front of a nickname
+denotes the user is a voice, @ denotes a Channel Operator.  This is not
+available for channels that are set PRIVATE (3.1.11).  This requires INVITE
+access in LEVELS (3.1.14).
+
+3.2.4	INVITE
+--------------
+
+SYNTAX:	/MSG ChanServ INVITE <channel>
+
+This will invite you to a channel (assuming you have access to use this
+command set with LEVELS (3.1.14)).
+
+3.2.5	VOICE / DEVOICE
+-----------------------
+
+SYNTAX:	/MSG ChanServ VOICE <channel>
+	/MSG ChanServ DEVOICE <channel>
+
+This will make ChanServ set move +v or -v to your nick (assuming you have
+access to this command set with LEVELS (3.1.14)).  This is most useful for
+channels that are set SECURE and you forgot to IDENTIFY (2.0.1).
+
+3.2.6	OP / DEOP
+-----------------
+
+SYNTAX:	/MSG ChanServ OP <channel>
+	/MSG ChanServ DEOP <channel>
+
+This will make ChanServ set move +o or -o to your nick (assuming you have
+access to this command set with LEVELS (3.1.14)).  This is most useful for
+channels that are set SECURE and you forgot to IDENTIFY (2.0.1).
+
+3.2.7	UNBAN
+-------------
+
+SYNTAX:	/MSG ChanServ UNBAN <channel>
+
+This will make ChanServ unban you if you are banned on a channel (assuming you
+have access to this command set with LEVELS (3.1.14)).
+
+3.2.8	CLEAR
+-------------
+
+SYNTAX:	/MSG ChanServ CLEAR <channel> MODES
+	/MSG ChanServ CLEAR <channel> BANS
+	/MSG ChanServ CLEAR <channel> VOICES
+	/MSG ChanServ CLEAR <channel> OPS
+	/MSG ChanServ CLEAR <channel> USERS
+
+MODES will remove all modes currently set on channel (including key's, limits,
+	invite only, etc etc).
+BANS will remove all bans (+b) from the channel.  If someone enters afterwards
+	who is on the AKICK list, the ban will be re-set tho.
+VOICES will devoice (-v) all users who have a voice (+).
+OPS will deop (-o) all users who have Channel Operator status (@).
+USERS will kick everyone from channel (used mostly for re-synching a channel).
+
+3.2.9	DROP
+------------
+
+SYNTAX:	/MSG ChanServ DROP <channel>
+
+This will de-register a channel, and free it up for anyone else to be able
+to register.  If you dont visit a channel anymore, please do this, or change
+the FOUNDER (3.1.0) to someon who does.
+
+------------------------------------------------------------------------------
+
+4	MemoServ
+================
+
+MemoServ is a function of Magick which allows you to do two things.  Firstly,
+send a memo to someone else for them to recieve when they get online, and
+secondly as a 'news system' for channels, to be able to keep people posted
+with the latest happenings, etc on channel.
+
+NOTE: News Articles will expire in 21 days (if it has not been changed)
+
+4.0	SEND
+------------
+
+SYNTAX:	/MSG MemoServ SEND <nick|channel> <text>
+
+This will send a Memo or News Article to a nick/channel.  The recipiant either
+has to be a Registered Nick (2.0.0) or Channel (3.0.0).  You will not be able
+to send a memo to someone who is ignoring you (2.2.5).
+
+4.1	LIST
+------------
+
+SYNTAX:	/MSG MemoServ LIST [channel]
+
+This will list your Memos, or a channels News Articles, aswell as who sent
+them and the date/time they were sent.
+
+4.2	READ
+------------
+
+SYNTAX:	/MSG MemoServ READ [channel] <num>
+
+This will read your memo <num>, or channel news article <num> as shown by the
+LIST command.  If "ALL" is specified as <num> you will read ALL entries.
+
+4.3	DEL
+-----------
+
+SYNTAX:	/MSG MemoServ DEL [channel] <num>
+
+This will delete your memo <num>, or channel news article <num> as shown by
+the LIST command.  Deleting a memo will NOT renumber them - each new memo will
+be numbered <last-memo-number>+1, wether there are free slots before it or
+not.  If "ALL" is specified as <num> you will delete ALL entries.
+When deleting Channel news articles, you may only delete articles you have
+written unless you have NEWSDEL access (set with LEVELS (3.1.14)).  You will
+also need NEWSDEL access to be able to delete "ALL" for a channel.
+
+4.4	FORWARD
+---------------
+
+SYNTAX:	/MSG MemoServ FORWARD [channel] <num> <nick|channel>
+
+This will forward a Memo or channel News Article to another destination (which
+can be either another registered user (2.0.0) or channel (3.0.0)).  If the
+entry comes from your own memos, [FWD: your-nick] will be appended to the
+beginning, if from a channel's News base, [FWD: sender/channel] will be
+appended.
+When forwarding from a channel, you must have NEWSREAD (as set with LEVELS
+(3.1.14)) access, and when forwarding to a channel, you must have NEWSWRITE
+(as set with LEVELS (3.1.14)) access.
+
+------------------------------------------------------------------------------
+
+5	Other Services
+======================
+
+Magick has a few other services which you may notice around up its sleeve.
+These services are either informational only, or serve no real purpose.  Out
+of the three listed, only HelpServ will respond to mesages.
+
+5.0	HelpServ
+----------------
+
+SYNTAX:	/MSG HelpServ <topic>
+
+HelpServ is just a little informational service that holds information that
+just wont fit anywhere else.  Usually it contains information about the
+network itself, the admins, the servers, rules, etc.  Usually to get a listing
+of topic's that you can ask for help on the following command is used:
+	/MSG HelpServ HELP
+
+5.1	Global Noticer
+----------------------
+
+Global Noticer's nick changes, depending on the IRC Network you are on.  This
+'user' is just there to deliver messages to ALL users.  Any time you log on,
+you may see a message from global noticer (the same message when you set BACK
+from being AWAY).  Also if you recieve a message from out of the blue from
+the Global Noticer, then an IRC Operator has just send everyone a present :)
+
+5.2	DevNull
+---------------
+
+This is a unix joke.  Anything sent to this user will just evaporate into thin
+air.  This user serves absolutely no purpose.
+
+------------------------------------------------------------------------------
+
+6	IRC/Services Operators
+==============================
+
+IRC Operators have a few special privilages on services over normal users that
+each user should be aware of.  One of them (as you might notice) is the
+ability to set the IRC Operator flag, but there are many other things they
+can do.
+
+You may also have noticed the term Services Operator about and ask - Who are
+they?  Services Operators are people who have extra special powers over
+services, including the ability to find out a Channel or Nickname password in
+the case you have forgotten it, aswell as other juditerary functions.
+
+6.0	How to they effect me?
+------------------------------
+
+IRC Operators have the power to KILL and KLINE (ban) you from IRC, that you
+probably already know, but through services they also have the ability to
+KLINE you from EVERY server on the network (called AutoKILL).  This is usually
+only done in extreme cases.  When an IRC Operator sets an AKILL, it will
+expire after a period of time (normally 7 days), however Services Operators
+can set one that doesnt expire (moral? dont piss them off!).
+
+IRC Operators also have the ability to stop you from using a nickname (called
+Q: LINE) on a server.  Through services however (only on some IRC servers)
+they can also stop the nick being used on ALL servers.  This is called SQLINE.
+
+Services has an in-built Clone Detection.  If you have more than a pre-set
+number of connections from the same host, the new connection will be killed
+off.  IRC Operators are ignored by clone detection.  Also, Services Operators
+have access to add "exceptions" to the pre-set clone limit, this list of
+exceptions is simply called the CLONE list.
+
+6.1	How do they effect my nick?
+-----------------------------------
+
+IRC Operators have access to see all users online, even if they have mode +i
+(invisible) set thanks to a function called USERLIST.
+
+Services Operators have access to obtain your password for your nickname in
+case you have forgotten it, or it has been found out and changed.
+
+Services Operators have access to forcibly de-register your nickname
+(essentially the same as you executing the DROP (2.2.6) command).
+
+Services Operators have access to FORBID any nickname from being used or
+registered (just as if someone else already owned it and had KILL (2.1.2) on).
+
+Services Operators have access to a function called SUSPEND.  This function
+will stop you from being able to IDENTIFY (2.0.1).  This essentially means
+you can still use your nickname (if your on the access list), but you cannot
+read your memos, drop your nickname, modify your access list, etc.  This is
+only likely to be used, however in a circumstance that requires some kind of
+repremanding action, but not quite a nickname DROP or FORBID.  When the nick
+is unsuspended, all access lists and settings are restored to their previous
+state.  While suspended, you are ignoring EVERYONE's memos.
+
+6.2	How do they effect my channel?
+--------------------------------------
+
+IRC Operators have access to see all channels, even if they have mode +p
+(private) or +s (secret) set thanks to a function called CHANLIST.
+
+If an option called IRCOP_OVERRIDE is set in services, IRC Operators will have
+access to the USERS(3.2.3), INVITE (3.2.4), OP / DEOP (3.2.5), DEOP, VOICE /
+DEVOICE (3.2.6), UNBAN (3.2.7) aswell as ACCESS (3.0.2), AKICK (3.2.2), and
+LEVEL (3.1.14) LIST commands regardless of wether they are on access list,
+they will also be immune to REVENGE (3.1.12), and will be able to be opped
+regardless of the SECUREOPS (3.1.9) setting.  If the same option is set,
+Services Operators will have access to CLEAR regardless of access list.
+
+IRC Operators have access to kick any user from a channel via. services.
+
+IRC Operators have access to see or change a channel's modes via. services.
+
+Services Operators have access to obtain the password for a channel in case
+you have forgotten it, or it has been found out and changed.
+
+Services Operators have access to forcibly de-register a channel (essentially
+the same as you executing the DROP (3.2.9) command).
+
+Services Operators have access to FORBID any channel from being used or
+registered (just as if someone else had already registered it and had
+RESTRICTED (3.1.10) on).
+
+Services Operators have access to a function called SUSPEND.  This function
+will make the access list of a channel meaningless.  All Services Operators
+will have founder-level access (without identifying), and everyone else
+(including previous founder) will have equivilant to level 0.  This means you
+will only be able to do things available to level 0 (in most cases this is
+only reading news).  IRC Operators will recieve Auto Voice.  When the channel
+is unsuspended, all access lists and settings are restored to their previous
+state, and Services Operators/IRC Operators will have to abide by the access
+list just as normal.
+
+------------------------------------------------------------------------------
+
+7	Conclusion
+==================
+
+Please make sure you re-read 1.1 - Money APPRICIATED :)
+And before you bug me - Read The Fucking Manual.
+
+Thanks to ...
+
+	Coca Cola - life sustinance.
+	Lord Striker - for bein there all the way.
+	Tschaicovski - If you dont know? you wouldnt understand.
+	Anyone who found a bug and TOLD me about it!
+	Whoever invented Cut and Paste :P
+
+7.1	FAQ Answers
+-------------------
+
+I've simply listed some of the most common questions, and the section of the
+manual they are answered in.
+
+What is NickServ, ChanServ, etc? 2, 3, 4, 5
+
+How do I register my nickname/channel? 2.0.0, 3.0.0
+
+I registered my nickname, but I keep getting locked out of it!? 2.0.1
+
+Why does NickServ keep telling me to identify each time I log on? 2.0.2
+
+I registered my channel, but I have no access to it!? 3.0.1, 3.0.2
+
+I've forgotten my nick/channel password, how do I find it out again? 6.1, 6.2
+
+Someone stole my (registered) nick? what do I do? 2.1.2, 2.2.3, 2.2.4
+
+How do I make ChanServ join my channel? 3.1.13
+
+My channel is sortov private, can services help? 3.1.10
+
+Someone is memo flooding me!!! What do I do? 2.2.5
+
+How do I get into a +i (invite only) channel? 3.2.4
+
+I'm banned!  How do I get in? 3.2.7
+
+It keeps saying I've got memos - What do I do? 4.2, 4.3, 4.4
+
+Who the heck are you anyway? 1.1

@@ -22,19 +22,22 @@
 /******** Global variables! ********/
 
 /* These can all be set by options. */
-char *remote_server = REMOTE_SERVER;	/* -remote server[:port] */
+char *remote_server = REMOTE_SERVER;		/* -remote server[:port] */
 int remote_port = REMOTE_PORT;
-char *server_name = SERVER_NAME;	/* -name servername */
-char *server_desc = SERVER_DESC;	/* -desc serverdesc */
-char *services_user = SERVICES_USER;	/* -user username */
-char *services_host = SERVICES_HOST;	/* -host hostname */
-char *services_dir = SERVICES_DIR;	/* -dir directory */
-char *log_filename = LOG_FILENAME;	/* -log filename */
-char *time_zone = TIMEZONE;		/* -tz timezone */
-int update_timeout = UPDATE_TIMEOUT;	/* -update secs */
-int debug = 0;				/* -debug */
-int server_relink = SERVER_RELINK;	/* -relink secs or -norelink */
-int services_level = SERVICES_LEVEL;	/* -level level */
+char *server_name = SERVER_NAME;		/* -name servername */
+char *server_desc = SERVER_DESC;		/* -desc serverdesc */
+char *services_user = SERVICES_USER;		/* -user username */
+char *services_host = SERVICES_HOST;		/* -host hostname */
+char *services_dir = SERVICES_DIR;		/* -dir directory */
+#ifdef OUTLET
+  char *services_prefix = SERVICES_PREFIX;	/* -prefix prefix */
+#endif
+char *log_filename = LOG_FILENAME;		/* -log filename */
+char *time_zone = TIMEZONE;			/* -tz timezone */
+int update_timeout = UPDATE_TIMEOUT;		/* -update secs */
+int debug = 0;					/* -debug */
+int server_relink = SERVER_RELINK;		/* -relink secs or -norelink */
+int services_level = SERVICES_LEVEL;		/* -level level */
 
 /* What gid should we give to all files?  (-1 = don't set) */
 gid_t file_gid = -1;
@@ -61,7 +64,7 @@ int save_data = 0;
 time_t start_time;
 
 /* Is the log open? */
-int openlog = 0;
+int log_is_open = 0;
 
 #ifdef OPERSERV
 int mode = 1; /* ON by default! */
@@ -155,7 +158,7 @@ void log(const char *fmt,...)
     time(&t);
     tm = *localtime(&t);
     strftime(buf, sizeof(buf)-1, "[%b %d %H:%M:%S %Y] ", &tm);
-    if (openlog) {
+    if (log_is_open) {
 	fputs(buf, stderr);
 	vfprintf(stderr, fmt, args);
 	fputc('\n', stderr);
@@ -178,7 +181,7 @@ void log_perror(const char *fmt,...)
     time(&t);
     tm = *localtime(&t);
     strftime(buf, sizeof(buf)-1, "[%b %d %H:%M:%S %Y] ", &tm);
-    if (openlog) {
+    if (log_is_open) {
 	fputs(buf, stderr);
 	vfprintf(stderr, fmt, args);
 	fprintf(stderr, ": %s\n", strerror(errno));
@@ -204,7 +207,7 @@ void fatal(const char *fmt,...)
     tm = *localtime(&t);
     strftime(buf, sizeof(buf)-1, "[%b %d %H:%M:%S %Y]", &tm);
     vsnprintf(buf2, sizeof(buf2), fmt, args);
-    if (openlog) {
+    if (log_is_open) {
 	fprintf(stderr, "%s FATAL: %s\n", buf, buf2);
 	fflush(stderr);
     }
@@ -228,7 +231,7 @@ void fatal_perror(const char *fmt,...)
     tm = *localtime(&t);
     strftime(buf, sizeof(buf)-1, "[%b %d %H:%M:%S %Y]", &tm);
     vsnprintf(buf2, sizeof(buf2), fmt, args);
-    if (openlog) {
+    if (log_is_open) {
 	fprintf(stderr, "%s FATAL: %s: %s\n", buf, buf2, strerror(errno));
 	fflush(stderr);
     }
@@ -327,12 +330,18 @@ int is_services_nick(const char *nick) {
 #ifdef GLOBALNOTICER
 	stricmp(nick, s_GlobalNoticer) == 0 ||
 #endif
+#ifdef OUTLET
+	stricmp(nick, s_Outlet) == 0 ||
+#endif
 	0) return 1;
     return 0;
 }
 
 const char *any_service()
 {
+#ifdef OUTLET
+	return s_Outlet;
+#endif
 #ifdef OPERSERV 
 	return s_OperServ;
 #endif
@@ -415,6 +424,12 @@ void introduce_user(const char *user)
 	send_cmd(s_GlobalNoticer, "MODE %s +io", s_GlobalNoticer);
     }
 #endif
+#ifdef OUTLET
+    if (!user || stricmp(user, s_Outlet) == 0) {
+	check_introduce(s_Outlet, "Magick Outlet");
+	send_cmd(s_Outlet, "MODE %s +i", s_Outlet);
+    }
+#endif
 }
 
 #undef NICK
@@ -450,6 +465,10 @@ void reset_dbases()
     servlist = NULL;
     servcnt = 0;
     serv_size = 0;
+    for (i=0;i<nsop;i++)
+	strscpy(sops[i], "", NICKMAX);
+    nsop = 0;
+    sop_size = 0;
     for (j = 33; j < 256; ++j)
 	ignore[j] = NULL;
 #ifdef NICKSERV
@@ -554,6 +573,11 @@ void reset_dbases()
 	}
 #endif
     }
+#ifdef GLOBALNOTICER
+    nmessage = 0;
+    message_size = 0;
+    messages = NULL;
+#endif
 #ifdef AKILL
     akills = NULL;
     nakill = 0;
@@ -577,9 +601,9 @@ void remove_pidfile()
 void open_log()
 {
     /* Redirect stderr to logfile. */
-    if (!openlog)
+    if (!log_is_open)
 	if (freopen(log_filename, "a", stderr))
-	    openlog = 1;
+	    log_is_open = 1;
 	else
 	    log("Cannot open %s, no logging output used.", log_filename);
     else
@@ -587,9 +611,9 @@ void open_log()
 }
 void close_log()
 {
-    if (openlog)
+    if (log_is_open)
 	fclose(stderr);
-    openlog = 0;
+    log_is_open = 0;
 }
 
 /*************************************************************************/
@@ -835,6 +859,14 @@ are given, detailed information about those channels is displayed.\n\
 		    break;
 		}
 		services_host = av[i];
+#ifdef OUTLET
+	    } else if (strcmp(s, "prefix") == 0) {
+		if (++i >= ac) {
+		    log("-prefix requires a parameter");
+		    break;
+		}
+		services_prefix = av[i];
+#endif
 	    } else if (strcmp(s, "dir") == 0) {
 		if (++i >= ac) {
 		    log("-dir requires a parameter");
@@ -895,6 +927,9 @@ are given, detailed information about those channels is displayed.\n\
 #ifndef WIERD_COLLIDE
     offset = services_level * 2;
 #endif
+#ifdef OUTLET
+    snprintf(s_Outlet, NICKMAX, "%s%d", services_prefix, services_level);
+#endif
 
     open_log();
 
@@ -952,6 +987,7 @@ are given, detailed information about those channels is displayed.\n\
 
     /* Load up databases. */
 
+    reset_dbases();
 #ifdef NICKSERV
     load_ns_dbase();
 #endif
@@ -972,6 +1008,10 @@ if (services_level==1) {
 #ifdef CLONES
     load_clone();
 #endif
+#ifdef GLOBALNOTICER
+    load_message();
+#endif
+    load_sop();
 
     /* Connect to the remote server */
     servsock = conn(remote_server, remote_port);
@@ -1045,6 +1085,10 @@ if (services_level==1) {
 #ifdef CLONES
 	    save_clone();
 #endif
+#ifdef GLOBALNOTICER
+	    save_message();
+#endif
+	    save_sop();
 	  }
 	    if (save_data < 0)
 		break;	/* out of main loop */
@@ -1082,7 +1126,6 @@ if (services_level==1) {
 	send_cmd(server_name, "SQUIT %s :%s", server_name, quitmsg);
 restart:
     disconn(servsock);
-    reset_dbases();
     close_log();
 
     if (server_relink > 0)
