@@ -778,32 +778,32 @@ void
 do_help (char *prog)
 {
 
-printf("
-Magick IRC Services are copyright (c) 1996-1998 Preston A. Elder.
-    E-mail: <prez@magick.tm>   IRC: PreZ@RelicNet
-This program is free but copyrighted software; see the file COPYING for
-details.  Please do not forget to read ALL the files in the doc directory.
-
-Syntax: %s [opts]
-
--remote server[:port]	Connect to the specified server.
--name servername	Our server name (e.g. hell.darker.net).
--desc string		Description of us (e.g. DarkerNet Services).
--user username		Username for Services' nicks (e.g. services).
--host hostname		Hostname for Services' nicks (e.g. darker.net).
--prefix prefix		Prefix for Magick Outlet (see magick.ini)
-			    (e.g. \"Magick-\").
--dir directory		Directory containing Services' data files
-			    (e.g. /usr/local/lib/services).
--config filename	Config file to be used (e.g. magick.ini).
--log filename		Services log filename (e.g. magick.log).
--update secs		How often to update databases, in seconds.
--debug			Enable debugging mode--more info sent to log.
--relink secs		Specify seconds to re-attempt link if SQUIT.
--norelink		Die on SQUIT or kill -1.
--level level		Specify services level (>1 = backup).
--offset hours		Specify the TimeZone offset for backups.
--live			Dont fork (log screen + log file).
+printf("\n\
+Magick IRC Services are copyright (c) 1996-1998 Preston A. Elder.\n\
+    E-mail: <prez@magick.tm>   IRC: PreZ@RelicNet\n\
+This program is free but copyrighted software; see the file COPYING for\n\
+details.  Please do not forget to read ALL the files in the doc directory.\n\
+\n\
+Syntax: %s [opts]\n\
+\n\
+-remote server[:port]	Connect to the specified server.\n\
+-name servername	Our server name (e.g. hell.darker.net).\n\
+-desc string		Description of us (e.g. DarkerNet Services).\n\
+-user username		Username for Services' nicks (e.g. services).\n\
+-host hostname		Hostname for Services' nicks (e.g. darker.net).\n\
+-prefix prefix		Prefix for Magick Outlet (see magick.ini)\n\
+			    (e.g. \"Magick-\").\n\
+-dir directory		Directory containing Services' data files\n\
+			    (e.g. /usr/local/lib/services).\n\
+-config filename	Config file to be used (e.g. magick.ini).\n\
+-log filename		Services log filename (e.g. magick.log).\n\
+-update secs		How often to update databases, in seconds.\n\
+-debug			Enable debugging mode--more info sent to log.\n\
+-relink secs		Specify seconds to re-attempt link if SQUIT.\n\
+-norelink		Die on SQUIT or kill -1.\n\
+-level level		Specify services level (>1 = backup).\n\
+-offset hours		Specify the TimeZone offset for backups.\n\
+-live			Dont fork (log screen + log file).\n\
 ", prog);
 
 /*
