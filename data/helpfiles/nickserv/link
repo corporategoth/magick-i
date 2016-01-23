@@ -1,0 +1,9 @@
+Syntax: LINK nick password
+
+Links your nickname to another nickname in the NickServ
+database.  Once linked, your nickname will take on all the
+properties of the 'host' nickname, good and bad.  Access
+lists, Ignore lists, Memos, Channel access's, Settings and
+password are all shared, but akicks, suspends, etc are also
+shared.  The password must be the password of the host nick.
+You must drop a nick before being able to link it.

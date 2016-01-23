@@ -1,6 +1,6 @@
 /* Main processing code for Services.
  *
- * Magick is copyright (c) 1996-1997 Preston A. Elder.
+ * Magick is copyright (c) 1996-1998 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
  * This program is free but copyrighted software; see the file COPYING for
  * details.
@@ -11,71 +11,121 @@
 
 /*************************************************************************/
 
-/* Use ignore code? */
-
-int allow_ignore = 1;
-
 /* People to ignore (hashed by first character of nick). */
 
-IgnoreData *ignore[256];
+#ifdef DEVNULL
+int ignorecnt = 0, ignore_size = 0;
+Ignore *ignore = NULL;
+#endif
 int servcnt = 0, serv_size = 0;
 Servers *servlist = NULL;
+Timer *pings = NULL;
 
-/* add_ignore: Add someone to the ignorance list for the next `delta'
- *             seconds.
- */
+static void add_msg (const char *nick);
+static void trigger_flood (User *u);
+static int is_ignored (const char *nick);
 
-void add_ignore(const char *nick, time_t delta)
+void addtimer (const char *label)
 {
-    IgnoreData *ign;
-    char who[NICKMAX];
-    time_t now = time(NULL);
-    IgnoreData **whichlist = &ignore[tolower(nick[0])];
-
-    strscpy(who, nick, NICKMAX);
-    for (ign = *whichlist; ign; ign = ign->next) {
-	if (stricmp(ign->who, who) == 0)
-	    break;
+    Timer *p;
+    if (!gettimer(label)) {
+	p = smalloc(sizeof(Timer));
+	p->next = pings;
+	p->prev = NULL;
+	if (pings)
+	    pings->prev = p;
+	pings = p;
+	p->label = sstrdup(label);
+	p->start = time(NULL);
     }
-    if (ign)
-	if (ign->time > now)
-	    ign->time += delta;
+}
+void deltimer (const char *label)
+{
+    Timer *p;
+    for (p = pings; p && stricmp(p->label, label)!=0; p = p->next) ;
+    if (p) {
+	if (p->next)
+	    p->next->prev = p->prev;
+	if (p->prev)
+	    p->prev->next = p->next;
 	else
-	    ign->time = now + delta;
-    else {
-	ign = smalloc(sizeof(*ign));
-	strscpy(ign->who, who, NICKMAX);
-	ign->time = now + delta;
-	ign->next = *whichlist;
-	*whichlist = ign;
+	    pings = p->next;
+	free(p->label);
+	free(p);
+    }
+}
+time_t gettimer (const char *label)
+{
+    Timer *p;
+    for (p = pings; p && stricmp(p->label, label)!=0; p = p->next) ;
+    if (p)
+	return p->start;
+    return 0;
+}
+
+#ifdef DEVNULL
+/* Add message time to user dbase */
+static void add_msg (const char *nick)
+{
+    User *u = finduser(nick);
+    int i;
+    if (is_ignored(nick)) return;
+    if (is_oper(nick)) return;
+    if (u) {
+        if (u->messages == FLOOD_MESSAGES) u->messages--;
+	for (i=0; i<FLOOD_MESSAGES; i++)
+	    if (i+1 < FLOOD_MESSAGES && i+1 < u->messages)
+		u->msg_times[i]=u->msg_times[i+1];
+	    else {
+		u->msg_times[i]=time(NULL);
+		u->messages++;
+		break;
+	    }
+	if (u->messages == FLOOD_MESSAGES &&
+				(time(NULL) - u->msg_times[0] < FLOOD_TIME))
+	    trigger_flood(u);
     }
 }
 
-
-/* get_ignore: Retrieve an ignorance record for a nick.  If the nick isn't
- *             being ignored, return NULL and flush the record from the
- *             in-core list if it exists (i.e. ignore timed out).
- */
-
-IgnoreData *get_ignore(const char *nick)
+/* Too many messages in too little time */
+static void trigger_flood (User *u)
 {
-    IgnoreData *ign, *prev;
-    time_t now = time(NULL);
-    IgnoreData **whichlist = &ignore[tolower(nick[0])];
-
-    for (ign = *whichlist, prev = NULL; ign; prev = ign, ign = ign->next)
-	if (stricmp(ign->who, nick) == 0)
-	    break;
-    if (ign && ign->time <= now) {
-	if (prev)
-	    prev->next = ign->next;
+    u->messages = 0;
+    u->flood_offence++;
+    if (ignorecnt >= ignore_size) {
+	if (ignore_size < 8)
+	    ignore_size = 8;
 	else
-	    *whichlist = ign->next;
-	free(ign);
-	ign = NULL;
+	    ignore_size *= 2;
+	ignore = srealloc(ignore, sizeof(*ignore) * ignore_size);
     }
-    return ign;
+    strscpy(ignore[ignorecnt].nick, u->nick, NICKMAX);
+    if (u->flood_offence < IGNORE_OFFENCES) {
+	wallops(s_DevNull, "%s is FLOODING services (Placed on TEMP ignore).", u->nick);
+	notice(s_DevNull, u->nick, "Services FLOOD triggered (>%d messages in %d seconds).  You are being ignored for %d seconds.",
+				FLOOD_MESSAGES, FLOOD_TIME, IGNORE_TIME);
+	log("TEMP ignore triggered on %s", u->nick);
+	ignore[ignorecnt].start = time(NULL);
+    } else {
+	wallops(s_DevNull, "%s is FLOODING services (Placed on PERM ignore).", u->nick);
+	notice(s_DevNull, u->nick, "Services FLOOD trigged >%d times on one login.  You are on perminant ignore.",
+				IGNORE_OFFENCES);
+	log("PERM ignore triggered on %s", u->nick);
+	u->flood_offence = 0;
+	ignore[ignorecnt].start = 0;
+    }
+    ignorecnt++;
 }
+
+static int is_ignored (const char *nick)
+{
+    int i;
+    if (is_oper(nick)) return 0;
+    for (i=0; i<ignorecnt; ++i)
+	if (stricmp(nick, ignore[i].nick)==0) return 1;
+    return 0;
+}
+#endif /* DEVNULL */
 
 /*************************************************************************/
 
@@ -139,7 +189,7 @@ void process()
 
 
     /* If debugging, log the buffer. */
-    if(debug)
+    if(runflags & RUN_DEBUG)
 	log("debug: Received: %s", inbuf);
 
     /* First make a copy of the buffer so we have the original in case we
@@ -173,19 +223,29 @@ void process()
 
 
     /* Do something with the command. */
-    if (stricmp(cmd, "PING") == 0) {
+    if (stricmp(cmd, "PING")==0) {
 	send_cmd(server_name, "PONG %s %s", ac>1 ? av[1] : server_name, av[0]);
 
-    } else if (stricmp(cmd, "436") == 0) {  /* Nick collision caused by us */
+/*    } else if (stricmp(cmd, "PONG")==0) {
+	if (gettimer(av[0])) {
+	    int i;
+	    for (i=0;i<servcnt && stricmp(servlist[i].server, av[0])!=0;i++) ;
+	    if (i<servcnt)
+		servlist[i].lag = time(NULL) - gettimer(av[0]);
+	    deltimer(av[0]);
+	}
+*/
+
+    } else if (stricmp(cmd, "436")==0) {  /* Nick collision caused by us */
 	User *u;
 	if(services_level==1) introduce_user(av[0]);
 	if((u = finduser(av[0]))) delete_user(u);
 
-    } else if (stricmp(cmd, "401") == 0) {  /* Non-Existant User/Channel */
+    } else if (stricmp(cmd, "401")==0) {  /* Non-Existant User/Channel */
 	User *u;
 	if((u = finduser(av[1]))) delete_user(u);
 
-    } else if (stricmp(cmd, "AWAY") == 0) {
+    } else if (stricmp(cmd, "AWAY")==0) {
 	int i;
 	if (ac == 0 || *av[0] == 0) {	/* un-away */
 #ifdef MEMOS
@@ -206,29 +266,29 @@ void process()
 #endif
 	}
 
-    } else if (stricmp(cmd, "GLOBOPS") == 0
-	    || stricmp(cmd, "GNOTICE") == 0
-	    || stricmp(cmd, "GOPER"  ) == 0
-	    || stricmp(cmd, "WALLOPS") == 0
-	    || stricmp(cmd, "SQLINE"  ) == 0
-	    || stricmp(cmd, "UNSQLINE") == 0
-	    || stricmp(cmd, "SVSNOOP") == 0
-	    || stricmp(cmd, "AKILL") == 0
+    } else if (stricmp(cmd, "GLOBOPS")==0
+	    || stricmp(cmd, "GNOTICE")==0
+	    || stricmp(cmd, "GOPER"  )==0
+	    || stricmp(cmd, "WALLOPS")==0
+	    || stricmp(cmd, "SQLINE"  )==0
+	    || stricmp(cmd, "UNSQLINE")==0
+	    || stricmp(cmd, "SVSNOOP")==0
+	    || stricmp(cmd, "AKILL")==0
 	    ) {
 
 	/* Do nothing */
 
-    } else if (stricmp(cmd, "JOIN") == 0) {
+    } else if (stricmp(cmd, "JOIN")==0) {
 	if (ac != 1)
 	    return;
 	do_join(source, ac, av);
 
-    } else if (stricmp(cmd, "KICK") == 0) {
+    } else if (stricmp(cmd, "KICK")==0) {
 	if (ac != 3)
 	    return;
 	do_kick(source, ac, av);
 
-    } else if (stricmp(cmd, "KILL") == 0 || stricmp(cmd, "SVSKILL") == 0) {
+    } else if (stricmp(cmd, "KILL")==0 || stricmp(cmd, "SVSKILL")==0) {
 	int i;
 	ChannelInfo *ci;
 	if (ac != 2)
@@ -240,14 +300,18 @@ void process()
 	    for (i = 33; i < 256; ++i) {
 		ci = chanlists[i];
 		while (ci) {
-		    if (ci->flags & CI_JOIN)
-			do_cs_join(ci->name);
+		    if (findchan(source))
+			if (ci->flags & CI_JOIN)
+			    do_cs_join(ci->name);
+		    else
+			if (ci->mlock_key || (ci->mlock_on & CMODE_I))
+		            do_cs_protect(ci->name);
 		    ci = ci->next;
 		}
 	    }	
 #endif
 
-    } else if (stricmp(cmd, "MODE") == 0 || stricmp(cmd, "SVSMODE") == 0) {
+    } else if (stricmp(cmd, "MODE")==0 || stricmp(cmd, "SVSMODE")==0) {
 	if (*av[0] == '#' || *av[0] == '&') {
 	    if (ac < 2)
 		return;
@@ -255,13 +319,13 @@ void process()
 	} else {
 	    if (ac != 2)
 		return;
-	    if (stricmp(cmd, "SVSMODE") == 0)
+	    if (stricmp(cmd, "SVSMODE")==0)
 		do_svumode(source, ac, av);
 	    else
 		do_umode(source, ac, av);
 	}
 
-    } else if (stricmp(cmd, "MOTD") == 0) {
+    } else if (stricmp(cmd, "MOTD")==0) {
 	FILE *f;
 	char buf[BUFSIZE];
 
@@ -278,7 +342,7 @@ void process()
 	} else
 		send_cmd(server_name, "422 %s :MOTD file not found!", source);
 
-    } else if (stricmp(cmd, "NICK") == 0 || stricmp(cmd, "SVSNICK") == 0) {
+    } else if (stricmp(cmd, "NICK")==0 || stricmp(cmd, "SVSNICK")==0) {
 
 #if defined(IRC_DALNET) || defined(IRC_UNDERNET)
 # ifdef IRC_DALNET
@@ -297,67 +361,63 @@ void process()
 	/* Nothing to do yet; information comes from USER command. */
 #endif
 
-    } else if (stricmp(cmd, "NOTICE") == 0) {
+    } else if (stricmp(cmd, "NOTICE")==0) {
 	/* Do nothing */
 
-    } else if (stricmp(cmd, "PART") == 0) {
+    } else if (stricmp(cmd, "PART")==0) {
 	if (ac < 1 || ac > 2)
 	    return;
 	do_part(source, ac, av);
 
-    } else if (stricmp(cmd, "PASS") == 0) {
+    } else if (stricmp(cmd, "PASS")==0) {
 	/* Do nothing - we assume we're not being fooled */
 
-    } else if (stricmp(cmd, "PRIVMSG") == 0) {
-	char buf[BUFSIZE];
-	if (ac != 2)
-	    return;
+    } else if (stricmp(cmd, "PRIVMSG")==0) {
+      char buf[BUFSIZE];
+      if (ac != 2)
+	return;
+      if (av[0][0]=='#')
+	return;
 
-	/* Check if we should ignore.  Operators always get through. */
-	if (allow_ignore && !is_oper(source)) {
-	    IgnoreData *ign = get_ignore(source);
-	    if (ign && ign->time > time(NULL)) {
-		log("Ignored message from %s: \"%s\"", source, inbuf);
-		return;
-	    }
-	}
-	starttime = time(NULL);
-
+#ifdef DEVNULL
+      add_msg(source);
+      if (!is_ignored(source)) {
+#endif
 #ifdef OPERSERV
-	if (stricmp(av[0], s_OperServ) == 0) {
+	if (stricmp(av[0], s_OperServ)==0) {
 	    if (is_oper(source))
 		operserv(source, av[1]);
 	    else
 		notice(s_OperServ, source, "Access denied.");
-	    if (mode==0) return;
+	    if (!(runflags & RUN_MODE)) return;
 #ifdef OUTLET
-	} else if (stricmp(av[0], s_Outlet) == 0) {
+	} else if (stricmp(av[0], s_Outlet)==0) {
 	    if (is_oper(source))
 		operserv(source, av[1]);
 	    else
 		notice(s_Outlet, source, "Access denied.");
-	    if (mode==0) return;
+	    if (!(runflags & RUN_MODE)) return;
 #endif
-	} else if(mode!=0) {
+	} else if(runflags & RUN_MODE) {
 #endif
 #ifdef NICKSERV
-	if (stricmp(av[0], s_NickServ) == 0)
+	if (stricmp(av[0], s_NickServ)==0)
 	    nickserv(source, av[1]);
 #endif
 #ifdef CHANSERV
-	if (stricmp(av[0], s_ChanServ) == 0)
+	if (stricmp(av[0], s_ChanServ)==0)
 	    chanserv(source, av[1]);
 #endif
 #ifdef MEMOSERV
-	if (stricmp(av[0], s_MemoServ) == 0)
+	if (stricmp(av[0], s_MemoServ)==0)
 	    memoserv(source, av[1]);
 #endif
 #ifdef HELPSERV
-	if (stricmp(av[0], s_HelpServ) == 0)
+	if (stricmp(av[0], s_HelpServ)==0)
 	    helpserv(s_HelpServ, source, av[1]);
 #endif
 #ifdef IRCIIHELP
-	if (stricmp(av[0], s_IrcIIHelp) == 0) {
+	if (stricmp(av[0], s_IrcIIHelp)==0) {
 	    char *s = smalloc(strlen(av[1]) + 7);
 	    sprintf(s, "ircII %s", av[1]);
 	    helpserv(s_IrcIIHelp, source, s);
@@ -376,47 +436,47 @@ void process()
 #ifdef DAL_SERV
 #ifdef OPERSERV
 	snprintf(buf, sizeof(buf), "%s@%s", s_OperServ, server_name);
-	if (stricmp(av[0], buf) == 0) {
+	if (stricmp(av[0], buf)==0) {
 	    if (is_oper(source))
 		operserv(source, av[1]);
 	    else
 		notice(s_OperServ, source, "Access denied.");
-	    if (mode==0) return;
+	    if (!(runflags & RUN_MODE)) return;
 #ifdef OUTLET
 	}
 	snprintf(buf, sizeof(buf), "%s@%s", s_Outlet, server_name);
-	if (stricmp(av[0], buf) == 0) {
+	if (stricmp(av[0], buf)==0) {
 	    if (is_oper(source))
 		operserv(source, av[1]);
 	    else
 		notice(s_Outlet, source, "Access denied.");
-	    if (mode==0) return;
+	    if (!(runflags & RUN_MODE)) return;
 #endif
-	} else if (mode!=0) {
+	} else if (runflags & RUN_MODE) {
 #endif
 #ifdef NICKSERV
 	snprintf(buf, sizeof(buf), "%s@%s", s_NickServ, server_name);
-	if (stricmp(av[0], buf) == 0)
+	if (stricmp(av[0], buf)==0)
 	    nickserv(source, av[1]);
 #endif
 #ifdef CHANSERV
 	snprintf(buf, sizeof(buf), "%s@%s", s_ChanServ, server_name);
-	if (stricmp(av[0], buf) == 0)
+	if (stricmp(av[0], buf)==0)
 	    chanserv(source, av[1]);
 #endif
 #ifdef MEMOSERV
 	snprintf(buf, sizeof(buf), "%s@%s", s_MemoServ, server_name);
-	if (stricmp(av[0], buf) == 0)
+	if (stricmp(av[0], buf)==0)
 	    memoserv(source, av[1]);
 #endif
 #ifdef HELPSERV
 	snprintf(buf, sizeof(buf), "%s@%s", s_HelpServ, server_name);
-	if (stricmp(av[0], buf) == 0)
+	if (stricmp(av[0], buf)==0)
 	    helpserv(s_HelpServ, source, av[1]);
 #endif
 #ifdef IRCIIHELP
 	snprintf(buf, sizeof(buf), "%s@%s", s_IrcIIHelp, server_name);
-	if (stricmp(av[0], buf) == 0) {
+	if (stricmp(av[0], buf)==0) {
 	    char *s = smalloc(strlen(av[1]) + 7);
 	    sprintf(s, "ircII %s", av[1]);
 	    helpserv(s_IrcIIHelp, source, s);
@@ -433,20 +493,17 @@ void process()
 	}
 #endif
 #endif
-	/*Add to ignore list if the command took a significant amount of time.*/
-	if (allow_ignore) {
-	    stoptime = time(NULL);
-	    if (stoptime > starttime && *source && !strchr(source, '.'))
-		add_ignore(source, stoptime-starttime);
-	}
+#ifdef DEVNULL
+      }
+#endif
 
-    } else if (stricmp(cmd, "QUIT") == 0) {
+    } else if (stricmp(cmd, "QUIT")==0) {
 	if (ac != 1)
 	    return;
 	do_quit(source, ac, av);
 	if (is_services_nick(av[0])) introduce_user(av[0]);
 
-    } else if (stricmp(cmd, "SERVER") == 0) {
+    } else if (stricmp(cmd, "SERVER")==0) {
 	if (servcnt >= serv_size) {
 	    if (serv_size < 8)
 		serv_size = 8;
@@ -457,9 +514,10 @@ void process()
 	servlist[servcnt].server = sstrdup(av[0]);
 	servlist[servcnt].hops = atoi(av[1]);
 	servlist[servcnt].desc = sstrdup(av[2]);
+	servlist[servcnt].lag = 0;
 	servcnt++;
 
-    } else if (stricmp(cmd, "SQUIT") == 0) {
+    } else if (stricmp(cmd, "SQUIT")==0) {
 	int i;
 	for (i=0;i<servcnt && stricmp(servlist[i].server, av[0])!=0;i++) ;
 	if (i<servcnt) {
@@ -471,12 +529,12 @@ void process()
 	}
 	if (services_level!=1) introduce_user(NULL);
 
-    } else if (stricmp(cmd, "TOPIC") == 0) {
+    } else if (stricmp(cmd, "TOPIC")==0) {
 	if (ac != 4)
 	    return;
 	do_topic(source, ac, av);
 
-    } else if (stricmp(cmd, "USER") == 0) {
+    } else if (stricmp(cmd, "USER")==0) {
 #if defined(IRC_CLASSIC) || defined(IRC_TS8)
 	char *new_av[7];
 
@@ -503,9 +561,9 @@ void process()
 	/* Do nothing - we get everything we need from the NICK command. */
 #endif
 
-    } else if (stricmp(cmd, "VERSION") == 0) {
+    } else if (stricmp(cmd, "VERSION")==0) {
 	if (source)
-	    send_cmd(server_name, "351 %s Magick %s v%s (%s%s%s%s%s%s%s%s%s%s%s%s%s%d) :-- %s%s",
+	    send_cmd(server_name, "351 %s Magick %s v%s (%s%s%s%s%s%s%s%s%s%s%s%s%d) :-- %s%s",
 			source, server_name, version_number,
 #ifdef NICKSERV
 			"N",
@@ -516,11 +574,6 @@ void process()
 			"C",
 #else
 			"c",
-#endif
-#ifdef IRCOP_OVERRIDE
-			"V",
-#else
-			"v",
 #endif
 #ifdef HELPSERV
 			"H",
@@ -573,7 +626,7 @@ void process()
 			"g",
 #endif
 			services_level, version_build,
-			debug ? " (debug mode)" : "");
+			(runflags & RUN_DEBUG) ? " (debug mode)" : "");
 
     } else
 	log("unknown message from server (%s)", inbuf);

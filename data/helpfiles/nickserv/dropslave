@@ -1,0 +1,9 @@
+Syntax: DROPSLAVE nick
+
+Drops a slave (linked) nick from the NickServ database,
+without need to change to the nick first.  A nick that
+has been dropped is free for anyone to re-register.
+
+In order to use this command, you must first identify
+with your password (/msg NickServ HELP IDENTIFY for more
+information).

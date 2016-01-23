@@ -1,0 +1,6 @@
+Syntax: MODE channel
+
+Asks ChanServ to tell you the current modes of
+a channel (including the key).
+You must have /MSG ChanServ INVITE access (type
+/msg ChanServ LEVEL LIST to find out).

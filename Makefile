@@ -3,7 +3,7 @@
 
 include Makefile.inc
 
-VERSION = 1.2
+VERSION = 1.3
 
 ########################## Configuration section ##########################
 
@@ -44,7 +44,6 @@ spotless: clean
 
 install: all
 	$(INSTALL) magick $(BINDEST)/magick
-	$(INSTALL) up
 	rm -f $(BINDEST)/listnicks $(BINDEST)/listchans
 	ln $(BINDEST)/magick $(BINDEST)/listnicks
 	ln $(BINDEST)/magick $(BINDEST)/listchans

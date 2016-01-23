@@ -1,5 +1,9 @@
 /* Magick -- main source file.
- * Copyright (c) 1996-97 Preston A. Elder <prez@antisocial.com>  PreZ@DarkerNet
+ *
+ * Magick is copyright (c) 1996-1998 Preston A. Elder.
+ *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
+ * This program is free but copyrighted software; see the file doc/COPYING
+ * for details.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,20 +37,14 @@ char *services_dir = SERVICES_DIR;		/* -dir directory */
   char *services_prefix = SERVICES_PREFIX;	/* -prefix prefix */
 #endif
 char *log_filename = LOG_FILENAME;		/* -log filename */
-char *time_zone = TIMEZONE;			/* -tz timezone */
 int update_timeout = UPDATE_TIMEOUT;		/* -update secs */
-int debug = 0;					/* -debug */
+int ping_frequency = PING_FREQUENCY;		/* -ping secs */
 int server_relink = SERVER_RELINK;		/* -relink secs or -norelink */
 int services_level = SERVICES_LEVEL;		/* -level level */
+float tz_offset = TZ_OFFSET;			/* -offset offset */
 
 /* What gid should we give to all files?  (-1 = don't set) */
 gid_t file_gid = -1;
-
-/* Set to 1 if we are to quit */
-int quitting = 0;
-
-/* Set to 1 if we are to TOTALLY quit */
-int terminating = 0;
 
 /* Contains a message as to why services is terminating */
 char *quitmsg = NULL;
@@ -57,28 +55,22 @@ char inbuf[BUFSIZE];
 /* Socket for talking to server */
 int servsock = -1;
 
-/* Should we update the databases now? */
-int save_data = 0;
-
 /* At what time were we started? */
 time_t start_time;
 
-/* Is the log open? */
-int log_is_open = 0;
-
 #ifdef OPERSERV
-int mode = 1; /* ON by default! */
-
+/* Reason for being OFF if it IS off */
 char *offreason = NULL;
 #endif
+
+/* Nice version of all the ugly 0/1 veriables! */
+long runflags = 0;
+
 
 /******** Local variables! ********/
 
 /* Set to 1 if we are waiting for input */
 static int waiting = 0;
-
-/* Set to 1 after we've set everything up */
-static int started = 0;
 
 /* If we get a signal, use this to jump out of the main loop. */
 static jmp_buf panic_jmp;
@@ -100,10 +92,11 @@ const char s_DevNull[] = DEVNULL_NAME;
 
 static void sighandler(int signum)
 {
-    if (started) {
-    	if (signum == SIGHUP) {  /* SIGHUP = save databases and quit */
-    	    save_data = -1;
-    	    signal(SIGHUP, SIG_IGN);
+    if (runflags & RUN_STARTED) {
+	/* Prepare for a possible SIGKILL -- Typical shutdown sequence */
+    	if (signum == SIGTERM) {
+	    runflags |= (RUN_SIGTERM | RUN_SAVE_DATA);
+    	    signal(SIGTERM, SIG_IGN);
     	    return;
 	} else if (!waiting) {
 	    log("PANIC! buffer = %s", inbuf);
@@ -126,16 +119,19 @@ static void sighandler(int signum)
     }
     if (signum == SIGUSR1 || !(quitmsg = malloc(BUFSIZE))) {
 	quitmsg = "Out of memory!";
-	quitting = 1;
+	runflags |= RUN_QUITTING;
     } else {
+    	if (signum == SIGHUP) /* No biggie -- just dbase reload ... */
+	    snprintf(quitmsg, BUFSIZE, "Magick Recieved SIGHUP -- Reloading!");
+	else 
 #if HAVE_STRSIGNAL
-	snprintf(quitmsg, BUFSIZE, "Magick terminating: %s", strsignal(signum));
+	    snprintf(quitmsg, BUFSIZE, "Magick terminating: %s", strsignal(signum));
 #else
-	snprintf(quitmsg, BUFSIZE, "Magick terminating on signal %d", signum);
+	    snprintf(quitmsg, BUFSIZE, "Magick terminating on signal %d", signum);
 #endif
-	quitting = 1;
+	runflags |= RUN_QUITTING;
     }
-    if (started)
+    if (runflags & RUN_STARTED)
 	longjmp(panic_jmp, 1);
     else {
 	log("%s", quitmsg);
@@ -158,7 +154,7 @@ void log(const char *fmt,...)
     time(&t);
     tm = *localtime(&t);
     strftime(buf, sizeof(buf)-1, "[%b %d %H:%M:%S %Y] ", &tm);
-    if (log_is_open) {
+    if (runflags & RUN_LOG_IS_OPEN) {
 	fputs(buf, stderr);
 	vfprintf(stderr, fmt, args);
 	fputc('\n', stderr);
@@ -181,7 +177,7 @@ void log_perror(const char *fmt,...)
     time(&t);
     tm = *localtime(&t);
     strftime(buf, sizeof(buf)-1, "[%b %d %H:%M:%S %Y] ", &tm);
-    if (log_is_open) {
+    if (runflags & RUN_LOG_IS_OPEN) {
 	fputs(buf, stderr);
 	vfprintf(stderr, fmt, args);
 	fprintf(stderr, ": %s\n", strerror(errno));
@@ -207,7 +203,7 @@ void fatal(const char *fmt,...)
     tm = *localtime(&t);
     strftime(buf, sizeof(buf)-1, "[%b %d %H:%M:%S %Y]", &tm);
     vsnprintf(buf2, sizeof(buf2), fmt, args);
-    if (log_is_open) {
+    if (runflags & RUN_LOG_IS_OPEN) {
 	fprintf(stderr, "%s FATAL: %s\n", buf, buf2);
 	fflush(stderr);
     }
@@ -231,7 +227,7 @@ void fatal_perror(const char *fmt,...)
     tm = *localtime(&t);
     strftime(buf, sizeof(buf)-1, "[%b %d %H:%M:%S %Y]", &tm);
     vsnprintf(buf2, sizeof(buf2), fmt, args);
-    if (log_is_open) {
+    if (runflags & RUN_LOG_IS_OPEN) {
 	fprintf(stderr, "%s FATAL: %s: %s\n", buf, buf2, strerror(errno));
 	fflush(stderr);
     }
@@ -304,34 +300,64 @@ void write_file_version(FILE *f, const char *filename)
     } while (0)
 #endif
 
+int i_am_backup() {
+    if (
+#ifdef NICKSERV
+	finduser(s_NickServ) ||
+#endif
+#ifdef CHANSERV
+	finduser(s_ChanServ) ||
+#endif
+#ifdef HELPSERV
+	finduser(s_HelpServ) ||
+#endif
+#ifdef IRCIIHELP
+	finduser(s_IrcIIHelp) ||
+#endif
+#ifdef MEMOSERV
+	finduser(s_MemoServ) ||
+#endif
+#ifdef OPERSERV 
+	finduser(s_OperServ) ||
+#endif
+#ifdef DEVNULL
+	finduser(s_DevNull) ||
+#endif
+#ifdef GLOBALNOTICER
+	finduser(s_GlobalNoticer) ||
+#endif
+	0) return 1;
+    return 0;
+}
+
 int is_services_nick(const char *nick) {
     if (
 #ifdef NICKSERV
-	stricmp(nick, s_NickServ) == 0 ||
+	stricmp(nick, s_NickServ)==0 ||
 #endif
 #ifdef CHANSERV
-	stricmp(nick, s_ChanServ) == 0 ||
+	stricmp(nick, s_ChanServ)==0 ||
 #endif
 #ifdef HELPSERV
-	stricmp(nick, s_HelpServ) == 0 ||
+	stricmp(nick, s_HelpServ)==0 ||
 #endif
 #ifdef IRCIIHELP
-	stricmp(nick, s_IrcIIHelp) == 0 ||
+	stricmp(nick, s_IrcIIHelp)==0 ||
 #endif
 #ifdef MEMOSERV
-	stricmp(nick, s_MemoServ) == 0 ||
+	stricmp(nick, s_MemoServ)==0 ||
 #endif
 #ifdef OPERSERV 
-	stricmp(nick, s_OperServ) == 0 ||
+	stricmp(nick, s_OperServ)==0 ||
 #endif
 #ifdef DEVNULL
-	stricmp(nick, s_DevNull) == 0 ||
+	stricmp(nick, s_DevNull)==0 ||
 #endif
 #ifdef GLOBALNOTICER
-	stricmp(nick, s_GlobalNoticer) == 0 ||
+	stricmp(nick, s_GlobalNoticer)==0 ||
 #endif
 #ifdef OUTLET
-	stricmp(nick, s_Outlet) == 0 ||
+	stricmp(nick, s_Outlet)==0 ||
 #endif
 	0) return 1;
     return 0;
@@ -366,7 +392,7 @@ const char *any_service()
 #ifdef DEVNULL
 	return s_DevNull;
 #endif
-	return "";
+	return NULL;
 }
 
 static void check_introduce(const char *nick, const char *name)
@@ -387,45 +413,45 @@ static void check_introduce(const char *nick, const char *name)
 void introduce_user(const char *user)
 {
 #ifdef NICKSERV
-    if (!user || stricmp(user, s_NickServ) == 0)
+    if (!user || stricmp(user, s_NickServ)==0)
 	check_introduce(s_NickServ, "Nickname Server");
 #endif
 #ifdef CHANSERV
-    if (!user || stricmp(user, s_ChanServ) == 0)
+    if (!user || stricmp(user, s_ChanServ)==0)
 	check_introduce(s_ChanServ, "Channel Server");
 #endif
 #ifdef HELPSERV
-    if (!user || stricmp(user, s_HelpServ) == 0)
+    if (!user || stricmp(user, s_HelpServ)==0)
 	check_introduce(s_HelpServ, "Help Server");
 #endif
 #ifdef IRCIIHELP
-    if (!user || stricmp(user, s_IrcIIHelp) == 0)
+    if (!user || stricmp(user, s_IrcIIHelp)==0)
 	check_introduce(s_IrcIIHelp, "ircII Help Server");
 #endif
 #ifdef MEMOSERV
-    if (!user || stricmp(user, s_MemoServ) == 0)
+    if (!user || stricmp(user, s_MemoServ)==0)
 	check_introduce(s_MemoServ, "Memo Server");
 #endif
 #ifdef DEVNULL
-    if (!user || stricmp(user, s_DevNull) == 0) {
+    if (!user || stricmp(user, s_DevNull)==0) {
 	check_introduce(s_DevNull, "/dev/null -- message sink");
 	send_cmd(s_DevNull, "MODE %s +i", s_DevNull);
     }
 #endif
 #ifdef OPERSERV
-    if (!user || stricmp(user, s_OperServ) == 0) {
+    if (!user || stricmp(user, s_OperServ)==0) {
 	check_introduce(s_OperServ, "Operator Server");
 	send_cmd(s_OperServ, "MODE %s +i", s_OperServ);
     }
 #endif
 #ifdef GLOBALNOTICER
-    if (!user || stricmp(user, s_GlobalNoticer) == 0) {
+    if (!user || stricmp(user, s_GlobalNoticer)==0) {
 	check_introduce(s_GlobalNoticer, "Global Noticer");
 	send_cmd(s_GlobalNoticer, "MODE %s +io", s_GlobalNoticer);
     }
 #endif
 #ifdef OUTLET
-    if (!user || stricmp(user, s_Outlet) == 0) {
+    if (!user || stricmp(user, s_Outlet)==0) {
 	check_introduce(s_Outlet, "Magick Outlet");
 	send_cmd(s_Outlet, "MODE %s +i", s_Outlet);
     }
@@ -453,157 +479,134 @@ int is_server(const char *nick)
 /* Reset in preperation for re-start */
 void reset_dbases()
 {
+    User *u, *un;
     NickInfo *ni, *nin;
     ChannelInfo *ci, *cin;
-    MemoList *ml, *mln;
-    NewsList *nl, *nln;
-    int i, j;
+    Clone *c, *cn;
+    Timeout *to, *ton;
+    Timer *t, *tn;
+    int i;
 
-    userlist = NULL;
+/* Some of these output ... stop that. */
+    runflags |= RUN_NOSEND;
+
+/* Clear active users (and channels) */
+    u = userlist;
+    while (u) {
+	un = u->next;
+	delete_user(u);
+	u=un;
+    }
     usercnt = opcnt = 0;
-    chanlist = NULL;
-    servlist = NULL;
-    servcnt = 0;
+
+/* SQUIT all servers */
+    while (servcnt) {
+	free(servlist[0].server);
+	free(servlist[0].desc);
+	servcnt--;
+	bcopy(servlist+1, servlist, sizeof(*servlist) * servcnt);
+    }
     serv_size = 0;
-    for (i=0;i<nsop;i++)
-	strscpy(sops[i], "", NICKMAX);
-    nsop = 0;
+
+/* Ignore smignore */
+#ifdef DEVNULL
+    while (ignorecnt) {
+	ignorecnt--;
+	bcopy(ignore+1, ignore, sizeof(*ignore) * ignorecnt);
+    }
+    ignore_size = 0;
+#endif
+
+/* Nope, we got NO MORE sops! */
+#ifdef OPERSERV
+    while (nsop) {
+	--nsop;
+	bcopy(sops+1, sops, NICKMAX * nsop);
+    }
     sop_size = 0;
-    for (j = 33; j < 256; ++j)
-	ignore[j] = NULL;
+#endif
+
+/* I OWN your ass! */
 #ifdef NICKSERV
-    for (j = 33; j < 256; ++j) {
-	ni = nicklists[j];
+    for (i = 33; i < 256; ++i) {
+	ni = nicklists[i];
 	while (ni) {
-#if FILE_VERSION > 2
-	    if (ni->email)
-		free(ni->email);
-	    if (ni->url)
-		free(ni->url);
-#endif
-	    if (ni->last_usermask)
-		free(ni->last_usermask);
-	    if (ni->last_realname)
-		free(ni->last_realname);
-	    if (ni->access) {
-		for (i = 0; i < ni->accesscount; ++i)
-		    free(ni->access[i]);
-		free(ni->access);
-	    }
-#if (FILE_VERSION > 3) && defined(MEMOS)
-	    if (ni->ignore) {
-		for (i = 0; i < ni->ignorecount; ++i)
-		    free(ni->ignore[i]);
-		free(ni->ignore);
-	    }
-#endif
 	    nin = ni->next;
-	    free(ni);
+	    delnick(ni);
 	    ni = nin;
-	    if (nin)
-		free(nin);
 	}
-	nicklists[j] = NULL;
     }
-    timeouts = NULL;
 #endif
+
+/* muaahahahaha */
 #ifdef CHANSERV
-    for (j = 33; j < 256; ++j) {
-	ci = chanlists[j];
+    for (i = 33; i < 256; ++i) {
+	ci = chanlists[i];
 	while (ci) {
-	    if (ci->desc)
-		free(ci->desc);
-#if FILE_VERSION > 2
-	    if (ci->url)
-		free(ci->url);
-#endif
-	    if (ci->mlock_key)
-		free(ci->mlock_key);
-	    if (ci->last_topic)
-		free(ci->last_topic);
-	    for (i = 0; i < ci->accesscount; ++i)
-		free(ci->access[i].name);
-	    if (ci->access)
-		free(ci->access);
-	    for (i = 0; i < ci->akickcount; ++i) {
-		free(ci->akick[i].name);
-		if (ci->akick[i].reason)
-		    free(ci->akick[i].reason);
-	    }
-	    if (ci->akick)
-		free(ci->akick);
-	    if (ci->cmd_access)
-		free(ci->cmd_access);
 	    cin = ci->next;
-	    free(ci);
+	    delchan(ci);
 	    ci = cin;
-	    if (cin)
-		free(cin);
 	}
-	chanlists[j] = NULL;
     }
 #endif
-    if (services_level==1) {
-#ifdef MEMOS
-	for (j = 33; j < 256; ++j) {
-	    ml = memolists[j];
-	    while (ml) {
-		free(ml->memos);
-		mln = ml->next;
-		free(ml);
-		ml = mln;
-		if (mln)
-		    free(mln);
-	    }
-	    memolists[j] = NULL;
-	}
-#endif
-#ifdef NEWS
-	for (j = 33; j < 256; ++j) {
-	    nl = newslists[j];
-	    while (nl) {
-		free(nl->newss);
-		nln = nl->next;
-		free(nl);
-		nl = nln;
-		if (nln)
-		    free(nln);
-	    }
-	    newslists[j] = NULL;
-	}
-#endif
-    }
-#ifdef GLOBALNOTICER
-    nmessage = 0;
-    message_size = 0;
-    messages = NULL;
-#endif
+
+/* Awwww, arent we nice ... */
 #ifdef AKILL
-    akills = NULL;
-    nakill = 0;
+    while (nakill)
+	del_akill(akills[0].mask, 1);
     akill_size = 0;
 #endif
+
+/* bleep ... bleep */
 #ifdef CLONES
-    clonelist = NULL;
-    clones = NULL;
-    nclone = 0;
+    while (nclone)
+	del_clone(clones[0].host);
     clone_size = 0;
+    c = clonelist;
+    while (c) {
+	cn = c->next;
+	clones_del(c->host);
+	c = cn;
+    }
 #endif
+
+/* Keep the plebs IGNORANT! */
+#ifdef GLOBALNOTICER
+    while (nmessage) {
+	free(messages[0].text);
+	--nmessage;
+	bcopy(messages+1, messages, sizeof(*messages) * nmessage);
+    }	
+    message_size = 0;
+#endif
+
+/* Tick ... Tick ... Tick ... BOOM! */
+#ifdef NICKSERV
+    to = timeouts;
+    while (to) {
+	ton = to->next;
+	free(to);
+	to = ton;
+    }
+#endif
+    t = pings;
+    while (t) {
+	t = t->next;
+	deltimer(t->label);
+	t = tn;
+    }
+
+    runflags &= ~RUN_NOSEND;
 }
 
 /*************************************************************************/
 
-/* Remove our PID file.  Done at exit. */
-void remove_pidfile()
-{
-    remove(PID_FILE);
-}
 void open_log()
 {
     /* Redirect stderr to logfile. */
-    if (!log_is_open)
+    if (!(runflags & RUN_LOG_IS_OPEN))
 	if (freopen(log_filename, "a", stderr))
-	    log_is_open = 1;
+	    runflags |= RUN_LOG_IS_OPEN;
 	else
 	    log("Cannot open %s, no logging output used.", log_filename);
     else
@@ -611,9 +614,9 @@ void open_log()
 }
 void close_log()
 {
-    if (log_is_open)
+    if ((runflags & RUN_LOG_IS_OPEN))
 	fclose(stderr);
-    log_is_open = 0;
+    runflags &= ~RUN_LOG_IS_OPEN;
 }
 
 /*************************************************************************/
@@ -624,6 +627,7 @@ void close_log()
 int main(int ac, char **av)
 {
     time_t last_update;	/* When did we last update the databases? */
+    time_t last_ping;	/* When did we last ping all servers? */
 #ifdef NICKSERV
     time_t last_check;	/* When did we last check NickServ timeouts? */
 #endif
@@ -636,13 +640,14 @@ int main(int ac, char **av)
 #endif
     FILE *pidfile;
 
-  while (!terminating) {
-    quitting = 0;
-    started = 0;
+  while (!(runflags & RUN_TERMINATING)) {
     quitmsg = NULL;
     servsock = -1;
-    save_data = 0;
     file_gid = -1;
+    if (runflags & RUN_DEBUG)
+	runflags = RUN_MODE | RUN_DEBUG;
+    else
+	runflags = RUN_MODE;
 
 #ifdef DEFUMASK
     umask(DEFUMASK);
@@ -701,7 +706,7 @@ int main(int ac, char **av)
 	int count = 0;	/* Count only rather than display? */
 	int usage = 0;	/* Display command usage?  (>0 also indicates error) */
 	int i;
-	terminating = 1;
+	runflags |= RUN_TERMINATING;
 
 #ifdef RUNGROUP
 	if (errmsg)
@@ -761,7 +766,7 @@ are given, detailed information about those nicks is displayed.\n\
 	int count = 0;	/* Count only rather than display? */
 	int usage = 0;	/* Display command usage?  (>0 also indicates error) */
 	int i;
-	terminating = 1;
+	runflags |= RUN_TERMINATING;
 
 #ifdef RUNGROUP
 	if (errmsg)
@@ -879,14 +884,8 @@ are given, detailed information about those channels is displayed.\n\
 		    break;
 		}
 		log_filename = av[i];
-	    } else if (strcmp(s, "tz") == 0) {
-		if (++i >= ac) {
-		    log("-tz requires a parameter");
-		    break;
-		}
-		time_zone = av[i];
 	    } else if (strcmp(s, "debug") == 0)
-		debug = 1;
+		runflags |= RUN_DEBUG;
 	    else if (strcmp(s, "relink") == 0) {
 		if (++i >= ac) {
 		    log("-relink requires a parameter");
@@ -907,6 +906,16 @@ are given, detailed information about those channels is displayed.\n\
 		    break;
 		}
 		services_level = atoi(av[i]);
+	    } else if (strcmp(s, "offset") == 0) {
+		if (++i >= ac) {
+		    log("-level requires a parameter");
+		    break;
+		}
+		if (abs(atoi(av[i]))>=24) {
+		    log("-offset must be between -24 and 24.");
+		    break;
+		}
+		tz_offset = atof(av[i]);
 	    } else if (strcmp(s, "norelink") == 0)
 		server_relink = -1;
 	    else if (strcmp(s, "update") == 0) {
@@ -919,6 +928,16 @@ are given, detailed information about those channels is displayed.\n\
 		    log("-update: number of seconds must be positive");
 		else
 		    update_timeout = (atoi(s));
+	    } else if (strcmp(s, "ping") == 0) {
+		if (++i >= ac) {
+		    log("-ping requires a parameter");
+		    break;
+		}
+		s = av[i];
+		if (atoi(s) <= 0)
+		    log("-ping: number of seconds must be positive");
+		else
+		    ping_frequency = (atoi(s));
 	    } else
 		log("Unknown option -%s", s);
 	} else
@@ -1037,14 +1056,14 @@ if (services_level==1) {
     /* The signal handler routine will drop back here with quitting != 0
      * if it gets called. */
     setjmp(panic_jmp);
-    started = 1;
+    runflags |= RUN_STARTED;
 
     last_update = time(NULL);
 
-    while (!quitting) {
+    while (!(runflags & RUN_QUITTING)) {
 	time_t t = time(NULL);
 	waiting = -3;
-	if (save_data || t-last_update >= update_timeout) {
+	if ((runflags & RUN_SAVE_DATA) || t-last_update >= update_timeout) {
 	  if (services_level==1) {
 	    /* First check for expired nicks/channels */
 	    waiting = -22;
@@ -1090,11 +1109,32 @@ if (services_level==1) {
 #endif
 	    save_sop();
 	  }
-	    if (save_data < 0)
-		break;	/* out of main loop */
-
-	    save_data = 0;
+	    runflags &= ~RUN_SAVE_DATA;
 	    last_update = t;
+	    if (runflags & RUN_SIGTERM) {
+		runflags &= ~RUN_SIGTERM;
+		break;
+	    }
+	}
+/*	if ((runflags & RUN_SEND_PINGS) || t-last_ping >= ping_frequency) {
+	    int i;
+	    for (i=0; i<servcnt; ++i) {
+		addtimer(servlist[i].server);
+		send_cmd(server_name, "PING %s", servlist[i].server);
+		runflags &= ~RUN_SEND_PINGS;
+	    }
+	    last_ping = t;
+	}
+*/	{
+	    int i;
+	    for (i=0; i<ignorecnt; ++i)
+		if (ignore[i].start &&
+				(time(NULL) - ignore[i].start > IGNORE_TIME)) {
+		    --ignorecnt;
+		    if (i < ignorecnt)
+			bcopy(ignore+i+1, ignore+i, sizeof(*ignore) * (ignorecnt-i));
+		    i--;
+		}
 	}
 	waiting = -1;
 #ifdef NICKSERV
@@ -1113,7 +1153,7 @@ if (services_level==1) {
 		snprintf(quitmsg, BUFSIZE, "Read error from server: %s", strerror(errno));
 	    else
 		quitmsg = "Read error from server";
-	    quitting = 1;
+	    runflags |= RUN_QUITTING;
 	}
 	waiting = -4;
     }
@@ -1122,7 +1162,7 @@ if (services_level==1) {
     if (!quitmsg)
 	quitmsg = "Terminating, reason unknown";
     log("%s", quitmsg);
-    if (started)
+    if (runflags & RUN_STARTED)
 	send_cmd(server_name, "SQUIT %s :%s", server_name, quitmsg);
 restart:
     disconn(servsock);
@@ -1134,6 +1174,6 @@ restart:
 	goto endproc;
   }
 endproc:
-  remove_pidfile();
+  remove(PID_FILE);
   return 0;
 }

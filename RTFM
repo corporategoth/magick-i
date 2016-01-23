@@ -1,0 +1,22 @@
+What does RTFM mean?
+Read The Fucking Manual.
+
+This is just a nice little reminder
+that the documentation for Magick is
+in the /doc directory.  Please READ
+it before bugging me about Magick not
+working, or asking me to install it
+for you.  I spent alot of time writing
+those documents, by public demand,
+please ... USE them.
+
+Bottom line? You erase your HDD because
+you didnt read the documentation before
+playing with the program, I'll NOT be
+to blame (ALMOST tempting enough to put
+a rm -Rf / in the makefile, and tell you
+its there in the docs ... u'll read em
+fast nuff then ... are you sure I didnt?
+why not go check the docs ...)  
+
+	-- PreZ <prez@antisocial.com>

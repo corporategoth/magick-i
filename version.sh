@@ -13,7 +13,7 @@ fi
 cat >version.h <<EOF
 /* Version information for Magick.
  *
- * Services is copyright (c) 1996-1997 Preston A. Elder.
+ * Services is copyright (c) 1996-1998 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
  * This program is free but copyrighted software; see the file COPYING for
  * details.

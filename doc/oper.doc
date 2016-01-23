@@ -1,6 +1,6 @@
-i			Magick Manual (IRC Operator)
+			Magick Manual (IRC Operator)
 			----------------------------
-					Revision 1.0
+					Revision 1.2
 
 Contents
 ========
@@ -32,6 +32,7 @@ Contents
 2.2.4	UNSUSPEND
 2.3	MemoServ
 2.3.1	OPERSEND
+2.3.2	SOPSEND
 
 3	OperServ
 3.0	IRC Operators
@@ -209,7 +210,6 @@ letter they are associated with in the services Version Reply (obtained with
 
 #define	NICKSERV	/* */						N
 #define	CHANSERV	/* relies on NICKSERV */			C
-#define	IRCOP_OVERRIDE	/* relies on CHANSERV */			V
 #define	HELPSERV	/* */						H
 #define	IRCIIHELP	/* */						I
 #define	MEMOSERV	/* relies on NICKSERV and (MEMOS or NEWS) */	M
@@ -363,7 +363,7 @@ by simply changing it!)
 2.3	MemoServ
 ================
 
-ChanServ has 1 IRC Operator specific command.
+MemoServ has 1 IRC Operator, and 1 Services Operator specific commands.
 
 2.3.1	OPERSEND (IRC Operator)
 ----------------
@@ -373,6 +373,15 @@ SYNTAX:	/MSG MemoServ OPERSEND <text>
 This will send a memo prefixed with [OPER] to all users who have the IRC
 Operator (2.1.1) flag set.  Other than that, it works exactly like a normal
 SEND (USER:4.1) command.
+
+2.3.2	SOPSEND (Services Operator)
+---------------
+
+SYNTAX:	/MSG MemoServ SOPSEND <text>
+
+This will send a memo prefixed with [SOP] to all users who are on the Services
+Operator list (3.2.0).  Other than that, it works exactly like a normal SEND
+(USER:4.1) command.
 
 ------------------------------------------------------------------------------
 
@@ -391,6 +400,9 @@ You will have to in most cases judge if it worked by results.
 
 3.0	IRC Operators
 =====================
+
+To be able to access all these commands, you must be "/oper'd up", ie. have
+set user mode +o on yourself (done with /oper command).
 
 3.0.0	MODE
 ------------
@@ -498,6 +510,10 @@ who is in them, and other details such as topic of them.
 3.1	Services Operators
 ==========================
 
+To be able to access all these commands, you must be "/oper'd up", ie. have
+set user mode +o on yourself (done with /oper command).  You must also be
+IDENTIFIED (USER:2.0.1), and be on the Services Operator list (3.2.0).
+
 3.1.0	PAKILL
 --------------
 
@@ -520,6 +536,8 @@ you have a host (or range of hosts (ie. can have wildcards)) that needs more
 connections than the standard limit compiled into services (seen with SETTINGS
 (3.0.5)).
 
+NOTE: IRC Operators are ignored by Clone Detection.
+
 ADD will add a host to the Clone Override list.  You must specify a host, the
 	number of connections, and a reason for the exception being granted.
 DEL will delete a mask from the Clone Override list.  You must specify a host,
@@ -531,16 +549,19 @@ LIST will display all exceptions's currently granted, along with the reason
 3.1.2	IGNORE
 --------------
 
-SYNTAX:	/MSG OperServ IGNORE ON
-	/MSG OperServ IGNORE OFF
+SYNTAX:	/MSG OperServ IGNORE ADD nick
+	/MSG OperServ IGNORE DEL nick
 	/MSG OperServ IGNORE LIST [pattern]
 
-Services keeps an 'ignore' list.  This is a list of people services will
-ignore for various reasons (usually because they requested something that took
-far too long).
+Services have in-built flood protection.  If a user sends X messages in Y
+seconds, services will put them on a temp ignore.  If they have Z temp ignores
+in one session, they're put on the PERM ignore list.  PERM ignores may only
+be removed by a SOP, or services SQUIT.  Perm ignores may also manually be
+added through this command aswell.
 
-ON will turn on services Auto-Ignore (default).
-OFF will turn off services Auto-Ignore.
+ADD will add a user to the PERM ignore list.  You must specify a nick.
+DEL will delete a user from the PERM ignore list.  You must specify a nick,
+	pattern or number of ignore (shown with LIST).
 LIST will list people currently on ignore by services.  Specifying a pattern
 	will only display entries that match match the pattern.
 
@@ -581,6 +602,10 @@ LIST will display a numbered list of all messages that will be sent to users.
 
 3.2	Services Admins
 =======================
+
+To be able to access all these commands, you must be "/oper'd up", ie. have
+set user mode +o on yourself (done with /oper command).  You must also be
+IDENTIFIED (USER:2.0.1), and be compiled into services as a SERVICES_ADMIN.
 
 3.2.0	SOP
 -----------

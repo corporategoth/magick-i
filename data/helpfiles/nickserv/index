@@ -9,13 +9,14 @@ For more information on a specific command, type
     REGISTER   Register a nickname
     IDENTIFY   Identify yourself with your password
     ACCESS     Modify the list of authorized addresses
+    LINK       Link another nickname to your primary one
     SET        Set options, including kill protection
     DROP       Cancel the registration of a nickname
     RECOVER    Kill another user who has taken your nick
     RELEASE    Regain custody of your nick after RECOVER
     IGNORE     Modify the list of memo auto-reject nicks
 
-Other commands: GHOST, INFO, LIST
+Other commands: GHOST, INFO, LIST, DROPSLAVE
 
 NOTICE: This service is intended to provide a way for
 IRC users to ensure their identity is not compromised.

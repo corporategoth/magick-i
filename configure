@@ -151,6 +151,19 @@ export ECHO2 ECHO2SUF
 
 ###########################################################################
 
+# Header
+
+echo "Magick Configuration"
+echo "===================="
+echo ""
+echo "Magick is copyright (c) 1996-1998 Preston A. Elder."
+echo "    E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet"
+echo "This program is free but copyrighted software; see the file doc/COPYING"
+echo "for details."
+echo ""
+
+###########################################################################
+
 # Command-line parsing.
 
 IGNORE_CACHE= ; USER_CC= ; USER_CC_FLAGS=bonkle ; USER_CC_LFLAGS=
@@ -189,12 +202,6 @@ EOT
 	fi
 	shift
 done
-
-###########################################################################
-
-echo ""
-echo "Beginning Services configuration."
-echo ""
 
 ###########################################################################
 

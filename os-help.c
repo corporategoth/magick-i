@@ -7,7 +7,7 @@ static const char *os_help[] = {
 "OperServ commands (IRC Operators):",
 "   \2MODE\2 {\37channel\37|\37nick\37} [\37modes\37] -- See/Change a channel/nick's modes",
 "   \2KICK\2 \37channel\37 \37nick\37 \37reason\37 -- Kick a user from a channel",
-"   \2AKILL\2 {\37ADD\37|\37DEL\37|\37LIST\37|\37VIEW\37} [\37mask\37 [\37reason\37]] -- Manipulate the AKILL list",
+"   \2AKILL\2 {\37ADD\37|\37DEL\37|\37LIST\37} [\37mask\37 [\37reason\37]] -- Manipulate the AKILL list",
 "   \2GLOBAL\2 \37message\37 -- Send a message to all users",
 "   \2STATS\2 -- status of Magick and network",
 "   \2SETTINGS\2 -- Show hardcoded Magick settings",
@@ -43,7 +43,7 @@ static const char *os_sop_help[] = {
 "   \2KILL\2 \37user\37 \37reason\37 -- Kill user with no indication of IrcOP",
 "   \2PAKILL\2 {\37ADD\37|\37DEL\37} [\37mask\37 [\37reason\37]] -- Manipulate the PAKILL list",
 "   \2CLONE\2 {\37ADD\37|\37DEL\37|\37LIST\37} [\37host\37] [37amount\37 [\37reason\37]] -- Manipulate the CLONE list",
-"   \2IGNORE\2 \37{ON|OFF|LIST}\37 -- Server auto-ignores.",
+"   \2IGNORE\2 {\37ADD\37|\37DEL\37|\37LIST\37} -- Server auto-ignores.",
 "   \2JUPE\2 \37server\37 -- Make server appear linked",
 "   \2UPDATE\2 -- Update *Serv databases (before QUIT)",
 "   \2LOGONMSG\2 {\37ADD\37|\37DEL\37|\37LIST\37} [\37text|num\37] -- Manipulate the Logon Messages",
@@ -55,7 +55,7 @@ static const char *os_sop_help[] = {
 "OperServ commands (Services Operators):",
 "   \2PAKILL\2 {\37ADD\37|\37DEL\37} [\37mask\37 [\37reason\37]] -- Manipulate the PAKILL list",
 "   \2CLONE\2 {\37ADD\37|\37DEL\37|\37LIST\37} [\37host\37] [37amount\37 [\37reason\37]] -- Manipulate the CLONE list",
-"   \2IGNORE\2 \37{ON|OFF|LIST}\37 -- Server auto-ignores.",
+"   \2IGNORE\2 {\37ADD\37|\37DEL\37|\37LIST\37} -- Server auto-ignores.",
 "   \2JUPE\2 \37server\37 -- Make server appear linked",
 "   \2UPDATE\2 -- Update *Serv databases (before QUIT)",
 "   \2LOGONMSG\2 {\37ADD\37|\37DEL\37|\37LIST\37} [\37text|num\37] -- Manipulate the Logon Messages",
@@ -89,8 +89,8 @@ NULL
 #endif
 static const char *os_end_help[] = {
 "   \2CHANSERV\2, \2NICKSERV\2, and \2MEMOSERV\2 will also tell you",
-"   the available Operator commands for the respective serviers.  Help",
-"   for these commands is done with /msg *Serv HELP command",
+"   the available Operator commands for the respective serviers.",
+"   Help for these commands is done with /msg *Serv HELP command",
 "",
 "\2Notice:\2 All commands sent to OperServ are logged!",
 NULL
@@ -100,7 +100,7 @@ NULL
 
 #ifdef DAL_SERV
 static const char *mode_help[] = {
-"Syntax: MODE {\37channel\37|\37nick\37} [\37modes\37]",
+"Syntax: \2MODE\2 {\37channel\37|\37nick\37} [\37modes\37]",
 "",
 "Allows IRCops to see channel modes for any channel",
 "or nick, and set them for any channel.",
@@ -111,7 +111,7 @@ NULL
 };
 #else
 static const char *mode_help[] = {
-"Syntax: MODE {\37channel\37|\37nick\37} [\37modes\37]",
+"Syntax: \2MODE\2 {\37channel\37|\37nick\37} [\37modes\37]",
 "",
 "Allows IRCops to see channel modes for any channel",
 "or nick, and set them for any channel.",
@@ -123,7 +123,7 @@ NULL
 /*************************************************************************/
 
 static const char *kick_help[] = {
-"Syntax: KICK \37channel\37 \37user\37 \37reason\37",
+"Syntax: \2KICK\2 \37channel\37 \37user\37 \37reason\37",
 " ",
 "Allows IRCops to kick a user from any channel.",
 "Parameters are the same as for the standard /KICK",
@@ -137,9 +137,9 @@ NULL
 /*************************************************************************/
 
 static const char *sop_help[] = {
-"Syntax: SOP ADD \37nick\37",
-"        SOP DEL \37nick\37",
-"        SOP LIST [\37nick\37]",
+"Syntax: \2SOP\2 ADD \37nick\37",
+"        \2SOP\2 DEL \37nick\37",
+"        \2SOP\2 LIST [\37nick\37]",
 "",
 "Allows Operators to manipulate the SOP list.  Any oper who",
 "is on this list will be given special privilages such as",
@@ -159,9 +159,9 @@ NULL
 
 #ifdef GLOBALNOTICER
 static const char *logonmsg_help[] = {
-"Syntax: LOGONMSG ADD \37text\37",
-"        LOGONMSG DEL \37num\37",
-"        LOGONMSG LIST",
+"Syntax: \2LOGONMSG\2 ADD \37text\37",
+"        \2LOGONMSG\2 DEL \37num\37",
+"        \2LOGONMSG\2 LIST",
 "",
 "Allows Operators to manipulate the Logon Messages.  These",
 "messages are displayed to every user when they logon to",
@@ -176,9 +176,9 @@ NULL
 };
 
 static const char *opermsg_help[] = {
-"Syntax: OPERMSG ADD \37text\37",
-"        OPERMSG DEL \37num\37",
-"        OPERMSG LIST",
+"Syntax: \2OPERMSG\2 ADD \37text\37",
+"        \2OPERMSG\2 DEL \37num\37",
+"        \2OPERMSG\2 LIST",
 "",
 "Allows Operators to manipulate the Oper Messages.  These",
 "messages are displayed to a user when they set mode +o",
@@ -197,9 +197,9 @@ NULL
 
 #ifdef AKILL
 static const char *akill_help[] = {
-"Syntax: AKILL ADD \37mask\37 \37reason\37",
-"        AKILL DEL \37mask\37",
-"        AKILL LIST [\37mask\37]",
+"Syntax: \2AKILL\2 ADD \37mask\37 \37reason\37",
+"        \2AKILL\2 DEL \37mask\37",
+"        \2AKILL\2 LIST [\37mask\37]",
 "",
 "Allows IRCops to manipulate the AKILL list.  If a user",
 "matching an AKILL mask attempts to connect, Services will",
@@ -216,8 +216,8 @@ NULL
 };
 
 static const char *pakill_help[] = {
-"Syntax: PAKILL ADD \37mask\37 \37reason\37",
-"        PAKILL DEL \37mask\37",
+"Syntax: \2PAKILL\2 ADD \37mask\37 \37reason\37",
+"        \2PAKILL\2 DEL \37mask\37",
 "",
 "Allows IRCops to manipulate the PAKILL list.  If a user",
 "matching an PAKILL mask attempts to connect, Services will",
@@ -232,9 +232,9 @@ NULL
 
 #ifdef CLONES
 static const char *clone_help[] = {
-"Syntax: CLONE ADD \37host\37 \37amount\37 \37reason\37",
-"        CLONE DEL \37host\37",
-"        CLONE LIST [\37pattern\37]",
+"Syntax: \2CLONE\2 ADD \37host\37 \37amount\37 \37reason\37",
+"        \2CLONE\2 DEL \37host\37",
+"        \2CLONE\2 LIST [\37pattern\37]",
 "",
 "If a user matching a CLONE host attempts to connect, will",
 "Services will grant them \37amount\37 connections at once,",
@@ -255,7 +255,7 @@ NULL
 /*************************************************************************/
 
 static const char *stats_help[] = {
-"Syntax: \2STATS [ALL]\2",
+"Syntax: \2STATS\2 [\37ALL\37]",
 "",
 "Shows the current number of users and IRCops online",
 "(excluding Services), the highest number of users online",
@@ -280,6 +280,7 @@ NULL
 };
 
 /*************************************************************************/
+
 static const char *update_help[] = {
 "Syntax: \2UPDATE\2",
 "",
@@ -289,7 +290,20 @@ static const char *update_help[] = {
 "Limited to \2Services Operator\2.",
 NULL
 };
+
+/*************************************************************************/
+
+static const char *sendpings_help[] = {
+"Syntax: \2SENDPINGS\2",
+"",
+"Forces Magick to send a ping to ALL servers linked"
+"to update the lag meter in the \2BREAKDOWN\2.",
+"Limited to \2Services Operator\2.",
+NULL
+};
+
 /************************************************************************/
+
 static const char *quit_help[] = {
 "Syntax: \2QUIT\2",
 "",
@@ -303,7 +317,9 @@ static const char *quit_help[] = {
 "Limited to \2Services Admin\2.",
 NULL
 };
+
 /************************************************************************/
+
 static const char *shutdown_help[] = {
 "Syntax: \2SHUTDOWN\2",
 "",
@@ -316,9 +332,11 @@ static const char *shutdown_help[] = {
 "Limited to \2Services Admin\2.",
 NULL
 }; 
+
 /************************************************************************/
+
 static const char *jupe_help[] = {
-"Syntax: \2JUPE \37server\37\2",
+"Syntax: \2JUPE\2 \37server\37",
 "",
 "Tells Services to jupiter a server -- that is, to create",
 "a fake \"server\" connected to Services which prevents",
@@ -329,8 +347,10 @@ static const char *jupe_help[] = {
 "Limited to \2Services Operator\2.",
 NULL
 };
-#ifdef DAL_SERV
+
 /*************************************************************************/
+
+#ifdef DAL_SERV
 static const char *qline_help[] = {
 "Syntax: \2QLINE\2 \37nick\37 [\37reason\37]",
 "",
@@ -339,7 +359,9 @@ static const char *qline_help[] = {
 "Limited to \2Services Operator\2.",
 NULL
 };
+
 /*************************************************************************/
+
 static const char *unqline_help[] = {
 "Syntax: \2UNQLINE\2 \37nick\37",
 "",
@@ -348,7 +370,9 @@ static const char *unqline_help[] = {
 "Limited to \2Services Operator\2.",
 NULL
 };
+
 /*************************************************************************/
+
 static const char *noop_help[] = {
 "Syntax: \2NOOP\2 \37server\37 {\37+\37|\37-\37}",
 "",
@@ -362,7 +386,9 @@ static const char *noop_help[] = {
 "Limited to \2Services Operator\2.",
 NULL
 };
+
 /*************************************************************************/
+
 static const char *kill_help[] = {
 "Syntax: \2KILL\2 \37user\37 \37reason\37",
 "",
@@ -375,7 +401,9 @@ static const char *kill_help[] = {
 NULL
 };
 #endif /* DAL_SERV */
+
 /*************************************************************************/
+
 static const char *breakdown_help[] = {
 "Syntax: \2BREAKDOWN\2",
 "",
@@ -384,7 +412,9 @@ static const char *breakdown_help[] = {
 "tally equates.",
 NULL
 };
+
 /*************************************************************************/
+
 static const char *userlist_help[] = {
 "Syntax: \2USERLIST\2 [\37PATTERN\37]",
 "",
@@ -395,7 +425,9 @@ static const char *userlist_help[] = {
 "(Searches by nickname).",
 NULL
 };
+
 /*************************************************************************/
+
 static const char *masklist_help[] = {
 "Syntax: \2MASKLIST\2 [\37PATTERN\37]",
 "",
@@ -406,7 +438,9 @@ static const char *masklist_help[] = {
 "(Searches by user@host).",
 NULL
 };
+
 /*************************************************************************/
+
 static const char *chanlist_help[] = {
 "Syntax: \2CHANLIST\2 [\37PATTERN\37]",
 "",
@@ -415,10 +449,12 @@ static const char *chanlist_help[] = {
 "is specified, it will only show those matching it.",
 NULL
 };
+
 /*************************************************************************/
+
 static const char *offon_help[] = {
-"Syntax: \2OFF\2 \37password\37 [\37reason\37]",
-"        \2ON\2  \37password\37",
+"Syntax: \2OFF\2 [\37reason\37]",
+"        \2ON\2",
 "",
 "Turns services OFF or ON without terminating them.",
 "When in OFF mode the only command services will",
@@ -427,17 +463,20 @@ static const char *offon_help[] = {
 "Limited to \2Services Admin\2.",
 NULL
 };
+
 /*************************************************************************/
+
 static const char *ignore_help[] = {
-"Syntax: \2IGNORE\2 ON",
-"Syntax: \2IGNORE\2 OFF",
-"Syntax: \2IGNORE\2 LIST [\37MASK\37]",
+"Syntax: \2IGNORE\2 ADD \37nick\37",
+"        \2IGNORE\2 DEL \37nick\37",
+"        \2IGNORE\2 LIST [\37pattern\37]",
 "",
 "Maintinance on Services internal ignorance list.  If a",
-"command takes an excessively long time, the user is put",
-"on ignore automatically.  This will allow you to turn",
-"this activity on or off, and also view people currently",
-"currently on ignore.",
+"user triggers Flood Protection more than a certain amount",
+"of times (seen with \2SETTINGS\2), it will put them on",
+"IGNORE list.  You may also add and remove people youserlf",
+"to and from this list.  Temporary ignores dont show up on",
+"this list.",
 "Limited to \2Services Operator\2.",
 NULL
 };
@@ -470,6 +509,9 @@ NULL
 static const char *memoserv_help[] = {
 "MemoServ commands (IRC Operators):",
 "   \2OPERSEND\2 \37text\37 - Send a memo to all IRC Operators",
+"",
+"MemoServ commands (Services Operators):",
+"   \2SOPSEND\2 \37text\37 - Send a memo to all Services Operators",
 NULL
 };
 

@@ -1,0 +1,133 @@
+NOTES on Distribution of Magick.
+================================
+
+Getting Magick
+--------------
+
+The official homesite for Magick is:
+	FTP://ftp.goth.net/pub/Magick
+	HTTP://www.goth.net/pub/Magick
+
+There is no web page on it yet (coming).
+
+Official mirrors for it are:
+	FTP://srealm.goth.net/pub/Magick
+
+Mailing list for Magick is magick@goth.net -- To subscribe:
+	Email majordomo@goth.net with "subscribe magick" (no quotes)
+	in the body of the message.  This will keep you up to date
+	with the latest release and BETA information of Magick.
+
+Programming Team Mailing List for Magick is magick-devel@goth.net:
+	Subscription to this is done the same way, but subject to
+	approval beforehand -- DO NOT subscribe unless you both know
+	how to program in C, and are interested in bettering Magick.
+
+Patching Magick
+---------------
+
+All versions have a patch from the previous version on the home site
+for lettered versions, no complete distribution is released, only patches).
+
+How do I patch, etc?  -- Lets take it from the top:
+
+# ============================================================================
+
+root@castle:~# ls
+Magick-1.2.tar.gz
+Magick-1.2-1.2a-patch.gz
+Magick-1.2a-1.2b-patch.gz
+Magick-1.2b-1.2c-patch.gz
+
+root@castle:~# gunzip Magick-1.2.tar.gz
+
+root@castle:~# tar xvf Magick-1.2.tar
+
+# ----------------------------------------------------------------------------
+## OK -- we now have a successful Magick-1.2 distribution
+
+root@castle:~# ls
+Magick-1.2/
+Magick-1.2.tar
+Magick-1.2-1.2a-patch.gz
+Magick-1.2a-1.2b-patch.gz
+Magick-1.2b-1.2c-patch.gz
+
+root@castle:~# gunzip Magick-1.2-1.2a-patch.gz
+
+root@castle:~# patch <Magick-1.2-1.2a-patch
+<some output on patching>
+
+root@castle:~# mv Magick-1.2 Magick-1.2a
+
+# ----------------------------------------------------------------------------
+## Now we're on Magick-1.2a
+## (note: the mv of the directory is nessicary for later patches).
+
+root@castle:~# ls
+Magick-1.2a/
+Magick-1.2.tar
+Magick-1.2-1.2a-patch
+Magick-1.2a-1.2b-patch.gz
+Magick-1.2b-1.2c-patch.gz
+
+root@castle:~# gunzip Magick-1.2a-1.2b-patch.gz
+
+root@castle:~# patch <Magick-1.2a-1.2b-patch
+<some output on patching>
+
+root@castle:~# mv Magick-1.2a Magick-1.2b
+
+# ----------------------------------------------------------------------------
+## Now we're on Magick-1.2b
+## (note: the mv of the directory is nessicary for later patches).
+
+root@castle:~# ls
+Magick-1.2b/
+Magick-1.2.tar
+Magick-1.2-1.2a-patch
+Magick-1.2a-1.2b-patch
+Magick-1.2b-1.2c-patch.gz
+
+root@castle:~# gunzip Magick-1.2b-1.2c-patch.gz
+
+root@castle:~# patch <Magick-1.2b-1.2c-patch
+<some output on patching>
+
+root@castle:~# mv Magick-1.2b Magick-1.2c
+
+# ----------------------------------------------------------------------------
+## Now we're on Magick-1.2c
+## (note: the mv of the directory is nessicary for later patches).
+
+root@castle:~# ls
+Magick-1.2c/
+Magick-1.2.tar
+Magick-1.2-1.2a-patch
+Magick-1.2a-1.2b-patch
+Magick-1.2b-1.2c-patch
+
+# ============================================================================
+
+Simple, right?  Not always.
+
+Sometimes you may get asked "File to patch:" during the patch.  This is
+usually coz I stuffed up the patch (I dont do it often! honest!) -- All you do
+is type the filename after the --- (or the first filename after diff).
+
+eg:
+The text leading up to this was:
+--------------------------
+|diff -urNd Magick-1.2a/Makefile Magick-1.2b/Makefile
+|--- Magick-1.2/Makefile	Wed Dec 17 08:07:46 1997
+|+++ Magick-1.2a/Makefile	Tue Dec 30 03:34:12 1997
+--------------------------
+File to patch: Magick-1.2/Makefile
+
+There are a few possible causes for this:
+	* I made a normal patch instead of a unified one (oops!)
+	* The subdirectory your trying to patch does not exist (ie. you didnt
+	  mv Magick-1.2 to Magick-1.2a, etc)
+	* I patched something that didnt need to be patched!
+	* I used the wrong file version to 'source' the patch from (ie. I
+	  patched 'my' copy of the file instead of the 'distribution' copy).

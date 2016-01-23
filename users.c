@@ -1,6 +1,6 @@
-/*
+/* Functions for handling user actions.
  *
- * Magick is copyright (c) 1996-1997 Preston A. Elder.
+ * Magick is copyright (c) 1996-1998 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
  * This program is free but copyrighted software; see the file COPYING for
  * details.
@@ -27,6 +27,7 @@ static User *new_user(const char *nick)
     if (!nick)
 	nick = "";
     strscpy(user->nick, nick, NICKMAX);
+    user->messages = user->flood_offence = 0;
     user->next = userlist;
     if (userlist)
 	userlist->prev = user;
@@ -206,7 +207,7 @@ void send_usermask_list(const char *who, const char *source, const char *x)
 User *finduser(const char *nick)
 {
     User *user;
-    for (user = userlist; user && stricmp(user->nick, nick) != 0;
+    for (user = userlist; user && stricmp(user->nick, nick)!=0;
 							user = user->next) ;
     return user;
 }
@@ -264,7 +265,7 @@ void do_nick(const char *source, int ac, char **av)
 
     if (!*source) {
 	/* This is a new user; create a User structure for it. */
-	if(debug)
+	if(runflags & RUN_DEBUG)
 	    log("debug: new user: %s", av[0]);
 
 	/* Ignore the ~ from a lack of identd.  (Identd was never meant
@@ -274,8 +275,9 @@ void do_nick(const char *source, int ac, char **av)
 
 #ifdef AKILL
 	/* First check for AKILLs. */
-	if (check_akill(av[0], av[3], av[4]))
-	    return;
+	if (!i_am_backup())
+	    if (check_akill(av[0], av[3], av[4]))
+		return;
 #endif
 
 	/* Allocate User structure and fill it in. */
@@ -297,7 +299,7 @@ void do_nick(const char *source, int ac, char **av)
 
 #ifdef GLOBALNOTICER
 	/* Send global message to user when they log on */
-	if (!is_services_nick(av[0])) {
+	if (!is_services_nick(av[0]) && !i_am_backup()) {
 	    int i;
 	    for (i=0; i<nmessage; ++i)
 		if (messages[i].type == M_LOGON)
@@ -307,31 +309,41 @@ void do_nick(const char *source, int ac, char **av)
 
     } else {
 	/* An old user changing nicks. */
-
+#ifdef NICKSERV
+	long prefl = 0;
+	NickInfo *ni;
+#endif
 	user = finduser(source);
 	if (!user) {
 	    log("user: NICK from nonexistent nick %s: %s", source,
 							merge_args(ac, av));
 	    return;
 	}
-	if(debug)
+	if(runflags & RUN_DEBUG)
 	    log("debug: %s changes nick to %s", source, av[0]);
 #ifdef NICKSERV
+	if (ni = findnick(user->nick)) {
+	    prefl = ni->flags;
+	}
 	cancel_user(user);
+	if (prefl && (ni = findnick(av[0])))
+	    if (stricmp(host(ni)->nick, host(findnick(source))->nick)==0) {
+		if (prefl & NI_RECOGNIZED) ni->flags |= NI_RECOGNIZED;
+		if (prefl & NI_IDENTIFIED) ni->flags |= NI_IDENTIFIED;
+	    }
 #endif
 	change_user_nick(user, av[0]);
 	user->signon = atol(av[1]);
-
     }
 
     user->my_signon = time(NULL);
 
 #ifdef DAL_SERV
-    if (!is_services_nick(av[0]))
+    if (!is_services_nick(av[0]) && !i_am_backup())
 	send_cmd(any_service(), "SVSMODE %s -Rra", user->nick);
 #endif
 #ifdef MEMOS
-    if (!is_services_nick(av[0]))
+    if (!is_services_nick(av[0]) && !i_am_backup())
 	if (validate_user(user))
 	    if (services_level==1)
 		check_memos(user->nick);
@@ -365,7 +377,7 @@ void do_join(const char *source, int ac, char **av)
 	if (check_kick(user, s))
 	    continue;
 #endif
-	if(debug)
+	if(runflags & RUN_DEBUG)
 	    log("debug: %s joins %s", source, s);
 	chan_adduser(user, s);
 	c = smalloc(sizeof(*c));
@@ -405,9 +417,9 @@ void do_part(const char *source, int ac, char **av)
 	t = s + strcspn(s, ",");
 	if (*t)
 	    *t++ = 0;
-	if(debug)
+	if(runflags & RUN_DEBUG)
 	    log("debug: %s leaves %s", source, s);
-	for (c = user->chans; c && stricmp(s, c->chan->name) != 0; c = c->next)
+	for (c = user->chans; c && stricmp(s, c->chan->name)!=0; c = c->next)
 	    ;
 	if (c) {
 	    chan_deluser(user, c->chan);
@@ -437,7 +449,7 @@ void do_kick(const char *source, int ac, char **av)
     struct u_chanlist *c;
 
 #ifdef CHANSERV
-    if (stricmp(s_ChanServ, av[1])==0) do_cs_join(av[0]);
+    if (stricmp(s_ChanServ, av[1])==0 && !i_am_backup()) do_cs_join(av[0]);
 #endif
     if (is_services_nick(av[1])) return;
     t = av[1];
@@ -449,11 +461,11 @@ void do_kick(const char *source, int ac, char **av)
 	if (!user) {
 	    log("user: KICK for nonexistent user %s on %s: %s", s, av[0],
 						merge_args(ac-2, av+2));
-	    return;
+	    continue;
 	}
-	if(debug)
+	if(runflags & RUN_DEBUG)
 	    log("debug: kicking %s from %s", s, av[0]);
-	for (c = user->chans; c && stricmp(av[0], c->chan->name) != 0;
+	for (c = user->chans; c && stricmp(av[0], c->chan->name)!=0;
 								c = c->next)
 	    ;
 	if (c) {
@@ -473,7 +485,8 @@ void do_kick(const char *source, int ac, char **av)
 	return;
     }
 #ifdef CHANSERV
-    do_cs_revenge(av[0], source, av[1], CR_KICK);
+    if (!i_am_backup())
+	do_cs_revenge(av[0], source, av[1], CR_KICK);
 #endif
 }
 
@@ -486,7 +499,7 @@ void do_kick(const char *source, int ac, char **av)
 
 void do_umode(const char *source, int ac, char **av)
 {
-    if (stricmp(source, av[0]) != 0 && !is_services_nick(source)) {
+    if (stricmp(source, av[0])!=0 && !is_services_nick(source)) {
 	log("user: MODE %s %s from different nick %s!", av[0], av[1], source);
 	wallops(NULL, "%s attempted to change mode %s for %s", source, av[1], av[0]);
 	return;
@@ -508,7 +521,7 @@ void do_svumode(const char *source, int ac, char **av)
 							merge_args(ac, av));
 	return;
     }
-    if(debug)
+    if(runflags & RUN_DEBUG)
 	log("debug: Changing mode for %s to %s", av[0], av[1]);
     s = av[1];
     while (*s) {
@@ -534,7 +547,7 @@ void do_svumode(const char *source, int ac, char **av)
 		    ++opcnt;
 #ifdef GLOBALNOTICER
 		    /* Send global message to user when they oper up */
-		    if(!is_services_nick(av[0])) {
+		    if(!is_services_nick(av[0]) && !i_am_backup()) {
 			int i;
 			for (i=0; i<nmessage; ++i)
 			    if (messages[i].type == M_OPER)
@@ -543,12 +556,15 @@ void do_svumode(const char *source, int ac, char **av)
 #endif
 #ifdef NICKSERV
 		    if ((ni = findnick(source)) && (ni->flags & NI_IDENTIFIED)
-		    				&& !(ni->flags & NI_IRCOP))
+				&& !(ni->flags & NI_IRCOP) && !i_am_backup()) {
 			notice(s_NickServ, source,
-		"You have not set the \2IRC Operator\2 flag for your nick.  Please set this with \2/msg %s SET IRCOP ON\2.", s_NickServ);
+				"You have not set the \2IRC Operator\2 flag for your nick.");
+			notice(s_NickServ, source,
+				"Please set this with \2/msg %s SET IRCOP ON\2.", s_NickServ);
+		    }
 #endif
 #ifdef DAL_SERV
-		    if (is_services_op(av[0]))
+		    if (is_services_op(av[0]) && !i_am_backup())
 			send_cmd(any_service(), "SVSMODE %s +a", av[0]);
 #endif
 #ifdef CLONES
@@ -556,7 +572,7 @@ void do_svumode(const char *source, int ac, char **av)
 #endif
 		} else {
 #ifdef DAL_SERV
-		    if (is_services_op(av[0]))
+		    if (is_services_op(av[0]) && !i_am_backup())
 			send_cmd(any_service(), "SVSMODE %s -a", av[0]);
 #endif
 #ifdef CLONES
@@ -590,7 +606,7 @@ void do_quit(const char *source, int ac, char **av)
 #endif
 	return;
     }
-    if(debug)
+    if(runflags & RUN_DEBUG)
 	log("debug: %s quits", source);
     delete_user(user);
 }
@@ -611,7 +627,7 @@ void do_kill(const char *source, int ac, char **av)
     user = finduser(av[0]);
     if (!user)
 	return;
-    if(debug)
+    if(runflags & RUN_DEBUG)
 	log("debug: %s killed", av[0]);
     delete_user(user);
 }
@@ -676,7 +692,7 @@ int is_on_chan(const char *nick, const char *chan)
     if (!u)
 	return 0;
     for (c = u->chans; c; c = c->next)
-	if (stricmp(c->chan->name, chan) == 0)
+	if (stricmp(c->chan->name, chan)==0)
 	    return 1;
     return 0;
 }
@@ -693,7 +709,7 @@ int is_chanop(const char *nick, const char *chan)
     if (!c)
 	return 0;
     for (u = c->chanops; u; u = u->next)
-	if (stricmp(u->user->nick, nick) == 0)
+	if (stricmp(u->user->nick, nick)==0)
 	    return 1;
     return 0;
 }
@@ -710,7 +726,7 @@ int is_voiced(const char *nick, const char *chan)
     if (!c)
 	return 0;
     for (u = c->voices; u; u = u->next)
-	if (stricmp(u->user->nick, nick) == 0)
+	if (stricmp(u->user->nick, nick)==0)
 	    return 1;
     return 0;
 }
@@ -724,8 +740,10 @@ void kill_user(const char *who, const char *nick, const char *reason)
     char *av[2];    
     av[0] = sstrdup(nick);
     av[1] = sstrdup(reason);
-    send_cmd(who, "KILL %s :%s", nick, reason);
-    do_kill(who, 2, av);
+    if (!i_am_backup()) {
+	send_cmd(who, "KILL %s :%s", nick, reason);
+	do_kill(who, 2, av);
+    }
     free(av[1]);
     free(av[0]);
 }

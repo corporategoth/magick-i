@@ -1,6 +1,6 @@
 /* Routines for sending stuff to the network.
  *
- * Magick is copyright (c) 1996-1997 Preston A. Elder.
+ * Magick is copyright (c) 1996-1998 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
  * This program is free but copyrighted software; see the file COPYING for
  * details.
@@ -26,6 +26,9 @@ void vsend_cmd(const char *source, const char *fmt, va_list args)
 {
     char buf[2048];	/* better not get this big... */
 
+    if (runflags & RUN_NOSEND)		/* Run silent, Run deep! */
+	return;
+
     vsnprintf(buf, sizeof(buf), fmt, args);
     if (source) {
 #ifdef OUTLET
@@ -34,11 +37,11 @@ void vsend_cmd(const char *source, const char *fmt, va_list args)
 	else
 #endif
 	    sockprintf(servsock, ":%s %s\r\n", source, buf);
-	if(debug)
+	if(runflags & RUN_DEBUG)
 	    log("debug: Sent: :%s %s", source, buf);
     } else {
 	sockprintf(servsock, "%s\r\n", buf);
-	if(debug)
+	if(runflags & RUN_DEBUG)
 	    log("debug: Sent: %s", buf);
     }
 }

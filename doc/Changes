@@ -4,6 +4,17 @@ Magick I (PreZ <prez@antisocial.com>)
 Renamed to this to avoid conflicting version numbers, etc and finally
 rid myself of all the excess EsperNet baggage.
 
+1998/01/20 .3	Added MLOCK +i and +k support (ChanServ will keep channel if
+		    noone in it!).
+		doc/Distribution -- READ it (and all files in that DIR!) :)
+		Removed time_zone and added the "X time ago" formats
+		Fixed lots and lots of bugs, and optimized alot of code!
+		Replaced IRCOP_OVERRIDE with OVERRIDE_LEVEL (6 levels)
+		Added TimeZone support for backup services (fixes timings)
+		Added auto -v and -o for non-access'd people off split
+		Added Nick Linking (BIG MF of an addition)
+		Replaced old IGNORE with Flood Protect (smarter system!)
+		Theres lots more little additions, but too many to document.
 1997/12/30 .2	Added new revenge level (REVERSE, now NONE will do NOTHING).
 		Fixed a few minor bugs (with unsuspension, breakdown
 		    percentages, and handling nick collides, etc).
@@ -15,7 +26,6 @@ rid myself of all the excess EsperNet baggage.
 		Removed the magick.msg and magick.omsg in favour of the new
 		    OperServ LOGONMSG and OPERMSG commands :)
 		Wrote both user and oper documentation for ALL commands!
-1997/12/17 .1a	Bug fixes only ... nothing new.
 1997/12/15 .1	Optimized code and implemented hash tables (if you dont know,
 		    dont worry - just take it as a good thing!).
 		Added some of Andy Church's services routines (overflow stuff,

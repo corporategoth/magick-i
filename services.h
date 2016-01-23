@@ -1,6 +1,6 @@
 /* Main header for Services.
  *
- * Magick is copyright (c) 1996-1997 Preston A. Elder.
+ * Magick is copyright (c) 1996-1998 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
  * This program is free but copyrighted software; see the file COPYING for
  * details.
@@ -37,7 +37,6 @@ extern int toupper(char), tolower(char);
 /* These should be read by config.h */
 #undef	NICKSERV
 #undef	CHANSERV
-#undef	IRCOP_OVERRIDE
 #undef	HELPSERV
 #undef	IRCIIHELP
 #undef	MEMOSERV
@@ -58,7 +57,6 @@ extern int toupper(char), tolower(char);
 #endif
 #ifndef CHANSERV
 #  undef NEWS
-#  undef IRCOP_OVERRIDE
 #endif
 #ifndef MEMOSERV
 #  undef NEWS
@@ -80,6 +78,9 @@ extern int toupper(char), tolower(char);
 /* Stupid catchers! */
 #if SERVICES_LEVEL < 1
 #  error Cannot set SERVICES_LEVEL < 1 - edit the config.h
+#endif
+#if (TZ_OFFSET >= 24) || (TZ_OFFSET <= -24)
+#  error TZ_OFFSET must fall between -24 and 24 - edit the config.h
 #endif
 #if UPDATE_TIMEOUT < 30
 #  error Cannot set UPDATE_TIMEOUT < 30 - edit the config.h
@@ -121,6 +122,19 @@ extern int toupper(char), tolower(char);
 
 /*************************************************************************/
 
+#define RUN_STARTED	0x00000001
+#define	RUN_MODE	0x00000002
+#define RUN_LOG_IS_OPEN	0x00000004
+#define	RUN_DEBUG	0x00000008
+#define RUN_SIGTERM	0x00000010
+#define RUN_SAVE_DATA	0x00000020
+#define RUN_SEND_PINGS	0x00000040
+#define RUN_NOSEND	0x00000080
+#define	RUN_QUITTING	0x00000100
+#define	RUN_TERMINATING	0x00000200
+
+/*************************************************************************/
+
 /* Nickname info structure.  Each nick structure is stored in one of 256
  * lists; the list is determined by the first character of the nick.  Nicks
  * are stored in alphabetical order within lists. */
@@ -156,6 +170,7 @@ struct nickinfo_ {
 #define	NI_PRIVATE	0x00000010  /* Private - Dont show up in list */
 #define	NI_SUSPENDED	0x00000020  /* Suspended - May not IDENTIFY */
 #define	NI_PRIVMSG	0x00000040  /* use PRIVMSG instead of NOTICE */
+#define NI_SLAVE	0x00000080  /* Nick is just a 'linked' nick */
 
 #define	NI_IDENTIFIED	0x80000000  /* User has IDENTIFY'd */
 #define	NI_RECOGNIZED	0x40000000  /* User comes from a known addy */
@@ -240,6 +255,12 @@ struct chaninfo_ {
 #define	CI_REV2		0x40000000
 #define	CI_REV3		0x20000000
 
+/* Why ChanServ PARTED or JOINED a channel */
+#define CJ_SET		0
+#define CJ_NOUSERS	1
+#define CJ_KICKED	2
+#define CJ_KILLED	3
+
 /* Revenge levels */
 #define	CR_NONE		0
 #define	CR_REVERSE	1
@@ -274,6 +295,11 @@ struct chaninfo_ {
 #define	CA_FOUNDER	18
 
 #define	CA_SIZE		19	/* <--- DO NOT DELETE */
+
+/* OVERRIDE_LEVEL levels (Based on level 2) */
+#define	CO_OPER		0
+#define CO_SOP		1
+#define CO_ADMIN	2
 #endif
 
 /*************************************************************************/
@@ -281,7 +307,7 @@ struct chaninfo_ {
 /* MemoServ data.  Only nicks that actually have memos get records in
  * MemoServ's lists, which are stored the same way NickServ's are. */
 
-#if defined(MEMOSERV) && defined(NICKSERV)
+#ifdef MEMOSERV
 typedef struct memo_ Memo;
 
 struct memo_ {
@@ -296,7 +322,7 @@ struct memo_ {
 #ifdef MEMOS
 typedef struct memolist_ MemoList;
 #endif
-#if defined(CHANSERV) && defined(NEWS)
+#ifdef NEWS
 typedef struct newslist_ NewsList;
 #endif
 
@@ -310,7 +336,7 @@ struct memolist_ {
 };
 #endif
 
-#if defined(CHANSERV) && defined(NEWS)
+#ifdef NEWS
 struct newslist_ {
     NewsList *next, *prev;
     char chan[CHANMAX];	/* Owner of the memos */
@@ -341,6 +367,9 @@ struct user_ {
     time_t signon;
     time_t my_signon;			/* when did _we_ see the user? */
     short mode;				/* see below */
+    int messages;			/* How many messages in dbase */
+    time_t msg_times[FLOOD_MESSAGES];	/* Time of last X messages */
+    int flood_offence;			/* Times has triggered flood prot */
     struct u_chanlist {
 	struct u_chanlist *next, *prev;
 	Channel *chan;
@@ -396,6 +425,7 @@ struct channel_ {
 
 /*************************************************************************/
 
+typedef struct ignore_ Ignore;
 typedef struct servers_ Servers;
 typedef struct message_ Message;
 #ifdef AKILL
@@ -405,18 +435,18 @@ typedef struct akill_ Akill;
 typedef struct allow_ Allow;
 #endif
 typedef struct timeout_ Timeout;
+typedef struct timer_ Timer;
 
-
-typedef struct ignore_data {
-    struct ignore_data *next;
-    char who[NICKMAX];
-    time_t time;	/* When do we stop ignoring them? */
-} IgnoreData;
+struct ignore_ {
+    char nick[NICKMAX];
+    time_t start;
+};
 
 struct servers_ {
     char *server;
-    int hops;
     char *desc;
+    int hops;
+    int lag;
 };
 
 struct message_ {
@@ -455,6 +485,12 @@ struct timeout_ {
 };
 #define	TO_COLLIDE	0	/* Collide the user with this nick */
 #define	TO_RELEASE	1	/* Release a collided nick */
+
+struct timer_ {
+    Timer *next, *prev;
+    char *label;
+    time_t start;
+};
 
 /*************************************************************************/
 

@@ -5,6 +5,10 @@ Magick is copyright (c) 1996-1997 Preston A. Elder.  Magick may be
 freely redistributed; see the GNU General Public License (in the file
 "COPYING") for details.
 
+Before we start ... no, I DIDNT put an rm -Rf / in the makefile ... I
+did say ALMOST, didnt I?  And I want to thank you for reading the docs,
+you're one of the few smart users out there, you diserve a bloody medal.
+
 
 1. INTRODUCTION
 
@@ -24,12 +28,31 @@ extension to ircd (which can be found at ftp.dal.net:/pub/dalnet/server) is
 one implementation with the necessary extension.
 
 
-2. CONFIGURATION, COMPILATION AND INSTALLATION
+2. QUICK INSTALL
 
-     In order to compile Magick, you'll need a Bourne shell or
-compatible shell (such as GNU bash), GNU make or a compatible make (which
-needs to support the "include" directive), and an ANSI C compiler (gcc
-recommended).
+     This is for those too impatiant to read the next section, tho I would
+advise you read it anyway, its alot more detailed.
+
+     Goto magick directory and type:
+		./configure
+
+     Then edit the config.h to your settings (READ the documentation inside
+this file, as this can be very important).  Then type:
+		make
+		make install
+
+     If this is a first-time installation, you will need to copy the data-
+files aswell ... This is done with:
+		make install-data
+
+     Thats it ... hopefully.  Read the next section if it failed.
+
+
+3. CONFIGURATION, COMPILATION AND INSTALLATION
+
+     In order to compile Magick, you'll need a Bourne shell or compatible
+shell (such as GNU bash), GNU make or a compatible make (which needs to
+support the "include" directive), and an ANSI C compiler (gcc recommended).
      Before trying to compile Magick, there are some manual configuration
 tasks that need to be done: run the "configure" script, edit config.h, and
 edit the top section of the Makefile.
@@ -48,10 +71,6 @@ command-line options (see below), but you may find it more convenient to
 set them as defaults.
      The Makefile has a section at the top allowing you to configure
 Magick general mode of operation.  
-     Finally, there's one definition in operserv.c (which really should be
-moved out, I know) which you'll want to edit: s_GlobalNoticer, which sends
-out global notices when OperServ's GLOBAL command is used.  It defaults to
-"DarkerNet", which is probably not appropriate for your network. ;^)
      Once these steps are done, you should be able to compile Magick
 with little trouble.  If Magick fails to compile on your system, or if
 you have to tweak configure's output to get it to work, let me know what
@@ -76,12 +95,12 @@ act together and starts making big-endian processors like the rest of the
 world.
 
 
-3. OPERATION
+4. OPERATION
 
      This section does not detail the operation of the individual pieces of
-Magick; that information can be found in the online help files
-("/msg *Serv help" or read lib/*serv/index).  It only describes how to
-start Magick itself.
+Magick; that information can be found in user.doc and oper.doc, or by reading
+the online help files ("/msg *Serv help" or read lib/*serv/index).  This
+section only describes how to start Magick itself.
      Normally, Magick can be run simply by invoking the "magick"
 executable.  Magick will then use the defaults specified in the config.h
 file, and connect to the specified uplink server.  Alternatively, any of
@@ -97,12 +116,12 @@ values:
 	-dir directory		Directory containing Services' data files
 				    (e.g. /usr/local/lib/services)
 	-log filename		Services log filename (e.g. magick.log)
-	-tz timezone		Name of Services' timezone (e.g. EST)
 	-update secs		How often to update databases, in seconds
 	-debug			Enable debugging mode--more info sent to log
 	-relink secs		Specify seconds to re-attempt link if SQUIT
-	-norelink		Die on SQUIT or kill -1
+	-norelink		Die on SQUIT or kill -HUP
 	-level level		Specify services level (>1 = backup)
+        -offset offset		Specify the TimeZone offset for backups.
 
      Upon starting, Magick will parse its command-line parameters, open
 its logfile, then (assuming all went well) detach itself and run in the
@@ -114,7 +133,7 @@ collide, while a "backup" Services will not, thus allowing full Services
 to be brought up at any time without disrupting the network (and without
 having to take backup Services down beforehand).
      Two additional programs available in addition to the main executable:
-"listnicks" and "listchans", both installed as hard links to the main
+"listnicks" and "listchans", both installed as soft links to the main
 executable.  The programs will list all registered nicknames and channels,
 respectively; or, if given the -c option, will display the number of
 registered nicknames or channels.
@@ -122,9 +141,12 @@ registered nicknames or channels.
 SERVER_RELINK define or set it to -1, or didnt use the -norelink flag),
 only an OperServ QUIT or SHUTDOWN or a kill -9 will stop Magick.  A SQUIT
 will just cause relink (after period specified with SERVER_RELINK or the
--relink flag), as will a kill -1 (both causing the databases to be reloaded).
+-relink flag), as will a kill -HUP (both causing the databases to be
+reloaded).  A standard kill may also be used to save the dbases (added as
+the standard shutdown procedure is to send a standard kill then a kill -9
+to all processes, this gives the dbases a fighting chance!).
 
-4. OVERVIEW OF SERVICES CLIENTS
+5. OVERVIEW OF SERVICES CLIENTS
 
      This is a brief introduction to the various clients available from
 Magick.  All *Serv clients can be /msg'd with "help" for a general
@@ -140,7 +162,9 @@ retention (active by default, this will cause the channel's topic to be
 saved while the channel is empty and restored when a user joins it again),
 and automatic opping (and kicking) of selected users.
      MemoServ allows users to send short messages to other users, which can
-be stored and retrieved at the recipient's convenience.
+be stored and retrieved at the recipient's convenience.  MemoServ also stores
+channel memos (called NEWS articles), which can be used to inform a channel
+of current events, etc.
      HelpServ is Services' help system; it will, on request, send a help
 text to a user.  Other Services clients also call on HelpServ for their
 own help functions.  (So, for example, "/msg ChanServ help register" is the
@@ -154,18 +178,19 @@ servers on the network).  A certain set of operators can be defined (in
 config.h) as Services operators, and can perform additional functions, such
 as manually updating Magick' databases or shutting Magick down.
 (Note that Magick will not recognize a user as a Services operator unless
-that user is in the SERVICES_OPS definition, has identified with NickServ and
-is oper'd up.)  Obviously, all these functions should be used with care.
+that user is in the SERVICES_OPS definition, has identified with NickServ
+and is oper'd up.)  Obviously, all these functions should be used with care.
      DevNull is just like its Unix equivalent /dev/null: it ignores
-anything sent to it.  It can be removed without affecting the rest of
-Magick in any way.
+anything sent to it.  It is responcible for notifying users when services
+are ignoring them, and irc operators when flood protection has been triggered,
+if DevNull is removed, Flood Protection is disabled.
      Death is the global noticer: when Magick is instructed to send a
 notice to all clients on the network, this nickname sends the message.
-Obviously, you should change it to the name of your network (or some other
-useful name)!  See operserv.c for the name definition.
+Obviously, you should change it to a name to suit your network (or some
+other useful name)!
 
 
-5. IRC PROTOCOL ADDITIONS
+6. IRC PROTOCOL ADDITIONS
 
 Magick has not been tested on bare (non-TS8) irc2.x servers; please
 report any problems.
@@ -266,7 +291,7 @@ SVSNICK
     Example:  :hell.darker.net SVSNICK SlowUser SlowUser_
 
 
-6. REACHING THE AUTHOR
+7. REACHING THE AUTHOR
 
      I can be reached via E-mail at prez@antisocial.com.  Please feel
 free to send comments, suggestions, problem reports, diffs, or whatever,

@@ -1,6 +1,6 @@
 /* Magick configuration.
  *
- * Magick is copyright (c) 1996-1997 Preston A. Elder.
+ * Magick is copyright (c) 1996-1998 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
  * This program is free but copyrighted software; see the file COPYING for
  * details.
@@ -15,7 +15,7 @@
 /* The remote server and port to use, and the password for the link. */
 #define	REMOTE_SERVER	"srealm.darker.net"
 #define	REMOTE_PORT	9666
-#define	PASSWORD	"MyPassword"
+#define	PASSWORD	"LinkPassword"
 
 /* Information about us as a server. */
 #define	SERVER_NAME	"hell.darker.net"
@@ -30,7 +30,22 @@
  * are in READ ONLY mode - no database modification will be allowed.
  * Cannot be set below 1.
  */
-#define	SERVICES_LEVEL	1
+#define	SERVICES_LEVEL	1 
+
+/* This is for backup services (sharing the same set of databases as the
+ * primary versions) to keep up to date with the "X Time Ago" displays.
+ * Essentially what needs to go here how many HOURS difference there is
+ * between you and the primary services.  (Can be .5 if applicable)
+ *
+ * Eg. If main services are EST (us) and you are CST (us), this would be 1.
+ *     If main services are EST (us) and you are EST (au), this would be 15.
+ *         But, depending on Daylight Savings, can goto 14 or 16.
+ *     If main services are EST (au) and you are CST (au), this would be 1.5.
+ *
+ * I'm sure you get the drift -- if you ARE the mains (SERVICES_LEVEL 1), this
+ * value is ignored.
+ */
+#define	TZ_OFFSET	0	/* 0 == Same TimeZone */
 
 /* PICK AND CHOOSE:
  *    To select a module, #define it, to exclude it, #undef it.
@@ -41,7 +56,6 @@
 
 #define	NICKSERV	/* */
 #define	CHANSERV	/* relies on NICKSERV */
-#define	IRCOP_OVERRIDE	/* relies on CHANSERV */
 #define	HELPSERV	/* */
 #define	IRCIIHELP	/* */
 #define	MEMOSERV	/* relies on NICKSERV and (MEMOS or NEWS) */
@@ -58,10 +72,6 @@
  *     - NICKSERV, CHANSERV, HELPSERV, IRCIIHELP, MEMOSERV, DEVNULL
  *       OPERSERV and GLOBALNOTICER just activate the nicks (and
  *       their associated functions).
- *     - IRCOP_OVERRIDE allows IrcOP's to use the chanserv OP, DEOP,
- *       VOICE, DEVOICE, INVITE and UNBAN functions, and SOPs to use
- *       the chanserv CLEAR.  In both cases regardless of ACCESS list
- *       (hense the term OVERRIDE).
  *     - MEMOS activates USER memos.
  *     - NEWS activates CHANNEL memos.
  *     - OUTLET activates an OperServ clone (see below).
@@ -69,7 +79,7 @@
  *     - CLONES activates the internal clone detection/noticing.
  */
 
-/*** End of runtime-configurable options. ***/
+/* Be original ... */
 
 #define	NICKSERV_NAME		"NickServ"
 #define	CHANSERV_NAME		"ChanServ"
@@ -89,6 +99,21 @@
  */
 #define SERVICES_PREFIX		"Magick-"
 
+/* This replaces old IRCOP_OVERRIDE.  This allows Irc OP's to use
+ * certain ChanServ functions without being on the Access List.
+ *
+ * 0 = No Override
+ * 1 = All IrcOP
+ * 2 = INVITE, OP, VOICE, etc are IrcOP Functions
+ *     CLEAR, etc are Services OP Functions
+ *     SET FOUNDER, etc are Services Admin Functions
+ * 3 = All Services OP
+ * 4 = INVITE, OP, VOICE, etc are Services OP Functions
+ *     CLEAR, etc are Services Admin Functions
+ *     SET FOUNDER, etc are Services Admin Functions
+ * 5 = All Services Admin
+ */
+#define	OVERRIDE_LEVEL	2
 
 /* Log filename in services directory */
 #define	LOG_FILENAME	"magick.log"
@@ -125,19 +150,15 @@
  */
 #define	UPDATE_TIMEOUT	300
 
+/* Delay (in seconds) between server pings.  Services ping all servers
+ * to try to keep an up to date lag check.  This is how often to do it.
+ */
+#define	PING_FREQUENCY	30
+
 /* Delay (in seconds) before we time out on a read and do other stuff,
  * like checking NickServ timeouts.
  */
 #define	READ_TIMEOUT	10
-
-/* What timezone is Services in?  (Yes, there is a better way to do
- * this.  No, I can't think of it offhand, and don't really feel like
- * bothering.)
- *      Note that this is only used descriptively, so it doesn't really
- * affect anything critical (though it might confuse users a bit if it's
- * set wrong).
- */
-#define	TIMEZONE	"EST"
 
 
 
@@ -179,7 +200,7 @@
  *      - Be an IRC Operator (have mode +o enabled)
  *	- Identify with NickServ (therefore, the nick must be registered)
  */
-#define	SERVICES_ADMIN		"PreZ"
+#define	SERVICES_ADMIN		"PreZ Lord_Striker"
 
 /* Maximum number of Services Operators allowed */
 #define MAXSOPS			64
@@ -195,7 +216,29 @@
 
 
 
+/******* DevNull configuration *******/
+
+/* The below are read together.  Flood Protection will be triggered against
+ * a user if FLOOD_MESSAGES messages are recieved in FLOOD_TIME seconds.
+ */
+#define	FLOOD_MESSAGES	5
+#define	FLOOD_TIME	10
+
+/* How long to ignore user when flood protection is triggered */
+#define	IGNORE_TIME	20
+
+/* How many offences will cause user to be added to perm ignore list */
+#define	IGNORE_OFFENCES	5
+
+
+
 /******* Miscellaneous - it should be save to leave these untouched *******/
+
+/* Non-Star chars needed for AKILL, CLONE and AKICK
+ *    3 means *.com will work, but *.au wont.
+ *    4 means *.com wont work, need *a.com
+ */
+#define	STARTHRESH	4
 
 /* Extra warning: if you change these, your data files will be unusable! */
 
@@ -210,12 +253,6 @@
 
 /* Maximum length of a password */
 #define	PASSMAX		32
-
-/* Non-Star chars needed for AKILL, CLONE and AKICK
- *    3 means *.com will work, but *.au wont.
- *    4 means *.com wont work, need *a.com
- */
-#define	STARTHRESH	4
 
 
 

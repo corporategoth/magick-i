@@ -1,6 +1,6 @@
 /* HelpServ functions.
  *
- * Magick is copyright (c) 1996-1997 Preston A. Elder.
+ * Magick is copyright (c) 1996-1998 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
  * This program is free but copyrighted software; see the file COPYING for
  * details.
@@ -31,7 +31,7 @@ void helpserv(const char *whoami, const char *source, char *buf)
     topic = buf ? sstrdup(buf) : NULL;
     cmd = strtok(buf, " ");
 #ifdef HELPSERV
-    if (cmd && stricmp(cmd, "\1PING") == 0) {
+    if (cmd && stricmp(cmd, "\1PING")==0) {
 	if (!(s = strtok(NULL, "")))
 	    s = "\1";
 	notice(s_HelpServ, source, "\1PING %s", s);
@@ -64,11 +64,11 @@ static void do_help(const char *whoami, const char *source, char *topic)
 	notice(whoami, source, "Yes, I decided to give myself a shameless plug.");
 	notice(whoami, source, " ");
 	notice(whoami, source, "Thanks to:");
+	notice(whoami, source, "    \37Coca-Cola   \37 - Life Support *bleep, bleep*.");
 	notice(whoami, source, "    \37Lord Striker\37 - for endless dumb looks.");
 	notice(whoami, source, "    \37Unilynx     \37 - for giving me competition.");
 	notice(whoami, source, "    \37Zephyr      \37 - for giving me the best");
 	notice(whoami, source, "                   crash dummy I could ask for!");
-	notice(whoami, source, "    \37Coca-Cola   \37 - Life Support *bleep, bleep*.");
 	notice(whoami, source, "    \37Tschaicovski\37 - You wouldnt understand.");
 	notice(whoami, source, "    \37Girls       \37 - For snobbing me, thus making");
 	notice(whoami, source, "                   me lifeless nuff to do this.");

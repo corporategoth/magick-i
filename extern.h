@@ -1,6 +1,6 @@
 /* Prototypes and external variable declarations.
  *
- * Magick is copyright (c) 1996-1997 Preston A. Elder.
+ * Magick is copyright (c) 1996-1998 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
  * This program is free but copyrighted software; see the file COPYING for
  * details.
@@ -84,6 +84,8 @@ E int check_valid_op(User *user, const char *chan, int newchan);
 E int check_valid_voice(User *user, const char *chan, int newchan);
 E int check_should_op(User *user, const char *chan);
 E int check_akick(User *user, const char *chan);
+E void do_cs_protect(const char *chan);
+E void do_cs_unprotect(const char *chan);
 E void do_cs_join(const char *chan);
 E void do_cs_part(const char *chan);
 E void do_cs_reop(const char *chan);
@@ -106,28 +108,12 @@ E void helpserv(const char *whoami, const char *source, char *buf);
 
 /**** main.c ****/
 
-E char *remote_server;
-E int remote_port;
-E char *server_name;
-E char *server_desc;
-E char *services_user;
-E char *services_host;
-E char *services_dir;
-E char *log_filename;
-E char *time_zone;
-E int update_timeout;
-E int debug;
-E int services_level;
-
-E int mode;
-E char *offreason;
-E int quitting;
-E int terminating;
-E char *quitmsg;
+E char *remote_server, *server_name, *server_desc, *services_user;
+E char *services_host, *services_dir, *log_filename, *offreason, *quitmsg;
 E char inbuf[BUFSIZE];
-E int servsock;
-E int save_data;
-E int got_alarm;
+E int remote_port, update_timeout, services_level, servsock;
+E float tz_offset;
+E long runflags;
 E gid_t file_gid;
 E time_t start_time;
 
@@ -140,6 +126,7 @@ E void fatal_perror(const char *fmt,...);
 E void check_file_version(FILE *f, const char *filename);
 E void write_file_version(FILE *f, const char *filename);
 E const char *any_service();
+E int i_am_backup();
 E int is_services_nick(const char *nick);
 E int is_justservices_nick(const char *nick);
 E void introduce_users(const char *user);
@@ -212,12 +199,14 @@ E char *strlower(char *s);
 E char *read_string(FILE *f, const char *filename);
 E char *write_string(const char *s, FILE *f, const char *filename);
 E char *itoa(int num);
+E char *time_ago(time_t time, int call);
+E char *disect_time(time_t time, int call);
 E Hash *get_hash(const char *source, const char *cmd, Hash *hash_table);
 E Hash_NI *get_ni_hash(const char *source, const char *cmd, Hash_NI *hash_table);
 E Hash_CI *get_ci_hash(const char *source, const char *cmd, Hash_CI *hash_table);
 E Hash_HELP *get_help_hash(const char *source, const char *cmd, Hash_HELP *hash_table);
 E Hash_CHAN *get_chan_hash(const char *source, const char *cmd, Hash_CHAN *hash_table);
-
+E int override(const char *source, int level);
 
 /**** nickserv.c ****/
 
@@ -228,6 +217,7 @@ E Timeout *timeouts;
 E void listnicks(int count_only, const char *nick);
 E void get_nickserv_stats(long *nrec, long *memuse);
 
+E int delnick(NickInfo *ni);
 E void nickserv(const char *source, char *buf);
 E void load_ns_dbase(void);
 E void save_ns_dbase(void);
@@ -235,7 +225,14 @@ E int validate_user(User *u);
 E void cancel_user(User *u);
 E void check_timeouts(void);
 E void expire_nicks(void);
+E void do_real_identify (const char *whoami, const char *source);
 E NickInfo *findnick(const char *nick);
+E NickInfo *host(NickInfo *ni);
+E NickInfo *slave(const char *nick, int num);
+E int countslave(const char *nick);
+E int issibling(NickInfo *ni, const char *target);
+E int userisnick(const char *nick);
+E long getflags(NickInfo *ni);
 #if (FILE_VERSION > 3) && defined(MEMOS)
     E int is_on_ignore(const char *source, char *target);
 #endif
@@ -246,48 +243,49 @@ E NickInfo *findnick(const char *nick);
 #ifdef OPERSERV
 E void operserv(const char *source, char *buf);
 E char sops[MAXSOPS][NICKMAX];
-E int nsop;
-E int sop_size;
+E int nsop, sop_size;
 E void load_sop(void);
 E void save_sop(void);
 E int is_services_op(const char *nick);
 E int is_justservices_op(const char *nick);
 #ifdef GLOBALNOTICER
 E Message *messages;
-E int nmessage;
-E int message_size;
+E int nmessage, message_size;
 E void load_message(void);
 E void save_message(void);
 #endif
 #ifdef AKILL
 E Akill *akills;
-E int nakill;
-E int akill_size;
+E int nakill, akill_size;
 E void load_akill(void);
 E void save_akill(void);
 E int check_akill(const char *nick, const char *username, const char *host);
 E void expire_akill(void);
+E int del_akill(const char *mask, int call);
 #endif
 #ifdef CLONES
 E Clone *clonelist;
 E Allow *clones;
-E int nclone;
-E int clone_size;
+E int nclone, clone_size;
 E void clone_add(const char *nick, const char *host);
 E void clone_del(const char *host);
+E int del_clone(const char *host);
 #endif
 #endif
 
 /**** process.c ****/
 
-E int allow_ignore;
-E IgnoreData *ignore[];
+#ifdef DEVNULL
+E int ignorecnt, ignore_size;
+E Ignore *ignore;
+#endif
+E int servcnt, serv_size;
 E Servers *servlist;
-E int servcnt;
-E int serv_size;
+E Timer *pings;
 
-E void add_ignore(const char *nick, time_t delta);
-E IgnoreData *get_ignore(const char *nick);
+E void addtimer (const char *label);
+E void deltimer (const char *label);
+E time_t gettimer (const char *label);
 E int split_buf(char *buf, char ***argv, int colon_special);
 E void process(void);
 

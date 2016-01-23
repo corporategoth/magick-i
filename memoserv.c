@@ -1,6 +1,6 @@
 /* MemoServ functions.
  *
- * Magick is copyright (c) 1996-1997 Preston A. Elder.
+ * Magick is copyright (c) 1996-1998 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
  * This program is free but copyrighted software; see the file COPYING for
  * details.
@@ -37,6 +37,7 @@ static void do_help(const char *source);
 static void do_send(const char *source);
 #ifdef MEMOS
 static void do_opersend(const char *source);
+static void do_sopsend(const char *source);
 #endif
 static void do_forward(const char *source);
 static void do_fwd2(const char *source, const char *origin, char *arg, const char *intext);
@@ -108,7 +109,7 @@ void memoserv(const char *source, char *buf)
 	notice(s_MemoServ, source, "Sorry, Backup services currently in use - MEMOS and NEWS are disabled.");
 	return;
 
-    } else if (stricmp(cmd, "\1PING") == 0) {
+    } else if (stricmp(cmd, "\1PING")==0) {
 	if (!(s = strtok(NULL, "")))
 	    s = "\1";
 	notice(s_MemoServ, source, "\1PING %s", s);
@@ -120,6 +121,7 @@ void memoserv(const char *source, char *buf)
 		{ "WRITE",	H_NONE,	do_send },
 #ifdef MEMOS
 		{ "*OPER*",	H_OPER,	do_opersend },
+		{ "*S*OP*",	H_SOP,	do_sopsend },
 #endif
 		{ "LIST*",	H_NONE,	do_list },
 		{ "VIEW*",	H_NONE,	do_list },
@@ -324,25 +326,25 @@ void check_memos(const char *nick)
 #ifdef NEWS
 void check_newss(const char *chan, const char *source)
 {
-    NewsList *nl;
+    NewsList *nl = find_newslist(chan);
     ChannelInfo *ci = cs_findchan(chan);
     User *u = finduser(source);
 
-    if (ci && check_access(u, ci, CA_READMEMO))
-	if (nl = find_newslist(chan)) {
-	    notice(s_MemoServ, source, "There %s %d news article%s for %s.",
+    if (userisnick(source) && nl && ci)
+      if(check_access(u, ci, CA_READMEMO)) {
+	notice(s_MemoServ, source, "There %s %d news article%s for %s.",
 		nl->n_newss == 1 ? "is" : "are",
 		nl->n_newss,
 		nl->n_newss == 1 ? "" : "s",
 		chan);
-	    notice(s_MemoServ, source, "Type \2/msg %s %s %s %s%s\2to %s.",
+	notice(s_MemoServ, source, "Type \2/msg %s %s %s %s%s\2to %s.",
 		s_MemoServ,
 		nl->n_newss == 1 ? "READ" : "LIST",
 		chan,
 		nl->n_newss == 1 ? itoa(nl->newss->number) : "",
 		nl->n_newss == 1 ? " " : "",
 		nl->n_newss == 1 ? "read it" : "list them");
-	}
+      }
 }
 #endif /* NEWS */
 
@@ -358,12 +360,14 @@ void check_newss(const char *chan, const char *source)
 MemoList *find_memolist(const char *nick)
 {
     MemoList *ml;
-    int i;
+    int i = -1;
+    NickInfo *ni = host(findnick(nick));
 
-    for (ml = memolists[tolower(*nick)];
-			ml && (i = stricmp(ml->nick, nick)) < 0;
-			ml = ml->next)
-	;
+    if (ni) {
+	for (ml = memolists[tolower(*(ni->nick))];
+		ml && (i = stricmp(ml->nick, host(findnick(nick))->nick)) < 0;
+		ml = ml->next);
+    }
     return i==0 ? ml : NULL;
 }
 
@@ -494,6 +498,7 @@ static void do_help(const char *source)
     if (cmd) {
 	Hash_HELP *command, hash_table[] = {
 		{ "*OPER*",	H_OPER,	opersend_help },
+		{ "*S*OP*",	H_SOP,	sopsend_help },
 		{ NULL }
 	};
 
@@ -522,7 +527,7 @@ static int candomemo(const char *source, char *other) {
 			"\2/msg %s HELP\2 for information on registering"
 			"your nickname.", s_NickServ);
 
-    else if (!(ni->flags & (NI_RECOGNIZED | NI_IDENTIFIED)))
+    else if (!userisnick(source))
 	notice(s_MemoServ, source, "Permission denied.");
 
     else if (other)
@@ -555,7 +560,7 @@ static int candonews(const char *source, const char *chan, int access)
 			"\2/msg %s HELP\2 for information on registering"
 			"your nickname.", s_NickServ);
 
-    else if (!(ni->flags & (NI_RECOGNIZED | NI_IDENTIFIED)))
+    else if (!userisnick(source))
 	notice(s_MemoServ, source, "Permission denied.");
 
     else if (!(ci = cs_findchan(chan)))
@@ -641,6 +646,8 @@ static void do_send(const char *source)
 #ifdef MEMOS
     } else
       if (candomemo(source, arg)) {
+        int i;
+	NickInfo *hni;
 	ml = find_memolist(arg);
 	if (!ml) {
 	    ml = scalloc(sizeof(MemoList), 1);
@@ -662,13 +669,23 @@ static void do_send(const char *source)
 	    ml->memos[ml->n_memos-1].number = 1;
 	m->time = time(NULL);
 	m->text = sstrdup(text);
-	notice(s_MemoServ, source, "Memo sent to %s.", arg);
-	if (finduser(arg)) {
-	    notice(s_MemoServ, arg, "You have a new memo (#%d) from %s.",
+	hni = host(findnick(arg));
+	notice(s_MemoServ, source, "Memo sent to %s (%s).",
+		hni->nick, findnick(arg)->nick);
+	if (userisnick(hni->nick)) {
+	    notice(s_MemoServ, hni->nick, "You have a new memo (#%d) from %s.",
 			m->number, source);
-	    notice(s_MemoServ, arg, "Type \2/msg %s READ %d\2 to read it.",
+	    notice(s_MemoServ, hni->nick, "Type \2/msg %s READ %d\2 to read it.",
 			s_MemoServ, m->number);
 	}
+	i = slavecount(hni->nick);
+	for (i=slavecount(hni->nick); i; i--)
+	    if (userisnick(slave(hni->nick, i)->nick)) {
+		notice(s_MemoServ, slave(hni->nick, i)->nick, "You have a new memo (#%d) from %s.",
+			m->number, source);
+		notice(s_MemoServ, slave(hni->nick, i)->nick, "Type \2/msg %s READ %d\2 to read it.",
+			s_MemoServ, m->number);
+	    }
       }
 #endif
 }
@@ -691,16 +708,23 @@ static void do_opersend(const char *source)
 	int i;
 	MemoList *ml;
 	Memo *m;
-	NickInfo *ni;
+	NickInfo *ni = host(findnick(source));
+	char sender[NICKMAX];
 	char text2[strlen(text)+16];
-	if ((ni = findnick(source)) && !(ni->flags & NI_IRCOP)) {
+	if (!ni) {
+	    notice(s_MemoServ, source, "You must be registered.");
+	    return;
+	} else if (!(ni->flags & NI_IRCOP)) {
 	    notice(s_MemoServ, source,
 		"You must have the IRC Operator flag set.");
 	    return;
 	}
+	strscpy(sender, ni->nick, NICKMAX);
 	for (i=33; i<256; ++i)
 	 for (ni = nicklists[i]; ni; ni = ni->next)
-	  if (ni->flags & NI_IRCOP && !!stricmp(source, ni->nick)) {
+	  if ((ni->flags & NI_IRCOP) && stricmp(ni->nick, sender)!=0) {
+	    NickInfo *hni;
+	    int j;
 	    ml = find_memolist(ni->nick);
 	    if (!ml) {
 		ml = scalloc(sizeof(MemoList), 1);
@@ -714,23 +738,97 @@ static void do_opersend(const char *source)
 	    if (ml->n_memos > 1) {
 		m->number = m[-1].number + 1;
 		if (m->number < 1) {
-		    int i;
-		    for (i = 0; i < ml->n_memos; ++i)
-			ml->memos[i].number = i+1;
+		    for (j = 0; j < ml->n_memos; ++j)
+			ml->memos[j].number = j+1;
 		}
 	    } else
 		ml->memos[ml->n_memos-1].number = 1;
 	    snprintf(text2, sizeof(text2), "\37[\37\2OPER\2\37]\37 %s", text);
 	    m->time = time(NULL);
 	    m->text = sstrdup(text2);
-	    if (is_oper(ni->nick)) {
-		notice(s_MemoServ, ni->nick, "You have a new OPERmemo (#%d) from %s.",
+	    hni = host(ni);
+	    if (userisnick(hni->nick)) {
+		notice(s_MemoServ, hni->nick, "You have a new OPERmemo (#%d) from %s.",
 			m->number, source);
-		notice(s_MemoServ, ni->nick, "Type \2/msg %s READ %d\2 to read it.",
+		notice(s_MemoServ, hni->nick, "Type \2/msg %s READ %d\2 to read it.",
 			s_MemoServ, m->number);
 	    }
+	    for (j=slavecount(hni->nick); j; j--)
+		if (userisnick(slave(hni->nick, j)->nick)) {
+		    notice(s_MemoServ, slave(hni->nick, j)->nick, "You have a new OPERmemo (#%d) from %s.",
+			m->number, source);
+		    notice(s_MemoServ, slave(hni->nick, j)->nick, "Type \2/msg %s READ %d\2 to read it.",
+			s_MemoServ, m->number);
+		}
 	  }
 	notice(s_MemoServ, source, "Memo sent to all IRC Operators.");
+      }
+}
+
+static void do_sopsend(const char *source)
+{
+    char *text = strtok(NULL, "");
+
+    if (!text) {
+	notice(s_MemoServ, source,
+		"Syntax: \2SOPSEND \37memo-text\37\2");
+	notice(s_MemoServ, source,
+		"\2/msg %s HELP SOPSEND\2 for more information.", s_MemoServ);
+
+    } else
+      if (candomemo(source, NULL)) {
+	int i;
+	MemoList *ml;
+	Memo *m;
+	NickInfo *ni = host(findnick(source));
+	char sender[NICKMAX];
+	char text2[strlen(text)+16];
+	if (!ni) {
+	    notice(s_MemoServ, source, "You must be registered.");
+	    return;
+	}
+	strscpy(sender, ni->nick, NICKMAX);
+	for (i = 0; i < nsop; ++i)
+	  if (stricmp(sender, sops[i])!=0) {
+	    NickInfo *hni;
+	    int j;
+	    ml = find_memolist(sops[i]);
+	    if (!ml) {
+		ml = scalloc(sizeof(MemoList), 1);
+		strscpy(ml->nick, sops[i], NICKMAX);
+		alpha_insert_memolist(ml);
+	    }
+	    ++ml->n_memos;
+	    ml->memos = srealloc(ml->memos, sizeof(Memo) * ml->n_memos);
+	    m = &ml->memos[ml->n_memos-1];
+	    strscpy(m->sender, source, NICKMAX);
+	    if (ml->n_memos > 1) {
+		m->number = m[-1].number + 1;
+		if (m->number < 1) {
+		    for (j = 0; j < ml->n_memos; ++j)
+			ml->memos[j].number = j+1;
+		}
+	    } else
+		ml->memos[ml->n_memos-1].number = 1;
+	    snprintf(text2, sizeof(text2), "\37[\37\2SOP\2\37]\37 %s", text);
+	    m->time = time(NULL);
+	    m->text = sstrdup(text2);
+	    hni = host(findnick(sops[i]));
+	    if (userisnick(hni->nick)) {
+		notice(s_MemoServ, hni->nick, "You have a new SOPmemo (#%d) from %s.",
+			m->number, source);
+		notice(s_MemoServ, hni->nick, "Type \2/msg %s READ %d\2 to read it.",
+			s_MemoServ, m->number);
+	    }
+	    for (j=slavecount(hni->nick); j; j--)
+		if (userisnick(slave(hni->nick, j)->nick)) {
+		    notice(s_MemoServ, slave(hni->nick, j)->nick, "You have a new SOPmemo (#%d) from %s.",
+			m->number, source);
+		    notice(s_MemoServ, slave(hni->nick, j)->nick, "Type \2/msg %s READ %d\2 to read it.",
+			s_MemoServ, m->number);
+		}
+	  }
+        notice(s_MemoServ, source, "Memo sent to all IRC S-Operators.");
       }
 }
 #endif
@@ -750,9 +848,7 @@ static void do_list(const char *source)
     NickInfo *ni;
     Memo *m;
     int i;
-    char timebuf[64];
     char *arg = strtok(NULL, "");
-    struct tm tm;
 
 #ifdef NEWS
     if(arg && arg[0]=='#') {
@@ -763,14 +859,10 @@ static void do_list(const char *source)
 	    notice(s_MemoServ, source,
 		"News articles for %s.  To read, type \2/msg %s READ %s \37num\37\2",
 		arg, s_MemoServ, arg);
-	    notice(s_MemoServ, source, "Num  Sender            Date/Time");
-	    for (i = 0, m = nl->newss; i < nl->n_newss; ++i, ++m) {
-		tm = *localtime(&m->time);
-		strftime(timebuf, sizeof(timebuf), "%a %b %d %H:%M:%S %Y", &tm);
-		timebuf[sizeof(timebuf)-1] = 0;	/* just in case */
-		notice(s_MemoServ, source, "%3d  %-16s  %s %s",
-			m->number, m->sender, timebuf, time_zone);
-	    }
+	    notice(s_MemoServ, source, "Num  Sender            Waiting for");
+	    for (i = 0, m = nl->newss; i < nl->n_newss; ++i, ++m)
+		notice(s_MemoServ, source, "%3d  %-16s  %s",
+			m->number, m->sender, time_ago(m->time, 1));
 	}
 #endif
 #ifdef MEMOS
@@ -784,13 +876,10 @@ static void do_list(const char *source)
 	    notice(s_MemoServ, source,
 		"Memos for %s.  To read, type \2/msg %s READ \37num\37\2",
 		source, s_MemoServ);
-	    notice(s_MemoServ, source, "Num  Sender            Date/Time");
+	    notice(s_MemoServ, source, "Num  Sender            Waiting for");
 	    for (i = 0, m = ml->memos; i < ml->n_memos; ++i, ++m) {
-		tm = *localtime(&m->time);
-		strftime(timebuf, sizeof(timebuf), "%a %b %d %H:%M:%S %Y", &tm);
-		timebuf[sizeof(timebuf)-1] = 0;	/* just in case */
-		notice(s_MemoServ, source, "%3d  %-16s  %s %s",
-			m->number, m->sender, timebuf, time_zone);
+		notice(s_MemoServ, source, "%3d  %-16s  %s",
+			m->number, m->sender, time_ago(m->time, 1));
 	     }
 	}
 #endif
@@ -844,7 +933,7 @@ static void do_read(const char *source)
       notice(s_MemoServ, source,
 		"\2/msg %s HELP READ\2 for more information.", s_MemoServ);
     
-    } else if (!numstr || ((num = atoi(numstr)) <= 0 && stricmp(numstr,"ALL") != 0)) {
+    } else if (!numstr || ((num = atoi(numstr)) <= 0 && stricmp(numstr,"ALL")!=0)) {
 #ifdef NEWS
       if(arg[0]!='#')
 #endif /* NEWS */
@@ -872,8 +961,8 @@ static void do_read(const char *source)
 		else {
 		    m = &nl->newss[i];
 		    notice(s_MemoServ, source,
-			"News %d for %s from %s.",
-			m->number, arg, m->sender);
+			"News %d for %s from %s (Sent %s ago).",
+			m->number, arg, m->sender, time_ago(m->time, 1));
 		    notice(s_MemoServ, source, "%s", m->text);
 		}
 	    } else {
@@ -881,8 +970,8 @@ static void do_read(const char *source)
 		for (i = 0; i < nl->n_newss; ++i) {
 		    m = &nl->newss[i];
 		    notice(s_MemoServ, source,
-			"News %d for %s from %s.",
-			m->number, arg, m->sender);
+			"News %d for %s from %s (Sent %s ago).",
+			m->number, arg, m->sender, time_ago(m->time, 1));
 		    notice(s_MemoServ, source, "%s", m->text);
 		}
 	    }
@@ -903,20 +992,24 @@ static void do_read(const char *source)
 		else {
 		    m = &ml->memos[i];
 		    notice(s_MemoServ, source,
-			"Memo %d from %s.  To delete, type: \2/msg %s DEL %d\2",
-			m->number, m->sender, s_MemoServ, m->number);
+			"Memo %d from %s (Sent %s ago).",
+			m->number, m->sender, time_ago(m->time, 1));
 		    notice(s_MemoServ, source, "%s", m->text);
+		    notice(s_MemoServ, source,
+			"To delete, type: \2/msg %s DEL %d\2",
+			s_MemoServ, m->number);
 		}
 	    } else {
 		int i;
 		for (i = 0; i < ml->n_memos; ++i) {
 		    m = &ml->memos[i];
 		    notice(s_MemoServ, source,
-			"Memo %d from %s.", m->number, m->sender);
+			"Memo %d from %s (Sent %s ago).",
+			m->number, m->sender, time_ago(m->time, 1));
 		    notice(s_MemoServ, source, "%s", m->text);
 		}
 		notice(s_MemoServ, source,
-		   "To delete, type: \2/msg %s DEL ALL\2", s_MemoServ);
+		    "To delete, type: \2/msg %s DEL ALL\2", s_MemoServ);
 	    }
 #endif
 #ifdef STUPID
@@ -1088,7 +1181,7 @@ static void do_del(const char *source)
 		"\2/msg %s HELP DEL\2 for more information.", s_MemoServ);
 
     } else if (!numstr ||
-	    ((num = atoi(numstr)) <= 0 && stricmp(numstr, "ALL") != 0)) {
+	    ((num = atoi(numstr)) <= 0 && stricmp(numstr, "ALL")!=0)) {
 #ifdef NEWS
       if(arg[0]!='#')
 #endif /* NEWS */
@@ -1115,7 +1208,7 @@ static void do_del(const char *source)
 		    if (nl->newss[i].number == num)
 			break;
 		if (i < nl->n_newss) {
-		    if((stricmp(nl->newss[i].sender, source) == 0) || (check_access(u, ci, CA_DELMEMO))) {
+		    if((stricmp(nl->newss[i].sender, source)==0) || (check_access(u, ci, CA_DELMEMO))) {
 			free(nl->newss[i].text); /* Deallocate news text newsry */
 			--nl->n_newss;		 /* One less news now */
 			if (i < nl->n_newss)	 /* Move remaining newss down a slot */
@@ -1218,17 +1311,14 @@ static void do_fwd2(const char *source, const char *origin, char *arg, const cha
 #endif /* NEWS */
     NickInfo *ni;
     Memo *m;
-    char *text;
-
-    char *Torigin = sstrdup(origin);
-    char *Tintext = sstrdup(intext);
-    sprintf(text, "[FWD: %s] %s", Torigin, Tintext);
-    free(Torigin);
-    free(Tintext);
+    char text[strlen(origin)+strlen(intext)+10];
+    snprintf(text, sizeof(text), "[FWD: %s] %s", origin, intext);
 
 #ifdef NEWS
-    if (arg[0]=='#')
+    if (arg[0]=='#') {
       if (candonews(source, arg, CA_WRITEMEMO)) {
+	Channel *c;
+
 	nl = find_newslist(arg);
 	if (!nl) {
 	    nl = scalloc(sizeof(NewsList), 1);
@@ -1251,19 +1341,26 @@ static void do_fwd2(const char *source, const char *origin, char *arg, const cha
 	m->time = time(NULL);
 	m->text = sstrdup(text);
 	notice(s_MemoServ, source, "News sent to %s.", arg);
-	if (findchan(arg)) {
-	    notice(s_MemoServ, arg, "There is new news for %s (#%d) from %s.",
+	if (c = findchan(arg)) {
+	    struct c_userlist *ul;
+	    ChannelInfo *ci = cs_findchan(arg);
+	    for (ul = c->users; ul; ul = ul->next)
+		if (check_access(ul->user, ci, CA_READMEMO)) {
+		    notice(s_MemoServ, ul->user->nick, "There is new news for %s (#%d) from %s.",
 			arg, m->number, source);
-	    notice(s_MemoServ, arg, "Type \2/msg %s READ %s %d\2 to read it.",
+		    notice(s_MemoServ, ul->user->nick, "Type \2/msg %s READ %s %d\2 to read it.",
 			s_MemoServ, arg, m->number);
+		}
 	}
       }
 #endif
 #ifdef MEMOS
 #ifdef NEWS
-    else
+    } else
 #endif
       if (candomemo(source, arg)) {
+	int i;
+	NickInfo *hni;
 	ml = find_memolist(arg);
 	if (!ml) {
 	    ml = scalloc(sizeof(MemoList), 1);
@@ -1285,13 +1382,23 @@ static void do_fwd2(const char *source, const char *origin, char *arg, const cha
 	    ml->memos[ml->n_memos-1].number = 1;
 	m->time = time(NULL);
 	m->text = sstrdup(text);
-	notice(s_MemoServ, source, "Memo sent to %s.", arg);
-	if (finduser(arg)) {
-	    notice(s_MemoServ, arg, "You have a new memo (#%d) from %s.",
+	hni = host(findnick(arg));
+	notice(s_MemoServ, source, "Memo sent to %s (%s).",
+		hni->nick, findnick(arg)->nick);
+	if (userisnick(hni->nick)) {
+	    notice(s_MemoServ, hni->nick, "You have a new memo (#%d) from %s.",
 			m->number, source);
-	    notice(s_MemoServ, arg, "Type \2/msg %s READ %d\2 to read it.",
+	    notice(s_MemoServ, hni->nick, "Type \2/msg %s READ %d\2 to read it.",
 			s_MemoServ, m->number);
 	}
+	i = slavecount(hni->nick);
+	for (i=slavecount(hni->nick); i; i--)
+	    if (userisnick(slave(hni->nick, i)->nick)) {
+		notice(s_MemoServ, slave(hni->nick, i)->nick, "You have a new memo (#%d) from %s.",
+			m->number, source);
+		notice(s_MemoServ, slave(hni->nick, i)->nick, "Type \2/msg %s READ %d\2 to read it.",
+			s_MemoServ, m->number);
+	    }
       }
 #endif
 }

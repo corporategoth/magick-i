@@ -1,6 +1,6 @@
 			Magick Manual (Public)
 			----------------------
-				  Revision 1.1
+				  Revision 1.3
 
 Contents
 ========
@@ -18,6 +18,7 @@ Contents
 2.0.0	REGISTER
 2.0.1	IDENTIFY
 2.0.2	ACCESS
+2.0.3	LINK
 2.1	Getting Established
 2.1.0	SET EMAIL
 2.1.1	SET URL
@@ -34,6 +35,7 @@ Contents
 2.2.4	RELEASE
 2.2.5	IGNORE
 2.2.6	DROP
+2.2.7	DROPSLAVE
 
 3	ChanServ
 3.0	Where to Start
@@ -67,6 +69,7 @@ Contents
 3.2.7	UNBAN
 3.2.8	CLEAR
 3.2.9	DROP
+3.2.10	MODE
 
 4	MemoServ
 4.1	SEND
@@ -237,6 +240,11 @@ you log on from, you will want to tell NickServ to recognise you there also,
 enter the ACCESS list - this is a list of places you will be recognized from
 (ie. not have to identify each logon).
 
+If you have more than one nickname (eg. Nick, and Nick-Away), you may wish to
+make these two nicknames equivilant.  This is done with the LINK command, once
+linked to the 'host' nick, any linked nick will become almost exactly the same
+as the host nick (access lists, channel access, memos, etc).
+
 
 2.0.0	REGISTER
 ----------------
@@ -281,6 +289,24 @@ DEL will remove a hostmask (1.2.1) from your Access List.  You must specify
 	either the hostmask or the hostmask number (shown by LIST).
 LIST will display a numbered list of the hostmasks (1.2.1) you will currently
 	be recognized from.
+
+2.0.3	LINK
+------------
+
+SYNTAX:	/MSG NickServ LINK <nick> <password>
+
+This command creates a 'link' of your current nickname to a host nickname.
+The nick specified is the host nick, and the password is the password of
+the host nick.  The nick being linked must not be registered, if it is, you
+will have to DROP (2.2.6) it before linking to a host.
+
+Nick Linking means you only ever have to be on any channel access list once.
+You only ever have to maintain one access list, you only have to maintain one
+ignore list, you only have to keep the settings of one nick up to date, you
+only have one set of memos.  It basically makes the nick you choose, roughly
+equivilant to the 'host' nick.  They DO however differ though, Linked nicks
+expire seperately (the host will only expire when all slaves are gone).
+
 
 2.1	Getting Established
 ===========================
@@ -455,6 +481,16 @@ SYNTAX:	/MSG NickServ DROP
 
 This will de-register your nickname, and free it up for anyone else to be able
 to use at will, etc.  If you select a new nickname, please do this.
+
+2.2.7	DROPSLAVE
+-----------------
+
+SYNTAX:	/MSG NickServ DROPSLAVE <nick>
+
+This will de-register a SLAVE nick of yours.  This command may only be
+executed from the HOST nickname.  The specified nick must be a LINK (2.0.3).
+This command is exactly the same as changing to the nick, and executing DROP
+(2.2.6).
 
 ------------------------------------------------------------------------------
 
@@ -852,6 +888,16 @@ This will de-register a channel, and free it up for anyone else to be able
 to register.  If you dont visit a channel anymore, please do this, or change
 the FOUNDER (3.1.0) to someon who does.
 
+3.2.10	MODE
+------------
+
+SYNTAX:	/MSG ChanServ MODE <channel>
+
+This will return the current channel modes for a channel.  Implemented to get
+into channels that have mlock +k or +i on (will display channel key!).  You
+need at least access to the /MSG ChanServ INVITE command to be able to do
+this.
+
 ------------------------------------------------------------------------------
 
 4	MemoServ
@@ -999,7 +1045,7 @@ Services Operators have access to forcibly de-register your nickname
 (essentially the same as you executing the DROP (2.2.6) command).
 
 Services Operators have access to FORBID any nickname from being used or
-registered (just as if someone else already owned it and had KILL (2.1.2) on).
+registered (as if someone else already owned it and had KILL (2.1.2) on).
 
 Services Operators have access to a function called SUSPEND.  This function
 will stop you from being able to IDENTIFY (2.0.1).  This essentially means
@@ -1016,13 +1062,22 @@ state.  While suspended, you are ignoring EVERYONE's memos.
 IRC Operators have access to see all channels, even if they have mode +p
 (private) or +s (secret) set thanks to a function called CHANLIST.
 
-If an option called IRCOP_OVERRIDE is set in services, IRC Operators will have
-access to the USERS(3.2.3), INVITE (3.2.4), OP / DEOP (3.2.5), DEOP, VOICE /
-DEVOICE (3.2.6), UNBAN (3.2.7) aswell as ACCESS (3.0.2), AKICK (3.2.2), and
-LEVEL (3.1.14) LIST commands regardless of wether they are on access list,
-they will also be immune to REVENGE (3.1.12), and will be able to be opped
-regardless of the SECUREOPS (3.1.9) setting.  If the same option is set,
-Services Operators will have access to CLEAR regardless of access list.
+Services have a function called OVERRIDE.  This function is compiled into
+services, and has 6 levels.  The 6 levels are as follows (explained below):
+	0	Disabled		1	All IRC Operator
+	2	"low" Levelled		3	All Services Operator
+	4	"high" Levelled		5	All Services Admin
+If set to "low" levelled, IRC Operators will have access to things like the
+USERS (3.2.3), INVITE (3.2.4), OP / DEOP (3.2.5), VOICE / DEVOICE (3.2.6),
+and UNBAN (3.2.7), as well as being able to LIST the ACCESS (3.0.2), AKICK
+(3.2.2) and LEVEL (3.1.13) lists.  They will also be immune to AKICK (3.2.2)
+and REVENGE (3.1.12), and will be able to be opped regardless of SECUREOPS
+(3.1.9).  Services Operators will have access to CLEAR (3.2.8).
+If set to "high" levelled, the above IRC Operator access's will be available
+only to Services Operators, and the Services Operator commands available only
+to Services Admins.  If set to levels 1, 3 or 5, ALL commands listed will be
+available to that level.  If unsure of what level override is on, ask an IRC
+Operator, they will be able to find out what level is in use.
 
 IRC Operators have access to kick any user from a channel via. services.
 
@@ -1076,13 +1131,17 @@ How do I register my nickname/channel? 2.0.0, 3.0.0
 
 I registered my nickname, but I keep getting locked out of it!? 2.0.1
 
+I use more than one nickname, but keeping them up is a hastle! 2.0.3
+
 Why does NickServ keep telling me to identify each time I log on? 2.0.2
 
 I registered my channel, but I have no access to it!? 3.0.1, 3.0.2
 
 I've forgotten my nick/channel password, how do I find it out again? 6.1, 6.2
 
-Someone stole my (registered) nick? what do I do? 2.1.2, 2.2.3, 2.2.4
+Someone stole my (registered) nick, what do I do? 2.1.2, 2.2.3, 2.2.4
+
+Someone has linked a nick that I dont want to my nick, what do I do? 2.2.7
 
 How do I make ChanServ join my channel? 3.1.13
 
@@ -1095,5 +1154,9 @@ How do I get into a +i (invite only) channel? 3.2.4
 I'm banned!  How do I get in? 3.2.7
 
 It keeps saying I've got memos - What do I do? 4.2, 4.3, 4.4
+
+How do I get into mlock +k or +i channels? 3.2.4, 3.2.10
+
+How do I change my NickServ/ChanServ Password? 2.0.1/3.0.1 then 2.1.4/3.1.1
 
 Who the heck are you anyway? 1.1

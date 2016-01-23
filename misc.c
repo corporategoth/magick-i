@@ -1,6 +1,6 @@
 /* Miscellaneous routines.
  *
- * Magick is copyright (c) 1996-1997 Preston A. Elder.
+ * Magick is copyright (c) 1996-1998 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
  * This program is free but copyrighted software; see the file COPYING for
  * details.
@@ -433,6 +433,50 @@ char *itoa(int num)
     return ret;
 }
 
+char *time_ago(time_t mytime, int call)
+{
+    if (services_level > 1 && !!tz_offset && call)
+	    mytime += tz_offset * 60 * 60;
+    return disect_time(time(NULL) - mytime, 0);
+}
+char *disect_time(time_t time, int call)
+{
+    static char ret[32];
+    int years, days, hours, minutes, seconds;
+    years = days = hours = minutes = seconds = 0;
+
+    if (services_level > 1 && !!tz_offset && call)
+	    time += tz_offset * 60 * 60;
+    while (time > 60*60*24*365)	{ time -= 60*60*60*365;	years++;	}
+    while (time > 60*60*24)	{ time -= 60*60*24;	days++;		}
+    while (time > 60*60)	{ time -= 60*60;	hours++;	}
+    while (time > 60)		{ time -= 60;		minutes++;	}
+    seconds = time;
+
+    if (years)
+	snprintf(ret, sizeof(ret), "%d year%s, %d day%s, %02d:%02d:%02d",
+		years, years == 1 ? "" : "s",
+		days, days == 1 ? "" : "s",
+		hours, minutes, seconds);
+    else if (days)
+	snprintf(ret, sizeof(ret), "%d day%s, %02d:%02d:%02d",
+		days, days == 1 ? "" : "s",
+		hours, minutes, seconds);
+    else if (hours)
+	snprintf(ret, sizeof(ret), "%d hour%s, %d minute%s, %d second%s",
+		hours, hours == 1 ? "" : "s",
+		minutes, minutes == 1 ? "" : "s",
+		seconds, seconds == 1 ? "" : "s");
+    else if (minutes)
+	snprintf(ret, sizeof(ret), "%d minute%s, %d second%s",
+		minutes, minutes == 1 ? "" : "s",
+		seconds, seconds == 1 ? "" : "s");
+    else
+	snprintf(ret, sizeof(ret), "%d second%s",
+		seconds, seconds == 1 ? "" : "s");
+    return ret;
+}
+
 /*************************************************************************/
 
 /* read_string, write_string:
@@ -467,6 +511,8 @@ char *write_string(const char *s, FILE *f, const char *filename)
 /*************************************************************************/
 
 /* Functions for processing the hash tables */
+
+/* Standard [void command(source)] */
 Hash *get_hash(const char *source, const char *cmd, Hash *hash_table)
 {
     for(;hash_table->accept;++hash_table)
@@ -479,6 +525,7 @@ Hash *get_hash(const char *source, const char *cmd, Hash *hash_table)
     return NULL;
 }
 
+/* NickServ SET [void command(ni, param)] */
 Hash_NI *get_ni_hash(const char *source, const char *cmd, Hash_NI *hash_table)
 {
     for(;hash_table->accept;++hash_table)
@@ -491,6 +538,7 @@ Hash_NI *get_ni_hash(const char *source, const char *cmd, Hash_NI *hash_table)
     return NULL;
 }
 
+/* ChanServ SET [void command(u, ci, param)] */
 Hash_CI *get_ci_hash(const char *source, const char *cmd, Hash_CI *hash_table)
 {
     for(;hash_table->accept;++hash_table)
@@ -503,6 +551,7 @@ Hash_CI *get_ci_hash(const char *source, const char *cmd, Hash_CI *hash_table)
     return NULL;
 }
 
+/* ALL Help files [const char *(*command)] */
 Hash_HELP *get_help_hash(const char *source, const char *cmd, Hash_HELP *hash_table)
 {
     for(;hash_table->accept;++hash_table)
@@ -515,6 +564,7 @@ Hash_HELP *get_help_hash(const char *source, const char *cmd, Hash_HELP *hash_ta
     return NULL;
 }
 
+/* ChanServ commands [void command(source, chan)] */
 Hash_CHAN *get_chan_hash(const char *source, const char *cmd, Hash_CHAN *hash_table)
 {
     for(;hash_table->accept;++hash_table)
@@ -527,3 +577,31 @@ Hash_CHAN *get_chan_hash(const char *source, const char *cmd, Hash_CHAN *hash_ta
     return NULL;
 }
 
+/*************************************************************************/
+
+/* Does the function fit the override? */
+
+int override(const char *source, int level)
+{
+    switch (OVERRIDE_LEVEL) {
+      case 1:
+	     if (is_oper(source))				return 1;
+	break;
+      case 2:
+	     if (level==CO_OPER && is_oper(source))		return 1;
+	else if (level==CO_SOP && is_services_op(source))	return 1;
+	else if (level==CO_ADMIN && is_services_admin(source))	return 1;
+	break;
+      case 3:
+	     if (is_services_op(source))			return 1;
+	break;
+      case 4:
+	     if (level==CO_OPER && is_services_op(source))	return 1;
+	else if (level>=CO_SOP && is_services_admin(source))	return 1;
+	break;
+      case 5:
+	     if (is_services_admin(source))			return 1;
+	break;
+    }
+    return 0;
+}

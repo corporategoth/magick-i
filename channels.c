@@ -1,6 +1,6 @@
 /* Channel-handling routines.
  *
- * Magick is copyright (c) 1996-1997 Preston A. Elder.
+ * Magick is copyright (c) 1996-1998 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
  * This program is free but copyrighted software; see the file COPYING for
  * details.
@@ -125,7 +125,7 @@ Channel *findchan(const char *chan)
     Channel *c = chanlist;
 
     for (c = chanlist; c; c = c->next)
-	if (stricmp(c->name, chan) == 0)
+	if (stricmp(c->name, chan)==0)
 	    return c;
     return NULL;
 }
@@ -151,13 +151,17 @@ void chan_adduser(User *user, const char *chan)
 	strscpy(c->name, chan, sizeof(c->name));
 	c->creation_time = time(NULL);
 #ifdef CHANSERV
-	do_cs_join(chan);
-	check_modes(chan);
-	restore_topic(chan);
+	if (!i_am_backup()) {
+	    do_cs_unprotect(chan);
+	    do_cs_join(chan);
+	    check_modes(chan);
+	    restore_topic(chan);
+	}
 #endif
     }
 #ifdef CHANSERV
-    check_should_op(user, chan);
+    if (!i_am_backup())
+	check_should_op(user, chan);
 #endif
     u = smalloc(sizeof(struct c_userlist));
     u->next = c->users;
@@ -207,7 +211,10 @@ void chan_deluser(User *user, Channel *c)
     }
     if (!c->users) {
 #ifdef CHANSERV
-	do_cs_part(c->name);
+	if (!i_am_backup()) {
+	    do_cs_part(c->name);
+	    do_cs_protect(c->name);
+	}
 #endif
 	if (c->topic)
 	    free(c->topic);
@@ -215,7 +222,7 @@ void chan_deluser(User *user, Channel *c)
 	    free(c->key);
 	if (c->bancount) {
 	    int i;
-	    for (i = 0; i < c->bancount; ++i)
+	    for (i = c->bancount - 1; i >= 0 ; --i)
 		free(c->bans[i]);
 	}
 	if (c->bansize)
@@ -377,16 +384,18 @@ void do_cmode(const char *source, int ac, char **av)
 			}
 
 		    /* Unban if the BANEE is HIGHER or EQUAL TO the BANER */
-		    if(debug)
+		    if(runflags & RUN_DEBUG)
 			log("debug: actionee level is %d (%s), actioner is %d (%s)",
 						banlev, banee, setlev, source);
 
 		    if (banlev >= setlev) {
 			char mask[strlen(chan->bans[chan->bancount-1])+1];
 			strscpy(mask,chan->bans[chan->bancount-1], strlen(chan->bans[chan->bancount-1])+1);
-			if (get_revenge_level(ci) >= CR_REVERSE)
-			    change_cmode(s_ChanServ, chan->name, "-b", mask);
-			do_revenge(chan->name, source, banee, get_bantype(mask));
+			if (!i_am_backup()) {
+			    if (get_revenge_level(ci) >= CR_REVERSE)
+				change_cmode(s_ChanServ, chan->name, "-b", mask);
+			    do_revenge(chan->name, source, banee, get_bantype(mask));
+			}
 		    }
 		}
 #endif
@@ -414,7 +423,7 @@ void do_cmode(const char *source, int ac, char **av)
 	    nick = *av++;
 	    if (add) {
 		if (is_services_nick(nick)) break;
-		for (u = chan->chanops; u && stricmp(u->user->nick, nick) != 0;
+		for (u = chan->chanops; u && stricmp(u->user->nick, nick)!=0;
 								u = u->next)
 		    ;
 		if (u)
@@ -425,7 +434,7 @@ void do_cmode(const char *source, int ac, char **av)
 							chan->name, nick);
 		    break;
 		}
-		if(debug)
+		if(runflags & RUN_DEBUG)
 		    log("debug: Setting +o on %s for %s", chan->name, nick);
 		u = smalloc(sizeof(*u));
 		u->next = chan->chanops;
@@ -435,14 +444,16 @@ void do_cmode(const char *source, int ac, char **av)
 		chan->chanops = u;
 		u->user = user;
 #ifdef CHANSERV
-		check_valid_op(user, chan->name, !!strchr(source, '.'));
+		if (!i_am_backup())
+		    check_valid_op(user, chan->name, !!strchr(source, '.'));
 #endif
 	    } else {
 #ifdef CHANSERV
-		if (stricmp(s_ChanServ, nick)==0) do_cs_reop(chan->name);
+		if (stricmp(s_ChanServ, nick)==0 && !i_am_backup())
+		    do_cs_reop(chan->name);
 #endif
 		if (is_services_nick(nick)) break;
-		for (u = chan->chanops; u && stricmp(u->user->nick, nick);
+		for (u = chan->chanops; u && stricmp(u->user->nick, nick)!=0;
 								u = u->next)
 		    ;
 		if (!u)
@@ -455,15 +466,16 @@ void do_cmode(const char *source, int ac, char **av)
 		    chan->chanops = u->next;
 		free(u);
 #ifdef CHANSERV
-		if (is_server(source)) {
-		    ChannelInfo *ci = cs_findchan(chan->name);
-		    if (ci && get_access(finduser(nick), ci) >
+		if (!i_am_backup())
+		    if (is_server(source)) {
+			ChannelInfo *ci = cs_findchan(chan->name);
+			if (ci && get_access(finduser(nick), ci) >
 						ci->cmd_access[CA_AUTOOP]-1)
-			change_cmode(s_ChanServ, chan->name, "+o", nick);
-		} else
-		    if (do_cs_revenge(chan->name, source, nick, CR_DEOP))
-			if (get_revenge_level(cs_findchan(chan->name))>=CR_REVERSE)
 			    change_cmode(s_ChanServ, chan->name, "+o", nick);
+		    } else
+			if (do_cs_revenge(chan->name, source, nick, CR_DEOP))
+			    if (get_revenge_level(cs_findchan(chan->name))>=CR_REVERSE)
+				change_cmode(s_ChanServ, chan->name, "+o", nick);
 #endif
 	    }
 	    break;
@@ -477,7 +489,7 @@ void do_cmode(const char *source, int ac, char **av)
 	    nick = *av++;
 	    if (is_services_nick(nick)) break;
 	    if (add) {
-		for (u = chan->voices; u && stricmp(u->user->nick, nick);
+		for (u = chan->voices; u && stricmp(u->user->nick, nick)!=0;
 								u = u->next)
 		    ;
 		if (u)
@@ -488,7 +500,7 @@ void do_cmode(const char *source, int ac, char **av)
 							chan->name, nick);
 		    break;
 		}
-		if(debug)
+		if(runflags & RUN_DEBUG)
 		    log("debug: Setting +v on %s for %s", chan->name, nick);
 		u = smalloc(sizeof(*u));
 		u->next = chan->voices;
@@ -498,10 +510,11 @@ void do_cmode(const char *source, int ac, char **av)
 		chan->voices = u;
 		u->user = user;
 #ifdef CHANSERV
-		check_valid_voice(user, chan->name, !!strchr(source, '.'));
+		if (!i_am_backup())
+		    check_valid_voice(user, chan->name, !!strchr(source, '.'));
 #endif
 	    } else {
-		for (u = chan->voices; u && stricmp(u->user->nick, nick);
+		for (u = chan->voices; u && stricmp(u->user->nick, nick)!=0;
 								u = u->next)
 		    ;
 		if (!u)
@@ -548,20 +561,25 @@ void change_cmode (const char *who, const char *chan, const char *mode, const ch
     av[0] = sstrdup(chan);
     av[1] = sstrdup(mode);
     av[2] = sstrdup(pram);
-    send_cmd(who, "MODE %s %s %s", chan, mode, pram);
-    do_cmode(who, 3, av);
+    if (!i_am_backup()) {
+	send_cmd(who, "MODE %s %s %s", chan, mode, pram);
+	do_cmode(who, 3, av);
+    }
     free(av[2]);
     free(av[1]);
     free(av[0]);
 }
+
 void kick_user (const char *who, const char *chan, const char *nick, const char *reason)
 {
     char *av[3];
     av[0] = sstrdup(chan);
     av[1] = sstrdup(nick);
     av[2] = sstrdup(reason);
-    send_cmd(who, "KICK %s %s :%s", chan, nick, reason);
-    do_kick(who, 3, av);
+    if (!i_am_backup()) {
+	send_cmd(who, "KICK %s %s :%s", chan, nick, reason);
+	do_kick(who, 3, av);
+    }
     free(av[2]);
     free(av[1]);
     free(av[0]);

@@ -1,6 +1,6 @@
 /* ChanServ functions.
  *
- * Magick is copyright (c) 1996-1997 Preston A. Elder.
+ * Magick is copyright (c) 1996-1998 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
  * This program is free but copyrighted software; see the file COPYING for
  * details.
@@ -133,6 +133,7 @@ static void do_info(const char *source);
 static void do_list(const char *source);
 static void do_users(const char *source);
 static void do_invite(const char *source);
+static void do_mode(const char *source);
 static void do_voice(const char *source);
 static void do_devoice(const char *source);
 static void do_op(const char *source);
@@ -160,7 +161,6 @@ void listchans(int count_only, const char *chan)
     long count = 0;
     ChannelInfo *ci;
     int i;
-    time_t curtime = time(NULL);
 
     if (count_only) {
 
@@ -171,7 +171,6 @@ void listchans(int count_only, const char *chan)
 
     } else if (chan) {
 
-	struct tm tm;
 	NickInfo *ni;
 	char *t;
 
@@ -179,7 +178,7 @@ void listchans(int count_only, const char *chan)
 	    printf("Channel %s not registered.\n", chan);
 	    return;
 	}
-	if (ni = findnick(ci->founder))
+	if (ni = host(findnick(ci->founder)))
 	    t = ni->last_usermask;
 	else
 	    t = NULL;
@@ -190,20 +189,13 @@ void listchans(int count_only, const char *chan)
 	    printf("        Founder: %s%s%s%s\n",
 			ci->founder, t ? " (" : "", t ? t : "", t ? ")" : "");
 	    printf("    Description: %s\n", ci->desc);
-	if(strlen(ci->url)>0)
-	    printf(" WWW Page (URL): %s", ci->url);
-	    tm = *localtime(&ci->time_registered);
-	    printf("     Registered: %s %2d %02d:%02d:%02d %d\n",
-			month_name(tm.tm_mon+1), tm.tm_mday, tm.tm_hour,
-			tm.tm_min, tm.tm_sec, tm.tm_year+1900);
-	    tm = *localtime(&ci->last_used);
-	    printf("      Last used: %s %2d %02d:%02d:%02d %d\n",
-			month_name(tm.tm_mon+1), tm.tm_mday, tm.tm_hour,
-			tm.tm_min, tm.tm_sec, tm.tm_year+1900);
-	    tm = *localtime(&curtime);
-	    printf("   Current time: %s %2d %02d:%02d:%02d %d\n",
-			month_name(tm.tm_mon+1), tm.tm_mday, tm.tm_hour,
-			tm.tm_min, tm.tm_sec, tm.tm_year+1900);
+	    if(strlen(ci->url)>0)
+		printf(" WWW Page (URL): %s", ci->url);
+	    printf("       Registered: %s ago\n",
+		time_ago(ci->time_registered, 1));
+	    if (!findchan(ci->name))
+		printf("        Last used: %s ago\n",
+		    time_ago(ci->last_used, 1));
 	    if (ci->last_topic) {
 		if (ci->flags & CI_SUSPENDED) {
 		    printf("  Suspended For: %s\n", ci->last_topic);
@@ -275,6 +267,8 @@ void listchans(int count_only, const char *chan)
 	    if (ci->mlock_limit)
 		printf(" %ld", ci->mlock_limit);
 	    printf("\n");
+	    if (findchan(ci->name))
+		printf("Channel currently in use.\n");
 	}
 
     } else {
@@ -339,7 +333,7 @@ void chanserv(const char *source, char *buf)
     if (!cmd)
 	return;
 
-    else if (stricmp(cmd, "\1PING") == 0) {
+    else if (stricmp(cmd, "\1PING")==0) {
 	if (!(s = strtok(NULL, "")))
 	    s = "\1";
 	notice(s_ChanServ, source, "\1PING %s", s);
@@ -355,7 +349,8 @@ void chanserv(const char *source, char *buf)
 #if AKICK_MAX > 0
 		{ "A*KICK",	H_NONE,	do_akick },
 #endif
-		{ "INVITE",	H_NONE,	do_invite },
+		{ "INV*",	H_NONE,	do_invite },
+		{ "*MODE",	H_NONE,	do_mode },
 		{ "UNBAN",	H_NONE,	do_unban },
 		{ "*INFO",	H_NONE,	do_info },
 		{ "LIST",	H_NONE,	do_list },
@@ -791,6 +786,7 @@ void check_modes(const char *chan)
     if (end == newmodes)
 	return;
     *end = 0;
+    if (!i_am_backup()) {
     if (set_limit) {
 	if (set_key)
 	    send_cmd(s_ChanServ, "MODE %s %s %d :%s", c->name,
@@ -802,9 +798,9 @@ void check_modes(const char *chan)
 				newmodes, newkey ? newkey : "");
     else
 	send_cmd(s_ChanServ, "MODE %s %s", c->name, newmodes);
-
     if (newkey && !c->key)
 	free(newkey);
+    }
 }
 
 /*************************************************************************/
@@ -817,38 +813,36 @@ int check_valid_op(User *user, const char *chan, int serverop)
 {
     ChannelInfo *ci = cs_findchan(chan);
 
-    if (!ci || (ci->flags & CI_LEAVEOPS))
+    if (!ci || i_am_backup() || (ci->flags & CI_LEAVEOPS))
 	return 1;
 
-#ifdef IRCOP_OVERRIDE
-    if (is_oper(user->nick))
+    if (override(user->nick, CO_OPER))
 	return 1;
-#endif
 
     if (!is_chanop(user->nick, chan))
         return 0;
 
-    if (ci->flags & CI_SUSPENDED && !is_services_op(user->nick)) {
+    if (ci->flags & CI_SUSPENDED && !override(user->nick, CO_SOP)) {
 	notice(s_ChanServ, user->nick,
 		"This channel has been suspended, no ops will be allowed.");
 	change_cmode(s_ChanServ, chan, "-o", user->nick);
 	return 0;
     }
 
-    if (ci->flags & CI_VERBOTEN && !is_oper(user->nick)) {
-	/* check_kick() will get them out; we needn't explain. */
+    if (ci->flags & CI_VERBOTEN) {
+	if(is_oper(user->nick)) return 1;
 	change_cmode(s_ChanServ, chan, "-o", user->nick);
 	return 0;
     }
 
-    if (serverop && get_access(user, ci) <= 0) {
+    if (serverop && !check_access(user, ci, CA_AUTOOP)) {
 	notice(s_ChanServ, user->nick,
 		"This channel has been registered with %s.", s_ChanServ);
 	change_cmode(s_ChanServ, chan, "-o", user->nick);
 	return 0;
     }
 
-    if (get_access(user, ci) <= (ci->flags & CI_SECUREOPS ? 0 : ci->cmd_access[CA_AUTODEOP])) {
+    if (get_access(user, ci) <= ((ci->flags & CI_SECUREOPS) ? 0 : ci->cmd_access[CA_AUTODEOP])) {
 	change_cmode(s_ChanServ, chan, "-o", user->nick);
 	return 0;
     }
@@ -859,39 +853,37 @@ int check_valid_op(User *user, const char *chan, int serverop)
 /*************************************************************************/
 
 /* Check whether a user is allowed to be voiced on a channel; if they
- * aren't, devoice them.  If serverop is 1, the +v was done by a server.
+ * aren't, devoice them.  If servervoice is 1, the +v was done by a server.
  * Return 1 if the user is allowed to be voiced, 0 otherwise. */
 
-int check_valid_voice(User *user, const char *chan, int serverop)
+int check_valid_voice(User *user, const char *chan, int servervoice)
 {
     ChannelInfo *ci = cs_findchan(chan);
 
-    if (!ci || (ci->flags & CI_LEAVEOPS))
+    if (!ci || i_am_backup() || (ci->flags & CI_LEAVEOPS))
 	return 1;
 
-#ifdef IRCOP_OVERRIDE
-    if (is_oper(user->nick))
+    if (override(user->nick, CO_OPER))
 	return 1;
-#endif
 
     if (!is_voiced(user->nick, chan))
         return 0;
 
-    if (ci->flags & CI_SUSPENDED && !is_oper(user->nick)) {
+    if (ci->flags & CI_SUSPENDED && !override(user->nick, CO_OPER)) {
 	notice(s_ChanServ, user->nick,
 		"This channel has been suspended, no voices will be allowed.");
 	change_cmode(s_ChanServ, chan, "-v", user->nick);
 	return 0;
     }
 
-    if (serverop && get_access(user, ci) <= 0) {
+    if (servervoice && !check_access(user, ci, CA_AUTOVOICE)) {
 	notice(s_ChanServ, user->nick,
 		"This channel has been registered with %s.", s_ChanServ);
 	change_cmode(s_ChanServ, chan, "-v", user->nick);
 	return 0;
     }
 
-    if (get_access(user, ci) <= (ci->flags & CI_SECUREOPS ? 0 : ci->cmd_access[CA_AUTODEOP])) {
+    if (get_access(user, ci) <= ((ci->flags & CI_SECUREOPS) ? 0 : ci->cmd_access[CA_AUTODEOP])) {
 	change_cmode(s_ChanServ, chan, "-v", user->nick);
 	return 0;
     }
@@ -910,7 +902,7 @@ int check_should_op(User *user, const char *chan)
     ChannelInfo *ci = cs_findchan(chan);
     NickInfo *ni;
 
-    if (!ci || ci->flags & CI_VERBOTEN || *chan == '+')
+    if (!ci || i_am_backup() || ci->flags & CI_VERBOTEN || *chan == '+')
 	return 0;
 
     if (ci->flags & CI_SECURE)
@@ -940,19 +932,19 @@ int check_kick(User *user, const char *chan)
 {
     ChannelInfo *ci = cs_findchan(chan);
     AutoKick *akick;
-    int i, bad;
+    int i;
     NickInfo *ni;
     char *av[3];
+    char mask[strlen(user->nick)+strlen(user->username)+strlen(user->host)+3];
 
-    if (!ci)
+    if (!ci || i_am_backup())
 	return 0;
 
-#ifdef IRCOP_OVERRIDE
-    if (is_oper(user->nick))
+    if (override(user->nick, CO_OPER))
 	return 0;
-#endif
 
-    if (ci->flags & CI_VERBOTEN) {
+    if ((ci->flags & CI_VERBOTEN)) {
+	if (is_oper(user->nick)) return 0;
 	change_cmode(s_ChanServ, chan, "+b", create_mask(user));
 	kick_user(s_ChanServ, chan, user->nick, "This channel may not be used.");
 	return 1;
@@ -960,19 +952,18 @@ int check_kick(User *user, const char *chan)
 
     if (ci->flags & CI_SUSPENDED)
 	return 0;
-
-    ni = findnick(user->nick);
-    if ((ni == NULL) || !(ni->flags & (NI_IDENTIFIED | NI_RECOGNIZED)))
-	ni = NULL;
+    ni = host(findnick(user->nick));
 
     for (akick = ci->akick, i = 0; i < ci->akickcount; ++akick, ++i)
-	if ((akick->is_nick > 0 && ni && stricmp(akick->name, user->nick) == 0) ||
+	if ((akick->is_nick > 0 && userisnick(user->nick) &&
+					stricmp(ni->nick, akick->name)==0) ||
 		(!akick->is_nick && match_usermask(akick->name, user))) {
-	    change_cmode(s_ChanServ, chan, "+b", akick->is_nick ? create_mask(user) : akick->name);
+	    change_cmode(s_ChanServ, chan, "+b", akick->is_nick > 0 ?
+					create_mask(user) : akick->name);
 	    kick_user(s_ChanServ, chan, user->nick,
-			akick->reason ? akick->reason : DEF_AKICK_REASON);
+		   akick->reason ? akick->reason : DEF_AKICK_REASON);
 	    return 1;
-	}
+        }
 
     if (!(ci->flags & CI_RESTRICTED))
 	return 0;
@@ -1011,6 +1002,29 @@ void record_topic(const char *chan)
 }
 
 /*************************************************************************/
+
+void do_cs_protect(const char *chan)
+{
+    ChannelInfo *ci = cs_findchan(chan);
+    if (ci && (ci->mlock_key || (ci->mlock_on & CMODE_I))) {
+	send_cmd(s_ChanServ, "JOIN %s", chan);
+	send_cmd(s_ChanServ, "MODE %s +s%s%s :%s", chan,
+		(ci->mlock_on & CMODE_I) ? "i" : "",
+		ci->mlock_key ? "k" : "",
+		ci->mlock_key ? ci->mlock_key : "");
+    }
+}
+void do_cs_unprotect(const char *chan)
+{
+    ChannelInfo *ci = cs_findchan(chan);
+    if (ci && (ci->mlock_key || (ci->mlock_on & CMODE_I))) {
+	if (!(ci->mlock_on & CMODE_S))
+	    send_cmd(s_ChanServ, "MODE %s -s", chan);
+	if (!(ci->flags & CI_JOIN))
+	    send_cmd(s_ChanServ, "PART %s", chan);
+    }
+}
+
 
 /* Join channel with JOIN on and op self */
 void do_cs_join(const char *chan)
@@ -1057,7 +1071,7 @@ int do_cs_revenge(const char *chan, const char *actioner, const char *actionee,
 	actlev = get_access(user, ci);
 
 	/* Unban if the ACTIONEE is HIGHER or EQUAL TO the ACTIONER */
-	if(debug)
+	if(runflags & RUN_DEBUG)
 	    log("debug: actionee level is %d (%s), actioner is %d (%s)",
 					actlev, actionee, setlev, actioner);
 	if (actlev > setlev) {
@@ -1076,10 +1090,7 @@ void do_revenge(const char *chan, const char *actioner, const char *actionee,
     User *user = finduser(actioner);
 
     if (!ci || !user || action==CR_NONE) return;
-
-#ifdef IRCOP_OVERRIDE
-    if (is_oper(actioner)) return;
-#endif
+    if (override(actioner, CO_OPER)) return;
 
     if (action == CR_DEOP)
 	snprintf(buf, sizeof(buf), "\2REVENGE\2 - Do not deop %s", actionee);
@@ -1148,7 +1159,7 @@ void restore_topic(const char *chan)
     Channel *c = findchan(chan);
     ChannelInfo *ci = cs_findchan(chan);
 
-    if (!c || !ci || !(ci->flags & (CI_KEEPTOPIC | CI_SUSPENDED)))
+    if (!c || !ci || i_am_backup() || !(ci->flags & (CI_KEEPTOPIC | CI_SUSPENDED)))
 	return;
     if (c->topic)
 	free(c->topic);
@@ -1184,7 +1195,7 @@ int check_topiclock(const char *chan)
     Channel *c = findchan(chan);
     ChannelInfo *ci = cs_findchan(chan);
 
-    if (!c || !ci || !(ci->flags & (CI_TOPICLOCK | CI_SUSPENDED)))
+    if (!c || !ci || i_am_backup() || !(ci->flags & (CI_TOPICLOCK | CI_SUSPENDED)))
 	return 0;
     if (c->topic)
 	free(c->topic);
@@ -1208,7 +1219,7 @@ int check_topiclock(const char *chan)
 /* Remove all channels which have expired. */
 void expire_chans()
 {
-    ChannelInfo *ci;
+    ChannelInfo *ci, *ci2;
     int i;
     const time_t expire_time = CHANNEL_EXPIRE*24*60*60;
     time_t now = time(NULL);
@@ -1218,20 +1229,12 @@ void expire_chans()
 	while (ci) {
 	    if (now - ci->last_used >= expire_time
 			&& !(ci->flags & (CI_VERBOTEN | CI_SUSPENDED))) {
-		ChannelInfo *ci2;
-		if (ci->prev) {
-		    ci2 = ci->prev;
-		    if (ci->next)
-			ci2->next = ci->next;
-		    else
-			ci2->next = NULL;
-		} else
-		    ci2 = NULL;
+		ci2 = ci->next;
 		log("Expiring channel %s", ci->name);
 		delchan(ci);
 		ci = ci2;
-	    }
-	    if (ci) ci = ci->next;
+	    } else
+		ci = ci->next;
 	}
     }
 }
@@ -1248,7 +1251,7 @@ ChannelInfo *cs_findchan(const char *chan)
     ChannelInfo *ci;
 
     for (ci = chanlists[tolower(chan[1])]; ci; ci = ci->next)
-	if (stricmp(ci->name, chan) == 0)
+	if (stricmp(ci->name, chan)==0)
 	    return ci;
     return NULL;
 }
@@ -1340,8 +1343,6 @@ int delchan(ChannelInfo *ci)
     }
     if (ci->akick)
 	free(ci->akick);
-    if (ci->cmd_access)
-	free(ci->cmd_access);
     free(ci);
     return 1;
 }
@@ -1354,16 +1355,16 @@ int is_founder(User *user, NickInfo *ni, ChannelInfo *ci)
 {
     struct u_chaninfolist *c;
 
+    if(ci->flags & CI_VERBOTEN)
+	return 0;
     if(ci->flags & CI_SUSPENDED)
-	if(is_services_op(user->nick))
+	if(override(user->nick, CO_SOP))
 	    return 1;
 	else
 	    return 0;
 	
-    if (ni && ((ni->flags & NI_IDENTIFIED) ||
-		((ni->flags & NI_RECOGNIZED) && !(ci->flags & CI_SECURE)))
-	   && stricmp(user->nick, ci->founder) == 0)
-	return 1;
+    if (ni && userisnick(user->nick) && !(ci->flags & CI_SECURE))
+	if (issibling(ni, ci->founder)) return 1;
     return is_identified(user, ci);
 }
 
@@ -1371,11 +1372,12 @@ int is_justfounder(NickInfo *ni, ChannelInfo *ci)
 {
     struct u_chaninfolist *c;
 
+    if(ci->flags & CI_VERBOTEN)
+	return 0;
     if(ci->flags & CI_SUSPENDED)
-	    return 0;
+	return 0;
 	
-    if (ni && stricmp(ni->nick, ci->founder) == 0)
-	return 1;
+    if (ni && issibling(ni, ci->founder)) return 1;
     return 0;
 }
 
@@ -1388,7 +1390,7 @@ static int is_identified(User *user, ChannelInfo *ci)
     struct u_chaninfolist *c;
 
     if(ci->flags & CI_SUSPENDED)
-	if(is_services_op(user->nick))
+	if(override(user->nick, CO_SOP))
 	    return 1;
 	else
 	    return 0;
@@ -1406,37 +1408,54 @@ static int is_identified(User *user, ChannelInfo *ci)
 
 int get_access(User *user, ChannelInfo *ci)
 {
-    NickInfo *ni = findnick(user->nick);
     ChanAccess *access;
     int i, highlev = ci->cmd_access[CA_FLOOR]-1;
+    NickInfo *ni;
+    int identified = 0, isnick = 0;
 
     if (!ci)
 	return 0;
+    if(ci->flags & CI_VERBOTEN)
+	return 0;
     if(ci->flags & CI_SUSPENDED)
-    	if(is_services_op(user->nick))
+    	if(override(user->nick, CO_SOP))
 	    return ci->cmd_access[CA_FOUNDER];
-	else if(is_oper(user->nick))
+	else if(override(user->nick, CO_OPER))
 	    return ci->cmd_access[CA_AUTOVOICE];
 	else
 	    return 0;
 
-    if (is_founder(user, ni, ci))
+    if ((ni = findnick(user->nick)))   /* Find these first, save CPU */
+	if (ni->flags & NI_IDENTIFIED)
+	    identified = 1;
+    if (userisnick(user->nick))
+	isnick = 1;
+
+    if (is_founder(user, findnick(user->nick), ci))
 	return ci->cmd_access[CA_FOUNDER];
-    for (access = ci->access, i = 0; i < ci->accesscount; ++access, ++i)
-	if (	(access->is_nick > 0 && ni &&
-		((ni->flags & NI_IDENTIFIED) ||
-		((ni->flags & NI_RECOGNIZED)  &&
-		!(ci->flags & CI_SECURE))) &&
-		stricmp(user->nick, access->name) == 0) ||
-		(!access->is_nick && !ni &&
-		match_usermask(access->name, user)))
+    for (access = ci->access, i = 0; i < ci->accesscount; ++access, ++i) {
+	if (	(
+		    access->is_nick > 0 &&
+		    issibling(findnick(user->nick), access->name) &&
+		    (
+			(
+			    (ci->flags & CI_SECURE) && identified
+			) || (
+			    !(ci->flags & CI_SECURE) && isnick
+			)
+		    )
+		) || (
+		    !access->is_nick &&
+		    match_usermask(access->name, user)
+		))
 	    if (access->level > highlev) highlev = access->level;
-    if (highlev > ci->cmd_access[CA_FLOOR]-1) return highlev;
-    return 0;
+    }
+    return (highlev > ci->cmd_access[CA_FLOOR]) ? highlev : 0;
 }
 
 int check_access (User *user, ChannelInfo *ci, int what)
 {
+    if (ci->flags & CI_VERBOTEN) return 0;
     if (get_access(user, ci) >= ci->cmd_access[what])
 	return 1;
     return 0;
@@ -1447,21 +1466,26 @@ int check_access (User *user, ChannelInfo *ci, int what)
 
 int get_justaccess(const char *name, ChannelInfo *ci)
 {
-    NickInfo *ni = findnick(name);
     ChanAccess *access;
     int i, highlev = ci->cmd_access[CA_FLOOR]-1;
 
     if (!ci)
 	return 0;
+    if(ci->flags & CI_VERBOTEN)
+	return 0;
     if(ci->flags & CI_SUSPENDED)
 	return 0;
-    if (is_justfounder(ni, ci))
+
+    if (is_justfounder(findnick(name), ci))
 	return ci->cmd_access[CA_FOUNDER];
     for (access = ci->access, i = 0; i < ci->accesscount; ++access, ++i)
-	if (	(access->is_nick > 0 && ni &&
-		stricmp(name, access->name) == 0) ||
-	    	(!access->is_nick && !ni &&
-	    	match_wild_nocase(access->name, name)))
+	if (	(
+		    access->is_nick > 0 &&
+		    issibling(findnick(name), access->name)
+		) || (
+		    !access->is_nick &&
+		    match_wild_nocase(access->name, name)
+		))
 	    if (access->level > highlev) highlev = access->level;
     if (highlev > ci->cmd_access[CA_FLOOR]-1) return highlev;
     return 0;
@@ -1470,6 +1494,7 @@ int get_justaccess(const char *name, ChannelInfo *ci)
 
 int check_justaccess (const char *name, ChannelInfo *ci, int what)
 {
+    if (ci->flags & CI_VERBOTEN) return 0;
     if (get_justaccess(name, ci) >= ci->cmd_access[what])
 	return 1;
     return 0;
@@ -1669,10 +1694,9 @@ static void do_drop(const char *source)
     char *chan = strtok(NULL, " ");
     ChannelInfo *ci;
     User *u = finduser(source);
-    int is_servop = is_services_op(source);
 
   if(services_level!=1)
-    if (!is_servop) {
+    if (!is_services_op(source)) {
 	notice(s_ChanServ, source,
 		"Sorry, channel de-registration is temporarily disabled.");
 	return;
@@ -1686,7 +1710,7 @@ static void do_drop(const char *source)
     } else if (!(ci = cs_findchan(chan)))
 	notice(s_ChanServ, source, "Channel %s is not registered.", chan);
 
-    else if (!is_servop && (!u || !is_identified(u, ci))) {
+    else if (!is_services_op(source) && (!u || !is_identified(u, ci))) {
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
 	else {
@@ -1697,20 +1721,19 @@ static void do_drop(const char *source)
 		s_ChanServ, chan);
 	}
 
-    } else if (is_servop && !u) {
+    } else if (is_services_op(source) && !u) {
 	log("%s: DROP %s from nonexistent oper %s", s_ChanServ, chan, source);
 	notice(s_ChanServ, source, "Can't find your user record!");
 
     } else {
 
-  if(services_level!=1)
-	notice(s_ChanServ, source,
+	if(services_level!=1)
+	    notice(s_ChanServ, source,
 		"Warning: Services is in read-only mode; changes will not be saved.");
 	delchan(ci);
 	log("%s: Channel %s dropped by %s!%s@%s", s_ChanServ, chan,
 			source, u->username, u->host);
 	notice(s_ChanServ, source, "Channel %s has been dropped.", chan);
-
     }
 }
 
@@ -1738,7 +1761,7 @@ static void do_set(const char *source)
   }
 
     if (cmd)
-	if (stricmp(cmd, "DESC") == 0 || stricmp(cmd, "TOPIC") == 0)
+	if (stricmp(cmd, "DESC")==0 || stricmp(cmd, "TOPIC")==0)
 	    param = strtok(NULL, "");
 	else
 	    param = strtok(NULL, " ");
@@ -1755,37 +1778,48 @@ static void do_set(const char *source)
     } else if (!(ci = cs_findchan(chan)))
 	notice(s_ChanServ, source, "Channel %s is not registered.", chan);
 
-    else if (!(u = finduser(source)) || !check_access(u, ci, CA_SET))
+    else if (!(u = finduser(source)))
+	notice(s_ChanServ, source, "Access denied.");
+
+    else if (match_wild_nocase("FOUND*", cmd))
+	if ((is_founder(u, findnick(u->nick), ci) && is_identified(u, ci))
+					|| override(u->nick, CO_ADMIN))
+	    if (ci->flags & CI_SUSPENDED)
+		notice(s_ChanServ, u->nick,
+				"Access denied for SUSPENDED channels.");
+	    else
+		do_set_founder(u, ci, param);
+	 else
+	    if (is_founder(u, findnick(u->nick), ci)) {
+		notice(s_ChanServ, source,
+			"Password authentication required for that command.");
+		notice(s_ChanServ, source,
+			"Retry after typing \2/msg ChanServ IDENTIFY %s \37password\37.",
+			chan);
+	    } else
+		notice(s_ChanServ, source, "Access denied.");
+
+    else if (match_wild_nocase("*PASS*", cmd))
+	if ((is_founder(u, findnick(u->nick), ci) && is_identified(u, ci))
+					|| override(u->nick, CO_ADMIN))
+	    if (ci->flags & CI_SUSPENDED)
+		notice(s_ChanServ, u->nick,
+				"Access denied for SUSPENDED channels.");
+	    else
+		do_set_password(u, ci, param);
+	else
+	    if (is_founder(u, findnick(u->nick), ci)) {
+		notice(s_ChanServ, source,
+			"Password authentication required for that command.");
+		notice(s_ChanServ, source,
+			"Retry after typing \2/msg ChanServ IDENTIFY %s \37password\37.",
+			chan);
+	    } else
+		notice(s_ChanServ, source, "Access denied.");
+
+    else if (!check_access(u, ci, CA_SET))
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
-	else
-	    notice(s_ChanServ, source, "Access denied.");
-
-    else if (stricmp(cmd, "FOUNDER") == 0)
-	if (is_founder(u, findnick(u->nick), ci))
-	     if(is_identified(u, ci))
-		    do_set_founder(u, ci, param);
-	     else {
-		notice(s_ChanServ, source,
-		    "Password authentication required for that command.");
-		notice(s_ChanServ, source,
-		    "Retry after typing \2/msg ChanServ IDENTIFY %s \37password\37.",
-		    chan);
-	     }
-	else
-	    notice(s_ChanServ, source, "Access denied.");
-
-    else if (stricmp(cmd, "PASSWORD") == 0)
-	if (is_founder(u, findnick(u->nick), ci))
-	     if(is_identified(u, ci))
-		do_set_password(u, ci, param);
-	     else {
-		notice(s_ChanServ, source,
-		    "Password authentication required for that command.");
-		notice(s_ChanServ, source,
-		    "Retry after typing \2/msg ChanServ IDENTIFY %s \37password\37.",
-		    chan);
-	     }
 	else
 	    notice(s_ChanServ, source, "Access denied.");
 
@@ -1800,14 +1834,14 @@ static void do_set(const char *source)
 		{ "SEC*OPS",	H_NONE,	do_set_secureops },
 		{ "RESTRICT*",	H_NONE,	do_set_restricted },
 		{ "SEC*",	H_NONE,	do_set_secure },
+		{ "JOIN",	H_NONE,	do_set_join },
+		{ "REV*",	H_NONE,	do_set_revenge },
 #if FILE_VERSION > 2
 		{ "U*R*L",	H_NONE,	do_set_url },
 		{ "W*W*W",	H_NONE,	do_set_url },
 		{ "HOME*",	H_NONE,	do_set_url },
 		{ "*PAGE",	H_NONE,	do_set_url },
 #endif
-		{ "JOIN",	H_NONE,	do_set_join },
-		{ "REV*",	H_NONE,	do_set_revenge },
 		{ NULL }
 	};
 
@@ -1829,7 +1863,7 @@ static void do_set_founder(User *u, ChannelInfo *ci, char *param)
 	notice(s_ChanServ, u->nick, "%s isn't a registered nickname.", param);
 	return;
     }
-    strscpy(ci->founder, param, NICKMAX);
+    strscpy(ci->founder, ni->nick, NICKMAX);
     notice(s_ChanServ, u->nick,
 		"Founder of %s changed to \2%s\2.", ci->name, ci->founder);
 }
@@ -1858,8 +1892,9 @@ static void do_set_desc(User *u, ChannelInfo *ci, char *param)
 #if FILE_VERSION > 2
 static void do_set_url(User *u, ChannelInfo *ci, char *param)
 {
-    free(ci->url);
-    if(stricmp(param, "NONE") == 0) {
+    if (ci->url)
+	free(ci->url);
+    if(stricmp(param, "NONE")==0) {
 	ci->url = sstrdup("");
 	notice(s_ChanServ, u->nick,
 		"World Wide Web Page (URL) of %s removed.", ci->name);
@@ -2006,7 +2041,7 @@ static void do_set_mlock(User *u, ChannelInfo *ci, char *param)
 
     end = modebuf;
     *end = 0;
-    if (ci->mlock_on)
+    if (ci->mlock_on || ci->mlock_limit || ci->mlock_key)
 	end += snprintf(end, sizeof(modebuf), "+%s%s%s%s%s%s%s%s",
 				(ci->mlock_on & CMODE_I) ? "i" : "",
 				(ci->mlock_key         ) ? "k" : "",
@@ -2032,6 +2067,11 @@ static void do_set_mlock(User *u, ChannelInfo *ci, char *param)
     else
 	notice(s_ChanServ, source,
 		"Mode lock on channel %s removed.", chan);
+    if (!findchan(chan)) 
+	if (!ci->mlock_key && !(ci->mlock_on & CMODE_I))
+	    send_cmd(s_ChanServ, "PART %s", chan);
+	else if (ci->mlock_key || (ci->mlock_on & CMODE_I))
+	    do_cs_protect(chan);
     check_modes(chan);
 }
 
@@ -2041,12 +2081,12 @@ static void do_set_keeptopic(User *u, ChannelInfo *ci, char *param)
 {
     char *source = u->nick, *chan = ci->name;
 
-    if (stricmp(param, "ON") == 0) {
+    if (stricmp(param, "ON")==0) {
 	ci->flags |= CI_KEEPTOPIC;
 	notice(s_ChanServ, source,
 		"Topic retention option is now \2ON\2.");
 
-    } else if (stricmp(param, "OFF") == 0) {
+    } else if (stricmp(param, "OFF")==0) {
 	ci->flags &= ~CI_KEEPTOPIC;
 	notice(s_ChanServ, source,
 		"Topic retention option is now \2OFF\2.");
@@ -2066,12 +2106,12 @@ static void do_set_topiclock(User *u, ChannelInfo *ci, char *param)
 {
     char *source = u->nick, *chan = ci->name;
 
-    if (stricmp(param, "ON") == 0) {
+    if (stricmp(param, "ON")==0) {
 	ci->flags |= CI_TOPICLOCK;
 	notice(s_ChanServ, source,
 		"Topic lock option is now \2ON\2.");
 
-    } else if (stricmp(param, "OFF") == 0) {
+    } else if (stricmp(param, "OFF")==0) {
 	ci->flags &= ~CI_TOPICLOCK;
 	notice(s_ChanServ, source,
 		"Topic lock option is now \2OFF\2.");
@@ -2091,12 +2131,12 @@ static void do_set_private(User *u, ChannelInfo *ci, char *param)
 {
     char *source = u->nick, *chan = ci->name;
 
-    if (stricmp(param, "ON") == 0) {
+    if (stricmp(param, "ON")==0) {
 	ci->flags |= CI_PRIVATE;
 	notice(s_ChanServ, source,
 		"Private option is now \2ON\2.");
 
-    } else if (stricmp(param, "OFF") == 0) {
+    } else if (stricmp(param, "OFF")==0) {
 	ci->flags &= ~CI_PRIVATE;
 	notice(s_ChanServ, source,
 		"Private option is now \2OFF\2.");
@@ -2116,12 +2156,12 @@ static void do_set_secureops(User *u, ChannelInfo *ci, char *param)
 {
     char *source = u->nick, *chan = ci->name;
 
-    if (stricmp(param, "ON") == 0) {
+    if (stricmp(param, "ON")==0) {
 	ci->flags |= CI_SECUREOPS;
 	notice(s_ChanServ, source,
 		"Secure ops option is now \2ON\2.");
 
-    } else if (stricmp(param, "OFF") == 0) {
+    } else if (stricmp(param, "OFF")==0) {
 	ci->flags &= ~CI_SECUREOPS;
 	notice(s_ChanServ, source,
 		"Secure ops option is now \2OFF\2.");
@@ -2141,12 +2181,12 @@ static void do_set_restricted(User *u, ChannelInfo *ci, char *param)
 {
     char *source = u->nick, *chan = ci->name;
 
-    if (stricmp(param, "ON") == 0) {
+    if (stricmp(param, "ON")==0) {
 	ci->flags |= CI_RESTRICTED;
 	notice(s_ChanServ, source,
 		"Restricted access option is now \2ON\2.");
 
-    } else if (stricmp(param, "OFF") == 0) {
+    } else if (stricmp(param, "OFF")==0) {
 	ci->flags &= ~CI_RESTRICTED;
 	notice(s_ChanServ, source,
 		"Restricted access option is now \2OFF\2.");
@@ -2166,7 +2206,7 @@ static void do_set_secure(User *u, ChannelInfo *ci, char *param)
 {
     char *source = u->nick, *chan = ci->name;
 
-    if (stricmp(param, "ON") == 0) {
+    if (stricmp(param, "ON")==0) {
 	ChanAccess *access;
 	int i;
 
@@ -2185,7 +2225,7 @@ static void do_set_secure(User *u, ChannelInfo *ci, char *param)
 	notice(s_ChanServ, source,
 		"Secure option is now \2ON\2.");
 
-    } else if (stricmp(param, "OFF") == 0) {
+    } else if (stricmp(param, "OFF")==0) {
 	ci->flags &= ~CI_SECURE;
 	notice(s_ChanServ, source,
 		"Secure option is now \2OFF\2.");
@@ -2205,14 +2245,14 @@ static void do_set_join(User *u, ChannelInfo *ci, char *param)
 {
     char *source = u->nick, *chan = ci->name;
 
-    if (stricmp(param, "ON") == 0) {
+    if (stricmp(param, "ON")==0) {
 	ci->flags |= CI_JOIN;
 	notice(s_ChanServ, source,
 		"Join option is now \2ON\2.");
-	do_cs_join(ci->name);
+	if (findchan(chan) && !i_am_backup()) do_cs_join(chan);
 
-    } else if (stricmp(param, "OFF") == 0) {
-	do_cs_part(ci->name);
+    } else if (stricmp(param, "OFF")==0) {
+	if (!i_am_backup()) do_cs_part(chan);
 	ci->flags &= ~CI_JOIN;
 	notice(s_ChanServ, source,
 		"Join option is now \2OFF\2.");
@@ -2317,11 +2357,7 @@ static void do_level(const char *source)
     } else if (!(ci = cs_findchan(chan)))
 	notice(s_ChanServ, source, "Channel %s is not registered.", chan);
 
-#ifdef IRCOP_OVERRIDE
-    else if (!(u = finduser(source)) || (!is_services_op(source) &&
-#else
-    else if (!(u = finduser(source)) || (
-#endif
+    else if (!(u = finduser(source)) || (!override(source, CO_SOP) &&
 			get_access(u, ci) <= 0))
 	notice(s_ChanServ, source, "Access denied.");
 
@@ -2357,11 +2393,7 @@ static void do_level_list (const char *source, char *chan)
     User *u = finduser(source);
     int i;
 
-#ifdef IRCOP_OVERRIDE
-	if (check_access(u, ci, CA_SET) || is_services_op(source)) {
-#else
-	if (check_access(u, ci, CA_SET)) {
-#endif
+	if (check_access(u, ci, CA_SET) || override(source, CO_SOP)) {
 	    notice(s_ChanServ, source, "Level required for comands on %s:", chan);
 	    notice(s_ChanServ, source, "Level   Type");
 	    for (i=0; levelinfo[i].what >= 0; i++)
@@ -2490,11 +2522,7 @@ static void do_access(const char *source)
 	notice(s_ChanServ, source, "Channel %s is not registered.", chan);
 
     else if (!(u = finduser(source)) || !(check_access(u, ci, CA_ACCESS)
-#ifdef IRCOP_OVERRIDE
-					|| is_services_op(source)))
-#else
-					))
-#endif
+					|| override(source, CO_SOP)))
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
 	else
@@ -2547,9 +2575,7 @@ void do_access_add (const char *source, char *chan)
 	notice(s_ChanServ, source, "Access denied.");
 	return;
     }
-#ifdef IRCOP_OVERRIDE
     if (ulev > ci->cmd_access[CA_ACCESS]) {
-#endif
 	if(services_level!=1) {
 	    notice(s_ChanServ, source,
 		    "Sorry, channel access list modification is temporarily disabled.");
@@ -2557,7 +2583,7 @@ void do_access_add (const char *source, char *chan)
 	}
 
 	if (level == 0) {
-	    notice(s_ChanServ, source, "Access level must be non-%d.", 0);
+	    notice(s_ChanServ, source, "Access level must be non-zero.");
 	    return;
 	} else if (level < ci->cmd_access[CA_FLOOR]) {
 	    notice(s_ChanServ, source,
@@ -2569,7 +2595,7 @@ void do_access_add (const char *source, char *chan)
 	    return;
 	}
 
-	ni = findnick(mask);
+	ni = host(findnick(mask));
 	if (!ni) {
 	    char *nick, *user, *host;
 	    if (ci->flags & CI_SECURE) {
@@ -2590,8 +2616,8 @@ void do_access_add (const char *source, char *chan)
 	    free(host);
 	}
 	for (access = ci->access, i = 0; i < ci->accesscount; ++access, ++i)
-	    if ((access->is_nick ? stricmp(access->name,mask) :
-					stricmp(access->name,mask)) == 0) {
+	    if (access->is_nick ? issibling(ni, access->name) :
+				match_wild_nocase(access->name, mask)) {
 		if (access->level >= ulev && !is_founder(u, ni, ci)) {
 		    notice(s_ChanServ, source, "Access denied.");
 		    return;
@@ -2613,8 +2639,7 @@ void do_access_add (const char *source, char *chan)
 		break;
 	if (i == ci->accesscount) {
 	    ++ci->accesscount;
-	    ci->access =
-		srealloc(ci->access, sizeof(ChanAccess) * ci->accesscount);
+	    ci->access = srealloc(ci->access, sizeof(ChanAccess) * ci->accesscount);
 	    access = &ci->access[ci->accesscount-1];
 	}
 	access->name = ni ? sstrdup(ni->nick) : s;
@@ -2623,10 +2648,8 @@ void do_access_add (const char *source, char *chan)
 	notice(s_ChanServ, source,
 		"\2%s\2 added to %s access list at level \2%d\2.",
 		access->name, chan, level);
-#ifdef IRCOP_OVERRIDE
     } else
 	notice(s_ChanServ, source, "Access denied.");
-#endif
 }
 
 void do_access_del (const char *source, char *chan)
@@ -2645,9 +2668,7 @@ void do_access_del (const char *source, char *chan)
 		chan ? chan : "\37channel\37");
 	return;
     }
-#ifdef IRCOP_OVERRIDE
     if (ulev > ci->cmd_access[CA_ACCESS]) {
-#endif
 	if(services_level!=1) {
 	    notice(s_ChanServ, source,
 		"Sorry, channel access list modification is temporarily disabled.");
@@ -2665,7 +2686,7 @@ void do_access_del (const char *source, char *chan)
 		return;
 	    }
 	} else {
-	    ni = findnick(mask);
+	    ni = host(findnick(mask));
 	    if (!ni) {
 		char *nick, *user, *host;
 		split_usermask(mask, &nick, &user, &host);
@@ -2678,12 +2699,12 @@ void do_access_del (const char *source, char *chan)
 	    /* First try for an exact match; then, a case-insensitive one. */
 	    for (access = ci->access, i = 0; i < ci->accesscount;
 							++access, ++i)
-		if (access->is_nick >= 0 && stricmp(access->name, mask) == 0)
+		if (access->is_nick >= 0 && stricmp(access->name, mask)==0)
 		    break;
 	    if (i == ci->accesscount)
 		for (access = ci->access, i = 0; i < ci->accesscount;
 							++access, ++i)
-		    if (access->is_nick >= 0 && stricmp(access->name, mask) == 0)
+		    if (access->is_nick >= 0 && stricmp(access->name, mask)==0)
 			break;
 	    if (i == ci->accesscount) {
 		notice(s_ChanServ, source,
@@ -2704,10 +2725,8 @@ void do_access_del (const char *source, char *chan)
 	    free(access->name);
 	    access->is_nick = -1;
 	}
-#ifdef IRCOP_OVERRIDE
     } else
 	notice(s_ChanServ, source, "Access denied.");
-#endif
 }
 
 void do_access_list (const char *source, char *chan)
@@ -2730,7 +2749,7 @@ void do_access_list (const char *source, char *chan)
 	    if ((mask && !match_wild_nocase(mask, access->name)) ||
 					(level && level != access->level))
 		continue;
-	    if (ni = findnick(access->name))
+	    if (ni = host(findnick(access->name)))
 		s = ni->last_usermask;
 	    else
 		s = NULL;
@@ -2761,11 +2780,7 @@ static void do_akick(const char *source)
 	notice(s_ChanServ, source, "Channel %s is not registered.", chan);
 
     else if (!(u = finduser(source)) || !(check_access(u, ci, CA_AKICK)
-#ifdef IRCOP_OVERRIDE
-					|| is_services_op(source)))
-#else
-					))
-#endif
+					|| override(source, CO_SOP)))
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
 	else
@@ -2814,9 +2829,7 @@ void do_akick_add (const char *source, char *chan)
 		chan ? chan : "\37channel\37");
 	return;
     }
-#ifdef IRCOP_OVERRIDE
     if (check_access(u, ci, CA_AKICK)) {
-#endif
 	if(services_level!=1) {
 	    notice(s_ChanServ, source,
 		"Sorry, channel AutoKick list modification is temporarily disabled.");
@@ -2829,10 +2842,10 @@ void do_akick_add (const char *source, char *chan)
 		    AKICK_MAX);
 	    return;
 	}
-	ni = findnick(mask);
+	ni = host(findnick(mask));
 	if (!ni) {
-	    char *nick, *user, *host;
 	    int nonchr = 0;
+	    char *nick, *user, *host;
 	    split_usermask(mask, &nick, &user, &host);
 	    mask = smalloc(strlen(nick)+strlen(user)+strlen(host)+3);
 	    sprintf(mask, "%s!%s@%s", nick, user, host);
@@ -2879,8 +2892,8 @@ void do_akick_add (const char *source, char *chan)
 	    ci->akick = srealloc(ci->akick, sizeof(AutoKick) * ci->akickcount);
 	    akick = &ci->akick[ci->akickcount-1];
 	    akick->name = ni ? sstrdup(ni->nick) : mask;
-	    akick->is_nick = (ni != NULL);
-	    akick->pad = 0;
+	    akick->is_nick = ni ? 1 : 0;
+	    akick->pad = 0; /* unused */
 	    if (reason)
 		akick->reason = sstrdup(reason);
 	    else
@@ -2890,27 +2903,31 @@ void do_akick_add (const char *source, char *chan)
 
 	    /* This call should not fail, but check just in case... */
 	    if (c = findchan(chan)) {
-		struct c_userlist *u2;
+		struct c_userlist *u2, *u3;
+		NickInfo *ni2;
+
 		if (!reason)
 		    reason = DEF_AKICK_REASON;
-		for (u2 = c->users; u2; u2 = u2->next)
-		    if (ni ? stricmp(u2->user->nick, akick->name)==0 :
-				match_usermask(akick->name, u2->user))
+		u2 = c->users;
+		while (u2) {
+		    u3 = u2->next;
+		    ni2 = findnick(akick->name);
+		    if (ni ? issibling(ni2, u2->user->nick) :
+				match_usermask(akick->name, u2->user)) {
 			kick_user(s_ChanServ, chan, u2->user->nick, reason);
+		    }
+		    u2 = u3;
+		}
 	    }
 	}
-#ifdef IRCOP_OVERRIDE
     } else
 	notice(s_ChanServ, source, "Access denied.");
-#endif
 }
 
 void do_akick_del (const char *source, char *chan)
 {
     char *mask   = strtok(NULL, " ");
-#ifdef IRCOP_OVERRIDE
     User *u = finduser(source);
-#endif
     ChannelInfo *ci = cs_findchan(chan);
     int i;
     AutoKick *akick;
@@ -2921,9 +2938,7 @@ void do_akick_del (const char *source, char *chan)
 		chan ? chan : "\37channel\37");
 	return;
     }
-#ifdef IRCOP_OVERRIDE
     if (check_access(u, ci, CA_AKICK)) {
-#endif
 	if(services_level!=1) {
 	    notice(s_ChanServ, source,
 		"Sorry, channel AutoKick list modification is temporarily disabled.");
@@ -2937,11 +2952,11 @@ void do_akick_del (const char *source, char *chan)
 	} else {
 	    /* First try for an exact match; then, a case-insensitive one. */
 	    for (akick = ci->akick, i = 0; i < ci->akickcount; ++akick, ++i)
-		if (stricmp(akick->name, mask) == 0)
+		if (stricmp(akick->name, mask)==0)
 		    break;
 	    if (i == ci->akickcount)
 		for (akick = ci->akick, i = 0; i < ci->akickcount; ++akick, ++i)
-		    if (stricmp(akick->name, mask) == 0)
+		    if (stricmp(akick->name, mask)==0)
 			break;
 	    if (i == ci->akickcount) {
 		notice(s_ChanServ, source,
@@ -2963,10 +2978,8 @@ void do_akick_del (const char *source, char *chan)
 	    free(ci->akick);
 	    ci->akick = NULL;
 	}
-#ifdef IRCOP_OVERRIDE
     } else
 	notice(s_ChanServ, source, "Access denied.");
-#endif
 }
 
 void do_akick_list (const char *source, char *chan)
@@ -2982,7 +2995,7 @@ void do_akick_list (const char *source, char *chan)
 	for (akick = ci->akick, i = 0; i < ci->akickcount; ++akick, ++i) {
 	    if (mask && !match_wild_nocase(mask, akick->name))
 		continue;
-	    if (ni = findnick(akick->name))
+	    if (ni = host(findnick(akick->name)))
 		t = ni->last_usermask;
 	    else
 		t = NULL;
@@ -2999,15 +3012,20 @@ static int is_on_akick(const char *mask, ChannelInfo *ci)
 {
     int i, is_nick = 0;
     AutoKick *akick;
+    char aknick[NICKMAX];
 
-    if (findnick(mask)) is_nick = 1;
+    if (findnick(mask)) {
+	is_nick = 1;
+	strscpy(aknick, host(findnick(mask))->nick, NICKMAX);
+    }
+
     for (akick = ci->akick, i = 0; i < ci->akickcount; ++akick, ++i)
-	if (is_nick)
-	    if (akick->is_nick>0 && stricmp(mask, akick->name)==0)
+	if (is_nick) {
+	    if (akick->is_nick>0 && stricmp(aknick, akick->name)==0)
 	        return 1;
-	else
+	} else
 	    if (akick->is_nick==0 && match_wild_nocase(akick->name, mask))
-		return 1;
+		return 2;
     return 0;
 }
 
@@ -3020,10 +3038,8 @@ static void do_info(const char *source)
     char *chan = strtok(NULL, " ");
     ChannelInfo *ci;
     NickInfo *ni;
-    struct tm tm;
     int i;
     char s[BUFSIZE], *t, *end;
-    time_t curtime = time(NULL);
 
     if (!chan) {
 	notice(s_ChanServ, source, "Syntax: \2INFO \37channel\37\2");
@@ -3039,7 +3055,7 @@ static void do_info(const char *source)
 
     else {
 	notice(s_ChanServ, source, "Information for channel \2%s\2:", chan);
-	if (ni = findnick(ci->founder))
+	if (ni = host(findnick(ci->founder)))
 	    t = ni->last_usermask;
 	else
 	    t = NULL;
@@ -3053,21 +3069,11 @@ static void do_info(const char *source)
 	    notice(s_ChanServ, source,
 		    " WWW Page (URL): %s", ci->url);
 #endif
-	tm = *localtime(&ci->time_registered);
-	notice(s_ChanServ, source,
-		"     Registered: %s %2d %02d:%02d:%02d %d",
-			month_name(tm.tm_mon+1), tm.tm_mday, tm.tm_hour,
-			tm.tm_min, tm.tm_sec, tm.tm_year+1900);
-	tm = *localtime(&ci->last_used);
-	notice(s_ChanServ, source,
-		"      Last used: %s %2d %02d:%02d:%02d %d",
-			month_name(tm.tm_mon+1), tm.tm_mday, tm.tm_hour,
-			tm.tm_min, tm.tm_sec, tm.tm_year+1900);
-        tm = *localtime(&curtime);
-	notice(s_ChanServ, source,
-		"   Current time: %s %2d %02d:%02d:%02d %d\n",
-			month_name(tm.tm_mon+1), tm.tm_mday, tm.tm_hour,
-			tm.tm_min, tm.tm_sec, tm.tm_year+1900);
+	notice(s_ChanServ, source, "     Registered: %s ago",
+	    time_ago(ci->time_registered, 1));
+	if (!findchan(chan))
+	    notice(s_ChanServ, source, "      Last used: %s ago",
+		time_ago(ci->last_used, 1));
 	if (ci->last_topic)
 	    if (ci->flags & CI_SUSPENDED) {
 		notice(s_ChanServ, source,
@@ -3086,11 +3092,7 @@ static void do_info(const char *source)
 	    notice(s_ChanServ, source, "  Revenge Level: %s.",
 					revengeinfo[i].desc);
 
-#ifdef IRCOP_OVERRIDE
-	if (!(ci->flags & CI_PRIVATE) || is_oper(source)) {
-#else
-	if (!(ci->flags & CI_PRIVATE)) {
-#endif
+	if (!(ci->flags & CI_PRIVATE) || override(source, CO_OPER)) {
 	    Channel *c = findchan(chan);
 	    if (c) {
 		int ops, users, voices;
@@ -3222,9 +3224,9 @@ static void do_users(const char *source)
 
     if (!chan) {
 	notice(s_ChanServ, source,
-		"Syntax: \2UsERS\2 \037channel\037");
+		"Syntax: \2USERS\2 \037channel\037");
 	notice(s_ChanServ, source,
-		"\2/msg ChanServ HELP VOICE\2 for more information.");
+		"\2/msg ChanServ HELP USERS\2 for more information.");
 
     } else if (!findchan(chan))
 	notice(s_ChanServ, source, "Channel %s does not exist.", chan);
@@ -3232,11 +3234,8 @@ static void do_users(const char *source)
     else if (!(ci = cs_findchan(chan)))
 	notice(s_ChanServ, source, "Channel %s is not registered.", chan);
 
-#ifdef IRCOP_OVERRIDE
-    else if ((!u || !check_access(u, ci, CA_CMDINVITE)) && !is_oper(source))
-#else
-    else if ((!u || !check_access(u, ci, CA_CMDINVITE)))
-#endif
+    else if ((!u || !check_access(u, ci, CA_CMDINVITE)) &&
+						!override(source, CO_OPER))
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
 	else
@@ -3256,40 +3255,80 @@ static void do_invite(const char *source)
     ChannelInfo *ci;
 
     if (!chan) {
-
-#ifdef IRCOP_OVERRIDE
-	notice(s_ChanServ, source, "Syntax: \2INVITE\2 \37channel\37 %s", is_oper(source) ? "\037nick\037" : "");
-#else
-	notice(s_ChanServ, source, "Syntax: \2INVITE\2 \37channel\37");
-#endif
+	notice(s_ChanServ, source, "Syntax: \2INVITE\2 \37channel\37%s",
+			override(source, CO_OPER) ? " \037nick\037" : "");
 	notice(s_ChanServ, source,
 		"\2/msg %s HELP INVITE\2 for more information.", s_ChanServ);
 
-    } else if (!findchan(chan))
-	notice(s_ChanServ, source, "Channel %s does not exist.", chan);
-
-    else if (!(ci = cs_findchan(chan)))
+    } else if (!(ci = cs_findchan(chan)))
 	notice(s_ChanServ, source, "Channel %s is not registered.", chan);
+
+    else if (!findchan(chan) && !(ci->mlock_on & CMODE_I))
+	notice(s_ChanServ, source, "Channel %s does not exist.", chan);
 
     else if (ci->flags & CI_SUSPENDED)
 	send_cmd(s_ChanServ, "INVITE %s %s", source, chan);
 
-#ifdef IRCOP_OVERRIDE
-    else if ((!u || !check_access(u, ci, CA_CMDINVITE)) && !is_oper(source))
-#else
-    else if ((!u || !check_access(u, ci, CA_CMDINVITE)))
-#endif
+    else if ((!u || !check_access(u, ci, CA_CMDINVITE)) &&
+						!override(source, CO_OPER))
 	    notice(s_ChanServ, source, "Access denied.");
 
     else
-#ifdef IRCOP_OVERRIDE
-	if (!inv_params || !is_oper(source))
-#endif
+	if (!inv_params || !override(source, CO_OPER))
 	    send_cmd(s_ChanServ, "INVITE %s %s", source, chan);
-#ifdef IRCOP_OVERRIDE
 	else
-	    send_cmd(s_ChanServ, "INVITE %s %s", inv_params, chan);
-#endif
+	    if (finduser(inv_params))
+		send_cmd(s_ChanServ, "INVITE %s %s", finduser(inv_params)->nick, chan);
+	    else
+		notice(s_ChanServ, source, "No such user %s.", inv_params);
+}
+
+/*************************************************************************/
+
+static void do_mode(const char *source)
+{
+    char *chan = strtok(NULL, " ");
+    User *u = finduser(source);
+    ChannelInfo *ci;
+    Channel *c;
+
+    if (!chan) {
+	notice(s_ChanServ, source, "Syntax: \2MODE\2 \37channel\37");
+	notice(s_ChanServ, source,
+		"\2/msg %s HELP MODE\2 for more information.", s_ChanServ);
+    } else if (!(ci = cs_findchan(chan)))
+	notice(s_ChanServ, source, "Channel %s is not registered.", chan);
+
+    else if (!(c = findchan(chan)) && !(ci->mlock_on & CMODE_I) && !ci->mlock_key)
+	notice(s_ChanServ, source, "Channel %s does not exist.", chan);
+
+    else if ((!u || !check_access(u, ci, CA_CMDINVITE)) &&
+						!override(source, CO_OPER))
+        if (ci->flags & CI_SUSPENDED)
+	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
+	else
+	    notice(s_ChanServ, source, "Access denied.");
+    else
+	if (c) {
+	    char l[16];
+	    snprintf(l, sizeof(l), " %d", c->limit);
+	    notice(s_ChanServ, source, "%s +%s%s%s%s%s%s%s%s%s%s%s", c->name,
+			(c->mode&CMODE_I) ? "i" : "",
+			(c->mode&CMODE_M) ? "m" : "",
+			(c->mode&CMODE_N) ? "n" : "",
+			(c->mode&CMODE_P) ? "p" : "",
+			(c->mode&CMODE_S) ? "s" : "",
+			(c->mode&CMODE_T) ? "t" : "",
+			(c->limit)        ? "l" : "",
+			(c->key)          ? "k" : "",
+			(c->limit)        ?  l  : "",
+			(c->key)          ? " " : "",
+			(c->key)          ? c->key : "");
+	} else
+	    notice(s_ChanServ, source, "%s modes are +s%s%s %s", ci->name,
+	    		(ci->mlock_on & CMODE_I) ? "i" : "",
+	    		ci->mlock_key            ? "k" : "",
+	    		ci->mlock_key            ? ci->mlock_key : "");
 }
 
 /*************************************************************************/
@@ -3302,13 +3341,8 @@ static void do_voice(const char *source)
     ChannelInfo *ci;
 
     if (!chan) {
-#ifdef IRCOP_OVERRIDE
-	notice(s_ChanServ, source,
-		"Syntax: \2VOICE\2 \037channel\037 %s", is_oper(source) ? "\037nick\037" : "");
-#else
-	notice(s_ChanServ, source,
-		"Syntax: \2VOICE\2 \037channel\037");
-#endif
+	notice(s_ChanServ, source, "Syntax: \2VOICE\2 \037channel\037%s",
+			override(source, CO_OPER) ? " \037nick\037" : "");
 	notice(s_ChanServ, source,
 		"\2/msg ChanServ HELP VOICE\2 for more information.");
 
@@ -3324,25 +3358,21 @@ static void do_voice(const char *source)
     else if (is_voiced(source, chan))
 	notice(s_ChanServ, source, "You are already voiced in %s", chan);
 
-#ifdef IRCOP_OVERRIDE
-    else if ((!u || !check_access(u, ci, CA_CMDVOICE)) && !is_oper(source))
-#else
-    else if (!u || !check_access(u, ci, CA_CMDVOICE))
-#endif
+    else if ((!u || !check_access(u, ci, CA_CMDVOICE)) &&
+						!override(source, CO_OPER))
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
 	else
 	    notice(s_ChanServ, source, "Access denied.");
 
     else
-#ifdef IRCOP_OVERRIDE
-	if (!voice_params || !is_oper(source))
-#endif
+	if (!voice_params || !override(source, CO_OPER))
 	    change_cmode(s_ChanServ, chan, "+v", source);
-#ifdef IRCOP_OVERRIDE
 	else
-	    change_cmode(s_ChanServ, chan, "+v", voice_params);
-#endif
+	    if (finduser(voice_params))
+		change_cmode(s_ChanServ, chan, "+v", finduser(voice_params)->nick);
+	    else
+		notice(s_ChanServ, source, "No such user %s.", voice_params);
 }
 
 /*************************************************************************/
@@ -3355,13 +3385,8 @@ static void do_devoice(const char *source)
     ChannelInfo *ci;
 
     if (!chan) {
-#ifdef IRCOP_OVERRIDE
-	notice(s_ChanServ, source,
-		"Syntax: \2DEVOICE\2 \037channel\037 %s", is_oper(source) ? "\037nick\037" : "");
-#else
-	notice(s_ChanServ, source,
-		"Syntax: \2DEVOICE\2 \037channel\037");
-#endif
+	notice(s_ChanServ, source, "Syntax: \2DEVOICE\2 \037channel\037%s",
+			override(source, CO_OPER) ? " \037nick\037" : "");
 	notice(s_ChanServ, source,
 		"\2/msg ChanServ HELP DEVOICE\2 for more information.");
 
@@ -3377,25 +3402,21 @@ static void do_devoice(const char *source)
     else if (!is_voiced(source, chan))
 	notice(s_ChanServ, source, "You are not voiced in %s", chan);
 
-#ifdef IRCOP_OVERRIDE
-    else if ((!u || !check_access(u, ci, CA_CMDVOICE)) && !is_oper(source))
-#else
-    else if (!u || !check_access(u, ci, CA_CMDVOICE))
-#endif
+    else if ((!u || !check_access(u, ci, CA_CMDVOICE)) &&
+						!override(source, CO_OPER))
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
 	else
 	    notice(s_ChanServ, source, "Access denied.");
 
     else
-#ifdef IRCOP_OVERRIDE
-	if (!devoice_params || !is_oper(source))
-#endif
+	if (!devoice_params || !override(source, CO_OPER))
 	    change_cmode(s_ChanServ, chan, "-v", source);
-#ifdef IRCOP_OVERRIDE
 	else
-	    change_cmode(s_ChanServ, chan, "-v", devoice_params);
-#endif
+	    if (finduser(devoice_params))
+		change_cmode(s_ChanServ, chan, "-v", finduser(devoice_params)->nick);
+	    else
+		notice(s_ChanServ, source, "No such user %s.", devoice_params);
 }
 /*************************************************************************/
 
@@ -3407,13 +3428,8 @@ static void do_op(const char *source)
     ChannelInfo *ci;
 
     if (!chan) {
-#ifdef IRCOP_OVERRIDE
-	notice(s_ChanServ, source,
-		"Syntax: \2OP\2 \037channel\037 %s", is_oper(source) ? "\037nick\037" : "");
-#else
-	notice(s_ChanServ, source,
-		"Syntax: \2OP\2 \037channel\037");
-#endif
+	notice(s_ChanServ, source, "Syntax: \2OP\2 \037channel\037%s",
+			override(source, CO_OPER) ? " \037nick\037" : "");
 	notice(s_ChanServ, source,
 		"\2/msg ChanServ HELP OP\2 for more information.");
 
@@ -3429,25 +3445,21 @@ static void do_op(const char *source)
     else if (is_chanop(source, chan))
 	notice(s_ChanServ, source, "You are already an op in %s", chan);
 
-#ifdef IRCOP_OVERRIDE
-    else if ((!u || !check_access(u, ci, CA_CMDOP)) && !is_oper(source))
-#else
-    else if (!u || !check_access(u, ci, CA_CMDOP))
-#endif
+    else if ((!u || !check_access(u, ci, CA_CMDOP)) &&
+						!override(source, CO_OPER))
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
 	else
 	    notice(s_ChanServ, source, "Access denied.");
 
     else
-#ifdef IRCOP_OVERRIDE
-	if (!op_params || !is_oper(source))
-#endif
+	if (!op_params || !override(source, CO_OPER))
 	    change_cmode(s_ChanServ, chan, "+o", source);
-#ifdef IRCOP_OVERRIDE
 	else
-	    change_cmode(s_ChanServ, chan, "+o", op_params);
-#endif
+	    if (finduser(op_params))
+		change_cmode(s_ChanServ, chan, "+o", finduser(op_params)->nick);
+	    else
+		notice(s_ChanServ, source, "No such user %s.", op_params);
 }
 
 /*************************************************************************/
@@ -3461,13 +3473,8 @@ static void do_deop(const char *source)
     int ulev;
 
     if (!chan) {
-#ifdef IRCOP_OVERRIDE
-	notice(s_ChanServ, source,
-		"Syntax: \2DEOP\2 \037channel\037 %s", is_oper(source) ? "\037nick\037" : "");
-#else
-	notice(s_ChanServ, source,
-		"Syntax: \2DEOP\2 \037channel\037");
-#endif
+	notice(s_ChanServ, source, "Syntax: \2DEOP\2 \037channel\037%s",
+			override(source, CO_OPER) ? " \037nick\037" : "");
 	notice(s_ChanServ, source,
 		"\2/msg ChanServ HELP DEOP\2 for more information.");
 
@@ -3483,25 +3490,21 @@ static void do_deop(const char *source)
     else if (!is_chanop(source, chan))
 	notice(s_ChanServ, source, "You are not an op in %s", chan);
 
-#ifdef IRCOP_OVERRIDE
-    else if ((!u || !check_access(u, ci, CA_CMDOP)) && !is_oper(source))
-#else
-    else if (!u || !check_access(u, ci, CA_CMDOP))
-#endif
+    else if ((!u || !check_access(u, ci, CA_CMDOP)) &&
+						!override(source, CO_OPER))
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
 	else
 	    notice(s_ChanServ, source, "Access denied.");
 
     else
-#ifdef IRCOP_OVERRIDE
-	if (!deop_params || !is_oper(source))
-#endif
+	if (!deop_params || !override(source, CO_OPER))
 	    change_cmode(s_ChanServ, chan, "-o", source);
-#ifdef IRCOP_OVERRIDE
 	else
-	    change_cmode(s_ChanServ, chan, "-o", deop_params);
-#endif
+	    if (finduser(deop_params))
+		change_cmode(s_ChanServ, chan, "-o", finduser(deop_params)->nick);
+	    else
+		notice(s_ChanServ, source, "No such user %s.", deop_params);
 }
 
 /*************************************************************************/
@@ -3515,21 +3518,14 @@ static void do_unban(const char *source)
     Channel *c;
     int i;
 
-#ifdef IRCOP_OVERRIDE
-    if (!is_oper(source) || !unban_params)
-#endif
+    if (!override(source, CO_OPER) || !unban_params)
 	u = finduser(source);
-#ifdef IRCOP_OVERRIDE
     else
 	u = finduser(unban_params);
-#endif
 
     if (!chan) {
-#ifdef IRCOP_OVERRIDE
-	notice(s_ChanServ, source, "Syntax: \2UNBAN\2 \37channel\37 %s", is_oper(source) ? "\37nick\37" : "");
-#else
-	notice(s_ChanServ, source, "Syntax: \2UNBAN\2 \37channel\37");
-#endif
+	notice(s_ChanServ, source, "Syntax: \2UNBAN\2 \37channel\37%s",
+			override(source, CO_OPER) ? " \037nick\037" : "");
 	notice(s_ChanServ, source,
 		"\2/msg %s HELP UNBAN\2 for more information.", s_ChanServ);
 
@@ -3539,11 +3535,8 @@ static void do_unban(const char *source)
     else if (!(ci = cs_findchan(chan)))
 	notice(s_ChanServ, source, "Channel %s is not registered.", chan);
 
-#ifdef IRCOP_OVERRIDE
-    else if ((!u || !(check_access(u, ci, CA_CMDUNBAN)) || is_oper(source))) {
-#else
-    else if (!u || !check_access(u, ci, CA_CMDUNBAN)) {
-#endif
+    else if ((!u || !(check_access(u, ci, CA_CMDUNBAN)) ||
+						override(source, CO_OPER))) {
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
 	else
@@ -3556,14 +3549,10 @@ static void do_unban(const char *source)
 		i--;
 	    }
 
-#ifdef IRCOP_OVERRIDE
-	if (!unban_params || !is_oper(source))
-#endif
+	if (!unban_params || !override(source, CO_OPER))
 	    notice(s_ChanServ, source, "You have been unbanned from %s.", chan);
-#ifdef IRCOP_OVERRIDE
 	else
-	    notice(s_ChanServ, source, "%s has been unbanned from %s.", unban_params, chan);
-#endif
+	    notice(s_ChanServ, source, "%s has been unbanned from %s.", u->nick, chan);
     }
 }
 
@@ -3590,17 +3579,14 @@ static void do_clear(const char *source)
     else if (!(ci = cs_findchan(chan)))
 	notice(s_ChanServ, source, "Channel %s is not registered.", chan);
 
-#ifdef IRCOP_OVERRIDE
-    else if ((!u || !check_access(u, ci, CA_CMDCLEAR)) && !is_services_op(source))
-#else
-    else if (!u || !check_access(u, ci, CA_CMDCLEAR))
-#endif
+    else if ((!u || !check_access(u, ci, CA_CMDCLEAR)) &&
+						!override(source, CO_SOP))
         if (ci->flags & CI_SUSPENDED)
 	    notice(s_ChanServ, source, "Access Denied for SUSPENDED channels.");
 	else
 	    notice(s_ChanServ, source, "Access denied.");
 
-    else if (stricmp(what, "bans") == 0) {
+    else if (stricmp(what, "bans")==0) {
 	char *av[3];
 	int i;
 
@@ -3608,7 +3594,7 @@ static void do_clear(const char *source)
 	    change_cmode(s_ChanServ, chan, "-b", c->bans[i]);
 	notice(s_ChanServ, source, "All bans on %s have been removed.", chan);
 
-    } else if (stricmp(what, "modes") == 0) {
+    } else if (stricmp(what, "modes")==0) {
 	char *av[3];
 
 	if (c->key)
@@ -3617,7 +3603,7 @@ static void do_clear(const char *source)
 	    change_cmode(s_ChanServ, chan, "-mintpslk", "");
 	notice(s_ChanServ, source, "All modes on %s have been reset.", chan);
 
-    } else if (stricmp(what, "ops") == 0) {
+    } else if (stricmp(what, "ops")==0) {
 	char *av[3];
 	struct c_userlist *cu, *next;
 
@@ -3627,7 +3613,7 @@ static void do_clear(const char *source)
 	}
 	notice(s_ChanServ, source, "Mode +o cleared from %s.", chan);
 
-    } else if (stricmp(what, "voices") == 0) {
+    } else if (stricmp(what, "voices")==0) {
 	char *av[3];
 	struct c_userlist *cu, *next;
 
@@ -3637,7 +3623,7 @@ static void do_clear(const char *source)
 	}
 	notice(s_ChanServ, source, "Mode +v cleared from %s.", chan);
 
-    } else if (stricmp(what, "users") == 0) {
+    } else if (stricmp(what, "users")==0) {
 	char *av[3];
 	struct c_userlist *cu, *next_cu;
 	char buf[BUFSIZE];
