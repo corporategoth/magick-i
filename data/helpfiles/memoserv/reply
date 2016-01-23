@@ -1,0 +1,6 @@
+Syntax: REPLY num text
+
+Sends the specified text (just like send) to the
+nickname who sent you the memo of the number you
+specify.  [REPLY] is prepended to the text you send.
+You cannot specify a channel, etc.

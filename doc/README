@@ -1,9 +1,10 @@
 Magick -- a system of IRC services for IRC networks
 ---------------------------------------------------
 
-Magick is copyright (c) 1996-1997 Preston A. Elder.  Magick may be
+Magick is copyright (c) 1997-1999 Preston A. Elder.  Magick may be
 freely redistributed; see the GNU General Public License (in the file
-"COPYING") for details.
+"COPYING") for details.  Magick was originally based on EsperNet
+services (c) 1996-1998 Andy Church.
 
 Before we start ... no, I DIDNT put an rm -Rf / in the makefile ... I
 did say ALMOST, didnt I?  And I want to thank you for reading the docs,
@@ -11,6 +12,12 @@ you're one of the few smart users out there, you diserve a bloody medal.
 
 
 1. INTRODUCTION
+
+     Magick is dedicated to the memory of my loving sister, Stacey Louise
+Elder (1st Jan, 1975 - 25th Feb, 1998).  She has been there for me more than
+anyone over the years, and I was distraught when she died, may her Lord love
+her as much as I did, and keep her safe like I couldnt.  Merry Parting, Dear
+Sister.
 
      Magick is a system of services to be used with Internet Relay Chat
 networks.  Magick provides for definitive nickname and channel ownership,
@@ -31,7 +38,8 @@ one implementation with the necessary extension.
 2. QUICK INSTALL
 
      This is for those too impatiant to read the next section, tho I would
-advise you read it anyway, its alot more detailed.
+advise you read it anyway, its alot more detailed. People compiling for
+Win32 please read the info at the end of this section.
 
      Goto magick directory and type:
 		./configure
@@ -45,7 +53,24 @@ this file, as this can be very important).  Then type:
 files aswell ... This is done with:
 		make install-data
 
+     If you are not the primary services, you may wish to consider performing
+two extra steps to this procedure, to facilitate with obtaining and implementing
+new databases from the primary version of services:
+		make backup
+		make install-backup
+
      Thats it ... hopefully.  Read the next section if it failed.
+
+Win32 Compiling:
+     Please note, you will need to copy the sysconf.h.<server> --> sysconf.h
+     and the Makefile.inc.windows --> Makefile.inc if you wish to compile
+     under windows. Pre-compiled Win32 binaries are supplied with every
+     distribution of Magick.
+       <server> == irc2          Base irc2 (RFC 1459)
+                   ts8           irc2 with TS8 protocol
+                   ircu          Undernet
+                   ircd          Dalnet
+                   ircd4.4.15    Dalnet v4.4.15 or greater
 
 
 3. CONFIGURATION, COMPILATION AND INSTALLATION
@@ -65,10 +90,9 @@ it) and run "bash configure".  IMPORTANT NOTE:  Make sure you select the
 correct IRC server style!  If Magick compiles correctly but you only get
 messages like "Sorry, registration failed", the most likely cause is that
 you chose the wrong IRC server style.
-     config.h contains all of the basic definitions for Magick -- uplink
-server, data directory, etc.  Most of these can be changed with
-command-line options (see below), but you may find it more convenient to
-set them as defaults.
+     config.h contains basic definitions for Magick -- configuration file
+name, data directory (just incase configure fails), etc.  Most should be
+able to be left alone.
      The Makefile has a section at the top allowing you to configure
 Magick general mode of operation.  
      Once these steps are done, you should be able to compile Magick
@@ -82,6 +106,9 @@ time, you also need to run "make install-data" to copy the data files to
 the destination data directory.  Care should be taken that only authorized
 people have access to these files; passwords are NOT encrypted at present,
 so unauthorized access to the files could be a big problem!
+     Once installed, copy the magick.ini file found in the doc directory,
+and edit it for your network -- This file contains MOST of the information
+needed about how magick should run, etc.
 
      NOTE:  The HelpServ data files (data/helpfiles/*) are set up for the
 DarkerNet IRC network; you'll want to change them before starting up
@@ -103,30 +130,33 @@ the online help files ("/msg *Serv help" or read lib/*serv/index).  This
 section only describes how to start Magick itself.
      Normally, Magick can be run simply by invoking the "magick"
 executable.  Magick will then use the defaults specified in the config.h
-file, and connect to the specified uplink server.  Alternatively, any of
-the following command-line options can be specified to change the default
-values:
-	-remote server[:port]	Connect to the specified server
-	-name servername	Our server name (e.g. hell.darker.net)
-	-desc string		Description of us (e.g. DarkerNet Services)
-	-user username		Username for Services' nicks (e.g. services)
-	-host hostname		Hostname for Services' nicks (e.g. darker.net)
-	-prefix prefix		Prefix for Magick Outlet (see config.h)
-				    (e.g. "Magick-")
+and magick.ini files, and connect to the specified uplink server.
+Alternatively, any of the following command-line options can be specified
+to change the default values:
+	-remote server[:port]	Connect to the specified server.
+	-name servername	Our server name (e.g. hell.darker.net).
+	-desc string		Description of us (e.g. DarkerNet Services).
+	-user username		Username for Services' nicks (e.g. services).
+	-host hostname		Hostname for Services' nicks (e.g. darker.net).
+	-prefix prefix		Prefix for Magick Outlet (see magick.ini)
+				    (e.g. "Magick-").
 	-dir directory		Directory containing Services' data files
-				    (e.g. /usr/local/lib/services)
-	-log filename		Services log filename (e.g. magick.log)
-	-update secs		How often to update databases, in seconds
-	-debug			Enable debugging mode--more info sent to log
-	-relink secs		Specify seconds to re-attempt link if SQUIT
-	-norelink		Die on SQUIT or kill -HUP
-	-level level		Specify services level (>1 = backup)
-        -offset offset		Specify the TimeZone offset for backups.
+				    (e.g. /usr/local/lib/services).
+	-config filename	Config file to be used (e.g. magick.ini).
+	-log filename		Services log filename (e.g. magick.log).
+	-update secs		How often to update databases, in seconds.
+	-debug			Enable debugging mode--more info sent to log.
+	-relink secs		Specify seconds to re-attempt link if SQUIT.
+	-norelink		Die on SQUIT or kill -1.
+	-level level		Specify services level (>1 = backup).
+        -offset hours		Specify the TimeZone offset for backups.
+	-live			Dont fork (log to terminal + logs)
 
      Upon starting, Magick will parse its command-line parameters, open
 its logfile, then (assuming all went well) detach itself and run in the
-background.
-     If Magick is compiled with SERVICES_LEVEL > 1, it can serve as a
+background (unless live is specified).  If live is specified it will
+output logs to terminal, pushing CTRL-C will cause a fork() (background).
+     If Magick is configured to SERVICES_LEVEL > 1, it can serve as a
 "backup" to the full version of Services.  A "full" version of Services
 (of level 1) will automatically reintroduce its pseudo-clients on nick
 collide, while a "backup" Services will not, thus allowing full Services
@@ -137,14 +167,15 @@ having to take backup Services down beforehand).
 executable.  The programs will list all registered nicknames and channels,
 respectively; or, if given the -c option, will display the number of
 registered nicknames or channels.
-     If you have anykind of "relink" mode active (ie. you didnt undef the
-SERVER_RELINK define or set it to -1, or didnt use the -norelink flag),
+     If you have anykind of "relink" mode active (ie. you didnt take out
+SERVER_RELINK setting or set it to -1, or didnt use the -norelink flag),
 only an OperServ QUIT or SHUTDOWN or a kill -9 will stop Magick.  A SQUIT
 will just cause relink (after period specified with SERVER_RELINK or the
--relink flag), as will a kill -HUP (both causing the databases to be
-reloaded).  A standard kill may also be used to save the dbases (added as
-the standard shutdown procedure is to send a standard kill then a kill -9
-to all processes, this gives the dbases a fighting chance!).
+-relink flag).  The RELOAD OperServ command as will a kill -HUP will cause
+the databases/config to be reloaded.  A standard kill may also be used to
+save the dbases (added as the standard shutdown procedure is to send a
+standard kill then a kill -9 to all processes).
+
 
 5. OVERVIEW OF SERVICES CLIENTS
 
@@ -293,12 +324,12 @@ SVSNICK
 
 7. REACHING THE AUTHOR
 
-     I can be reached via E-mail at prez@antisocial.com.  Please feel
-free to send comments, suggestions, problem reports, diffs, or whatever,
-though you may not receive any reply.  Please do NOT ask for or expect
-direct online help, as I am quite busy and cannot spare the time to set up
-Magick myself on every system where it will be used.  If you do ask,
-expect to be abruptly dismissed or ignored.
+     I can be reached at the address prez@magick.tm.  Please feel free to
+send comments, suggestions, problem reports, diffs, or whatever, though you
+may not receive any reply.  Please do NOT ask for or expect direct online
+help, as I am quite busy and cannot spare the time to set up Magick myself
+on every system where it will be used.  If you do ask, expect to be abruptly
+dismissed or ignored.
 
      If you are on the DarkerNet, RelicNet, Xnet IRC networks and want to
 leave me a memo via MemoServ rather than sending E-mail, please include your

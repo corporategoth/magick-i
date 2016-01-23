@@ -1,9 +1,18 @@
-Scheduled for 1.4
-=================
+Scheduled for Magick II
+=======================
 
+see www.magick.tm for more details ...
+
+* MemoServ READ (not-new) flags
+* Deleting marks memos as deleted, and purge cleanes it out (+ undelete).
+* Get rid of the reserved fields in dbases.
+* Greet messages (like LOGON/OPER msg) for joining channels (set by 25).
+* Endian converter for dbases (SPARC/Alpha <--> Intel).
 * Add SPLIT Awareness - if user was recognized before, they are on rejoin.
+* Repeated clone kills -- auto-AKILL.
 * Re-Write the DELETION functions of some routines (AKICK and ACCESS in
   particular) to accept MASK deletion (like AKILL currently does).
+* Dbase converter for other services (xnet/newnet/espernet/etc to Magick)
 * IRC Operator Suspend (ADMIN only) -- forbid <mask> from /oper.
 * Committee Listing:
 	- USER SEES TAG/Desc -- but serv see's dynamic alloc number.
@@ -18,10 +27,15 @@ Scheduled for 1.4
 		operserv.c:	operserv(), do_help(), do_breakdown()
 		main.c:		main()
 		process.c:	process()
-
+* /MSG NickServ SET HOST <linked-nick> to swap who the host nick is!
 
 Scheduled for whenever
 ======================
 
-* A way to send commands to the services (especially OperServ) from shell.
-* Do something about repeated password failures.
+* Tagging dbases with configurable tag/pass so they cant be used without
+  it (eg. incase of stolen dbases).  Admin sets tag and backups use same.
+* Encrypting the passwords/data with 2-way crypt (so they are not easily
+  readable if someone finds a .db file!), key-based (see above)?
+* A way to send commands to the services (especially OperServ) from shell
+  or telnet session (like eggdrop partyline?)
+* A way to transfer datafiles from primaries to secondaries online.

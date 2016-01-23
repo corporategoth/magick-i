@@ -1,6 +1,6 @@
 			Magick Manual (IRC Operator)
 			----------------------------
-					Revision 1.2
+					Revision 1.4
 
 Contents
 ========
@@ -24,6 +24,8 @@ Contents
 2.1.5	SUSPEND
 2.1.6	UNSUSPEND
 2.1.7	DEOP
+2.1.8	OPERLIST
+2.1.9	SLAVES
 2.2	ChanServ
 2.2.0	DROP
 2.2.1	GETPASS
@@ -59,6 +61,7 @@ Contents
 3.2.2	QUIT
 3.2.3	SHUTDOWN
 3.2.4	OFF / ON
+3.2.5	RELOAD
 
 4	DalNet 4.4.15+ ircd
 4.0	QLINE
@@ -75,6 +78,11 @@ Contents
 1	Introduction
 ====================
 --------------------
+
+Magick is dedicated to the memory of my loving sister, Stacey Louise Elder
+(1st Jan, 1975 - 25th Feb, 1998).  She has been there for me more than anyone
+over the years, and I was distraught when she died, may her Lord love her as
+much as I did, and keep her safe like I couldnt.  Merry Parting, Dear Sister.
 
 Magick is a program that supplies IRC Services to an IRC Network.  They are
 based originally on the ones developed for EsperNet by Andrew Church
@@ -98,7 +106,7 @@ It also tells you some things you wont find in the documentation.
 1.0	Author Information
 ==========================
 
-My name is Preston A. Elder.  I'm a 19 year old Amature Programmer.  I dont
+My name is Preston A. Elder.  I'm an Amature Programmer born in 1978.  I dont
 get a brass penny for programming services, being online in any way, or
 writing this documentation (so I DONT want complaints! you get what you pay
 for!).  I am fully trained to be a Computer Technician, a Systems or Network
@@ -108,12 +116,12 @@ a hobbyist ISP based in Sydney, Australia.
 I welcome any bug reports, suggestion, or offers of help on services
 themselves.  I accept donations (tho having no luck with these!) too. :)
 I sit on 4 IRC networks mainly:
-	DarkerNet	irc.darker.net	(Network Administrator)
-	RelicNet	irc.relic.net	(IRC Administrator)
-	Xnet		irc.xnet.org	(IRC Operator)
+	DarkerNet	soul.darker.net		(Network Administrator)
+	RelicNet	styx.us.relic.net	(IRC Administrator)
+	Xnet		goth.tx.us.xnet.org	(IRC Administrator)
 	EFNet		find one...
 
-I am contactable by email at prez@antisocial.com
+I am contactable by email at prez@magick.tm
 or by post (if you must!) at:
 	PO Box 893
 	SUTHERLAND
@@ -221,6 +229,7 @@ letter they are associated with in the services Version Reply (obtained with
 #define	AKILL		/* relies on OPERSERV */			A
 #define	CLONES		/* relies on OPERSERV */			L
 #define	GLOBALNOTICER	/* relies on OPERSERV */			G
+#define SHOW_SYNC	/* */						Y
 
 If the version reply shows the letter in lower case, the option is NOT
 compiled into services, if it is upper case, it is.  Other important things
@@ -306,6 +315,22 @@ SYNTAX:	/MSG NickServ DEOP <nick>
 This will remove the IRC Operator flag from another user (useful if a server
 has been delinked, or an IRC Operator has retired).  You cannot do this on
 a fellow Services Operator.
+
+2.1.8	LISTOPER
+----------------
+
+SYNTAX:	/MSG NickServ LISTOPER <pattern> [limit]
+
+This is exactly the same as executing the LIST (USER:2.2.1) command, except
+it will only match users with the IRC Operator flag set.
+
+2.1.9	SLAVES
+--------------
+
+SYNTAX:	/MSG NickServ SLAVES <nick>
+
+This will list all the linked nicks for a given nickname.  This works exactly
+as if the user had done it themselves (except it shows YOU not THEM).
 
 2.2	ChanServ
 ================
@@ -679,6 +704,17 @@ when the admin wishes to copy and remove the existing log file to start anew).
 
 OFF will stop services replying to any commands given to them except ON.
 ON will return services to interactive mode.
+
+3.2.5	RELOAD
+--------------
+
+SYNTAX:	/MSG OperServ RELOAD
+
+This will squit services for 1 second, and make them come back.  The databases
+will be reloaded, as will the config files (magick.ini).  If you wish just to
+re-read the config files, I recommend you do an UPDATE first, to save the
+current data files.  (Equivilant to kill -HUP or SQUIT (except SQUIT will
+take longer to reconnect)).
 
 ------------------------------------------------------------------------------
 

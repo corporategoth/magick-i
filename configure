@@ -156,8 +156,9 @@ export ECHO2 ECHO2SUF
 echo "Magick Configuration"
 echo "===================="
 echo ""
-echo "Magick is copyright (c) 1996-1998 Preston A. Elder."
-echo "    E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet"
+echo "Magick IRC Services are copyright (c) 1996-1998 Preston A. Elder."
+echo "    E-mail: <prez@magick.tm>   IRC: PreZ@RelicNet"
+echo "Originally based on EsperNet services (c) 1996-1998 Andy Church"
 echo "This program is free but copyrighted software; see the file doc/COPYING"
 echo "for details."
 echo ""
@@ -346,7 +347,7 @@ echo "network?"
 echo "    1) Base irc2 distribution (RFC 1459 compatible--but see README)"
 echo "    2) irc2 with TS8 protocol"
 echo "    3) Undernet (ircu)"
-echo "    4) DALnet (ircd.dal) prior to 4.4.15"
+echo "    4) DALnet (ircd)"
 while [ $ok -eq 0 ] ; do
 	echo2 "[$IRCTYPE] "
 	if read INPUT ; then : ; else echo "" ; exit 1 ; fi
@@ -830,6 +831,7 @@ DATDEST=$DATDEST
 INSTALL=$INSTALL
 CP_ALL=$CP_ALL
 RUNGROUP=$RUNGROUP
+OBJ=o
 EOT
 echo "done."
 
@@ -876,8 +878,7 @@ echo "done."
 ###########################################################################
 
 echo 'All done!'
-echo '#***************************************************#'
-echo '# Dont forget to edit the config.h file to your own #'
-echo '#  specifications - type "make" to compile Magick.  #'
-echo '#***************************************************#'
+echo '#**********************************#'
+echo '#  Type "make" to compile Magick.  #'
+echo '#**********************************#'
 exit 0

@@ -1,0 +1,5 @@
+Syntax: SLAVES
+
+Lists any nicknames marked as slaves to your primary
+nickname in the NickServ database.  This can be used
+from any of your linked nicknames.

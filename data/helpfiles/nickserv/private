@@ -1,0 +1,5 @@
+Syntax: SET PRIVATE {ON|OFF}
+
+With PRIVATE set, you will not show up on any NickServ
+LIST's, and your last hostmask will be hidden from
+view on your INFO displays.

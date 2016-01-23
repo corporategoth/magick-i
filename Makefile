@@ -3,13 +3,13 @@
 
 include Makefile.inc
 
-VERSION = 1.3
+VERSION = 1.4
 
 ########################## Configuration section ##########################
 
 
 # Compilation options:
-#		none.
+#      -DWIN32 - This will make a binary for Win32 instead of UNIX.
 #
 # If you change this value, REMEMBER to "make clean", or you may come out
 # with a confused executable!
@@ -24,32 +24,36 @@ CDEFS =
 # takes.  This should be the command to copy a directory and all its
 # files to another directory.  (This is correct for Linux.)
 
-CFLAGS = $(CDEFS) $(EXTRA_CFLAGS) -g
+CFLAGS = $(CDEFS) $(EXTRA_CFLAGS)
 
-OBJS =	channels.o chanserv.o helpserv.o main.o memoserv.o misc.o \
-	nickserv.o operserv.o process.o send.o sockutil.o users.o
+OBJS =	channels.$(OBJ) chanserv.$(OBJ) helpserv.$(OBJ) main.$(OBJ) memoserv.$(OBJ) misc.$(OBJ) \
+        nickserv.$(OBJ) operserv.$(OBJ) process.$(OBJ) send.$(OBJ) sockutil.$(OBJ) users.$(OBJ) \
+        cfgopts.$(OBJ) win32util.$(OBJ)
 SRCS =	channels.c chanserv.c helpserv.c main.c memoserv.c misc.c \
-	nickserv.c operserv.c process.c send.c sockutil.c users.c
+        nickserv.c operserv.c process.c send.c sockutil.c users.c \
+        cfgopts.c win32util.c
 
 
-all: magick
+all: magick em
 
 clean:
-	rm -f *.o magick listnicks listchans
+	rm -f *.$(OBJ) magick listnicks listchans magick.exe em
 
 distclean: spotless
 
 spotless: clean
-	rm -f config.cache sysconf.h Makefile.inc version.h
+	rm -rf config.cache sysconf.h Makefile.inc version.h configure.log tmp
 
 install: all
 	$(INSTALL) magick $(BINDEST)/magick
 	rm -f $(BINDEST)/listnicks $(BINDEST)/listchans
 	ln $(BINDEST)/magick $(BINDEST)/listnicks
 	ln $(BINDEST)/magick $(BINDEST)/listchans
+	$(INSTALL) serviceschk $(BINDEST)/serviceschk
 
 install-data:
 	$(CP_ALL) data/* $(DATDEST)
+	$(CP_ALL) doc $(DATDEST)
 	@if [ "$(RUNGROUP)" ] ; then \
 		echo chgrp -R $(RUNGROUP) $(DATDEST) ; \
 		chgrp -R $(RUNGROUP) $(DATDEST) ; \
@@ -59,28 +63,37 @@ install-data:
 		chmod g+xs `find $(DATDEST) -type d -print` ; \
 	fi
 
+backup: em
+
+install-backup: em
+	$(INSTALL) em $(BINDEST)/em
+	$(INSTALL) getdbases $(BINDEST)/getdbases
 
 ########
-
 
 magick: version.h $(OBJS)
 	$(CC) $(LFLAGS) $(LIBS) $(OBJS) -o $@
 
-.c.o:
+em:
+	$(CC) $(LFLAGS) $(LIBS) em.c -o $@
+
+.c.$(OBJ):
 	$(CC) $(CFLAGS) -c $<
 
-channels.o: channels.c services.h
-chanserv.o: chanserv.c cs-help.c services.h
-helpserv.o: helpserv.c services.h
-main.o: main.c services.h
-memoserv.o: memoserv.c ms-help.c services.h
-misc.o: misc.c services.h
-nickserv.o: nickserv.c ns-help.c services.h
-operserv.o: operserv.c os-help.c services.h
-process.o: process.c services.h version.h
-send.o: send.c services.h
-sockutil.o: sockutil.c services.h
-users.o: users.c services.h
+channels.$(OBJ): channels.c services.h
+chanserv.$(OBJ): chanserv.c cs-help.c services.h
+helpserv.$(OBJ): helpserv.c services.h
+main.$(OBJ): main.c services.h cfgopts.h
+memoserv.$(OBJ): memoserv.c ms-help.c services.h
+misc.$(OBJ): misc.c services.h
+nickserv.$(OBJ): nickserv.c ns-help.c services.h
+operserv.$(OBJ): operserv.c os-help.c services.h
+process.$(OBJ): process.c services.h version.h
+send.$(OBJ): send.c services.h
+sockutil.$(OBJ): sockutil.c services.h
+users.$(OBJ): users.c services.h
+cfgopts.$(OBJ): cfgopts.c cfgopts.h
+win32util.$(OBJ): win32util.c win32util.h
 
 services.h: config.h extern.h
 	touch $@

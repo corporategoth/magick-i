@@ -1,7 +1,7 @@
 /* Socket utility routines.
- *
- * Magick is copyright (c) 1996-1998 Preston A. Elder.
- *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
+ * Magick IRC Services are copyright (c) 1996-1998 Preston A. Elder.
+ *     E-mail: <prez@magick.tm>   IRC: PreZ@RelicNet
+ * Originally based on EsperNet services (c) 1996-1998 Andy Church
  * This program is free but copyrighted software; see the file COPYING for
  * details.
  */
@@ -10,36 +10,41 @@
 #include <setjmp.h>
 
 
-FILE **files;		/* Array of FILE *'s; files[s] = fdopen(s, "r+") */
-int filescnt = 0;	/* Size of files array */
+FILE **files;			/* Array of FILE *'s; files[s] = fdopen(s, "r+") */
+int filescnt = 0;		/* Size of files array */
+int read_timeout;
 
 
 static jmp_buf alarm_jmp;
 
-static void alarm_handler(int sig_unused)
+static void
+alarm_handler (int sig_unused)
 {
-    longjmp(alarm_jmp, 1);
+    longjmp (alarm_jmp, 1);
 }
 
 /*************************************************************************/
 
 static int lastchar = EOF;
 
-int sgetc(int s)
+int
+sgetc (int s)
 {
     unsigned char c;
 
-    if (lastchar != EOF) {
+    if (lastchar != EOF)
+    {
 	c = lastchar;
 	lastchar = EOF;
 	return c;
     }
-    if (read(s, &c, 1) <= 0)
+    if (read (s, &c, 1) <= 0)
 	return EOF;
     return c;
 }
 
-int sungetc(int c, int s)
+int
+sungetc (int c, int s)
 {
     return lastchar = c;
 }
@@ -48,21 +53,22 @@ int sungetc(int c, int s)
 
 /* If connection was broken, return NULL.  If the read timed out, return
  * (char *)-1. */
-char *sgets(char *buf, unsigned int len, int s)
+char *
+sgets (char *buf, unsigned int len, int s)
 {
     int c;
     char *ptr = buf;
 
     if (len == 0)
 	return NULL;
-    if (setjmp(alarm_jmp))
-	return (char *)-1;
-    signal(SIGALRM, alarm_handler);
-    alarm(READ_TIMEOUT);
-    c = sgetc(s);
-    alarm(0);
-    signal(SIGALRM, SIG_IGN);
-    while (--len && (*ptr++ = c) != '\n' && (c = sgetc(s)) >= 0)
+    if (setjmp (alarm_jmp))
+	return (char *) -1;
+    signal (SIGALRM, alarm_handler);
+    alarm (read_timeout);
+    c = sgetc (s);
+    alarm (0);
+    signal (SIGALRM, SIG_IGN);
+    while (--len && (*ptr++ = c) != '\n' && (c = sgetc (s)) >= 0)
 	;
     if (c < 0)
 	return NULL;
@@ -72,85 +78,100 @@ char *sgets(char *buf, unsigned int len, int s)
 
 /*************************************************************************/
 
-int sputs(char *str, int s)
+int
+sputs (char *str, int s)
 {
-    return write(s, str, strlen(str));
+    return write (s, str, strlen (str));
 }
 
-int sockprintf(int s, char *fmt, ...)
+int
+sockprintf (int s, char *fmt,...)
 {
-    va_list args; int i;
+    va_list args;
+    int i;
 
-    va_start(args, fmt);
-    if (s >= filescnt) {
+    va_start (args, fmt);
+    if (s >= filescnt)
+    {
 	int oldcnt = filescnt;
 	filescnt *= 2;
 	if (filescnt <= s)
-	    filescnt = s+1;
-	files = realloc(files, sizeof(FILE *) * filescnt);
-	if (!files) {
+	    filescnt = s + 1;
+	files = realloc (files, sizeof (FILE *) * filescnt);
+	if (!files)
+	{
 	    filescnt = 0;
 	    errno = ENOMEM;
 	    return 0;
 	}
-	memset(files+oldcnt, 0, sizeof(FILE *) * (filescnt-oldcnt));
+	memset (files + oldcnt, 0, sizeof (FILE *) * (filescnt - oldcnt));
     }
-    if (!files[s]) {
-	if (!(files[s] = fdopen(s, "r+")))
+    if (!files[s])
+    {
+	if (!(files[s] = fdopen (s, "r+")))
 	    return 0;
-	setbuf(files[s], NULL);
+	setbuf (files[s], NULL);
     }
-    i = vfprintf(files[s], fmt, args);
-    fflush(files[s]);
+    i = vfprintf (files[s], fmt, args);
+    fflush (files[s]);
     return i;
 }
 
 /*************************************************************************/
 
-int conn(char *host, int port)
+int
+conn (char *host, int port)
 {
     struct hostent *hp;
     struct sockaddr_in sa;
     int sock;
 
-    if (!(hp = gethostbyname(host)))
+    if (!(hp = gethostbyname (host)))
 	return -1;
 
-    bzero(&sa, sizeof(sa));
-    bcopy(hp->h_addr, (char *)&sa.sin_addr, hp->h_length);
+    bzero (&sa, sizeof (sa));
+    bcopy (hp->h_addr, (char *) &sa.sin_addr, hp->h_length);
     sa.sin_family = hp->h_addrtype;
-    sa.sin_port = htons((unsigned short)port);
-    if ((sock = socket(hp->h_addrtype, SOCK_STREAM, 0)) < 0)
+    sa.sin_port = htons ((unsigned short) port);
+    if ((sock = socket (hp->h_addrtype, SOCK_STREAM, 0)) < 0)
 	return -1;
 
-    if (filescnt <= sock) {
+    if (filescnt <= sock)
+    {
 	int oldcnt = filescnt;
 	filescnt *= 2;
 	if (filescnt <= sock)
-	    filescnt = sock+1;
-	files = realloc(files, sizeof(FILE *) * filescnt);
-	if (!files) {
+	    filescnt = sock + 1;
+	files = realloc (files, sizeof (FILE *) * filescnt);
+	if (!files)
+	{
 	    filescnt = 0;
-	    shutdown(sock, 2);
-	    close(sock);
+	    shutdown (sock, 2);
+#ifdef WIN32
+	    closesocket (sock);
+#else
+	    close (sock);
+#endif
 	    errno = ENOMEM;
 	    return -1;
 	}
-	memset(files+oldcnt, 0, sizeof(FILE *) * (filescnt-oldcnt));
+	memset (files + oldcnt, 0, sizeof (FILE *) * (filescnt - oldcnt));
     }
-    if (!(files[sock] = fdopen(sock, "r+"))) {
+    if (!(files[sock] = fdopen (sock, "r+")))
+    {
 	int errno_save = errno;
-	shutdown(sock, 2);
-	close(sock);
+	shutdown (sock, 2);
+	close (sock);
 	errno = errno_save;
 	return -1;
     }
-    setbuf(files[sock], NULL);
+    setbuf (files[sock], NULL);
 
-    if (connect(sock, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
+    if (connect (sock, (struct sockaddr *) &sa, sizeof (sa)) < 0)
+    {
 	int errno_save = errno;
-	shutdown(sock, 2);
-	fclose(files[sock]);
+	shutdown (sock, 2);
+	fclose (files[sock]);
 	errno = errno_save;
 	return -1;
     }
@@ -158,12 +179,12 @@ int conn(char *host, int port)
     return sock;
 }
 
-void disconn(int s)
+void
+disconn (int s)
 {
-    shutdown(s, 2);
-    if (s < filescnt)
-	fclose(files[s]);
-    else
-	close(s);
+    shutdown (s, 2);
+    if (s < filescnt) {
+	fclose (files[s]);
+    } else
+	close (s);
 }
-

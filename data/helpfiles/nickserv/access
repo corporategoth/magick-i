@@ -1,6 +1,7 @@
 Syntax: ACCESS ADD mask
         ACCESS DEL mask
         ACCESS LIST
+        ACCESS CURRENT
 
 Modifies or displays the access list for your nick.  This
 is the list of addresses which will be automatically
@@ -20,3 +21,6 @@ Examples:
 
     ACCESS LIST
         Displays the current access list.
+
+    ACCESS CURRENT
+        Adds your current hostmask to the access list.

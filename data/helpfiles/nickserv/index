@@ -16,7 +16,7 @@ For more information on a specific command, type
     RELEASE    Regain custody of your nick after RECOVER
     IGNORE     Modify the list of memo auto-reject nicks
 
-Other commands: GHOST, INFO, LIST, DROPSLAVE
+Other commands: GHOST, INFO, LIST, DROPSLAVE, SLAVES
 
 NOTICE: This service is intended to provide a way for
 IRC users to ensure their identity is not compromised.

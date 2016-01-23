@@ -1,9 +1,22 @@
-Magick I (PreZ <prez@antisocial.com>)
+Magick I (PreZ <prez@magick.tm>)
 --------
 
 Renamed to this to avoid conflicting version numbers, etc and finally
 rid myself of all the excess EsperNet baggage.
 
+1999/02/20 .4	Added copyrights back from espernet, so they would stop
+		    bitching at me for removing them (even though I DID
+		    modify the code to an extent they no longer resemble
+		    their services).  *shrug* some people.
+		Added configuration file (see DOC dir) (Ungod)
+		Added messages.h to customize Magick output.
+		Added SYNC_TIME (dbase save) showing option
+		Made MODE strings (User, Channel, ChanInfo) DYNAMIC
+		Fixed AutoUpdate on databases
+		Fixed fuckloads more bugs (as usual).
+		Added killing for repeated password failures.
+		Added LIVE (non-fork) mode (CTRL-C forks).
+		Added MS REPLY, NS ACCESS CURRENT and NS SLAVES functions.
 1998/01/20 .3	Added MLOCK +i and +k support (ChanServ will keep channel if
 		    noone in it!).
 		doc/Distribution -- READ it (and all files in that DIR!) :)
@@ -49,7 +62,7 @@ rid myself of all the excess EsperNet baggage.
 		AKILL and CLONE may now be removed by number.
 
 
-Version 3.0 (PreZ <prez@antisocial.com>)
+Version 3.0 (PreZ <prez@magick.tm>)
 -----------
 
 1997/11/30 .9	Little maintinance (checked all various compiles, etc).

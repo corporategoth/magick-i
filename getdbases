@@ -1,0 +1,66 @@
+#!/bin/sh
+#
+# This is a script suitable for use in a crontab.  It downloads the databases
+# from a host site, and then try and send a HUP signal to running services to
+# get them to re-read them.
+#
+# You'll need to edit this script for your services.
+#
+# To download every day you will need to (4am):
+# crontab:
+#    0 4 * * *   /home/mydir/getdbases
+# And if you don't want to get email from crontab when it checks you services,
+# put the following in your crontab:
+#    0 4 * * *   /home/mydir/getdbases >/dev/null 2>&1
+#
+
+# ok, we need to know where magick is!
+PATH=".:/usr/local/bin:/usr/bin:/bin"
+
+# Terminate Download
+#exit 0
+
+# change this to the directory you run your services from:
+servicesdir="/usr/local/lib/services"
+
+# change this to what your PID file is called
+pidfile="magick.pid"
+
+# Info on source to get it from
+site="main.services.site"
+user="services"
+pass="MyPassword"
+sourcedir="/usr/local/lib/services"
+
+# change this to the directory you want your dbases to goto
+targetdir="${servicesdir}/main"
+
+# file to stop auto-start of services
+startlock="${servicesdir}/dbase.lock"
+
+########## you probably don't need to change anything below here ##########
+
+> ${startlock}
+# mirror the dbases
+if [ -f ${targetdir}/* ]; then
+  cp -R ${targetdir}/* ${targetdir}.old
+  rm -Rf ${targetdir}/*
+fi
+em -pfs ${site} ${sourcedir} ${targetdir} ${user} ${pass} >/dev/null 2>&1
+
+cd $servicesdir
+if [ -f ${targetdir}/* ]; then
+  cp ${targetdir}/*.db .
+  cp -R ${targetdir}/helpfiles .
+  if test -r ${pidfile}; then
+    # there is a pid file -- is it current?
+    servicespid=`cat ${pidfile}`
+    if `kill -CHLD $servicespid >/dev/null 2>&1`; then
+      kill -HUP $servicespid >/dev/null 2>&1
+      rm ${startlock}
+      exit 0
+    fi
+    rm -f ${pidfile}
+  fi
+fi
+rm ${startlock}

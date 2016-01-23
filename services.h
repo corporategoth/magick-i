@@ -1,7 +1,8 @@
 /* Main header for Services.
  *
- * Magick is copyright (c) 1996-1998 Preston A. Elder.
- *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
+ * Magick IRC Services are copyright (c) 1996-1998 Preston A. Elder.
+ *     E-mail: <prez@magick.tm>   IRC: PreZ@RelicNet
+ * Originally based on EsperNet services (c) 1996-1998 Andy Church
  * This program is free but copyrighted software; see the file COPYING for
  * details.
  */
@@ -20,10 +21,26 @@
 #include <errno.h>
 #include <setjmp.h>
 #include <sys/types.h>
+#ifdef WIN32
+#include <winsock.h>
+#include <process.h>
+#include <io.h>
+#include <direct.h>
+#include "win32util.h"
+#define snprintf _snprintf
+#define vsnprintf _vsnprintf
+#define umask(x) _umask(x)
+#define chdir(x) _chdir(x)
+#define getpid() _getpid()
+#define read(x,y,z) _read(x,y,z)
+#define write(x,y,z) _write(x,y,z)
+#define bzero(x,y) memset(x,0,y)
+#else
 #include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <grp.h>
+#endif
 
 #include <ctype.h>
 
@@ -34,90 +51,26 @@
 #define	toupper toupper_
 extern int toupper(char), tolower(char);
 
-/* These should be read by config.h */
-#undef	NICKSERV
-#undef	CHANSERV
-#undef	HELPSERV
-#undef	IRCIIHELP
-#undef	MEMOSERV
-#undef	MEMOS
-#undef	NEWS
-#undef	DEVNULL
-#undef	OPERSERV
-#undef	AKILL
-#undef	CLONES
-#undef	GLOBALNOTICER
-
 #include "config.h"
+#include "messages.h"
 
-/* Satisfy dependancies */
-#ifndef NICKSERV
-#  undef CHANSERV
-#  undef MEMOSERV
-#endif
-#ifndef CHANSERV
-#  undef NEWS
-#endif
-#ifndef MEMOSERV
-#  undef NEWS
-#  undef MEMOS
-#endif
-#if !defined(MEMOS) && !defined(NEWS)
-#  undef MEMOSERV
-#endif
-#ifndef OPERSERV
-#  undef GLOBALNOTICER
-#  undef OUTLET
-#  undef AKILL
-#  undef CLONES
-#endif
-#if CLONES_ALLOWED < 1
-#  undef CLONES
-#endif
-
-/* Stupid catchers! */
-#if SERVICES_LEVEL < 1
-#  error Cannot set SERVICES_LEVEL < 1 - edit the config.h
-#endif
-#if (TZ_OFFSET >= 24) || (TZ_OFFSET <= -24)
-#  error TZ_OFFSET must fall between -24 and 24 - edit the config.h
-#endif
-#if UPDATE_TIMEOUT < 30
-#  error Cannot set UPDATE_TIMEOUT < 30 - edit the config.h
-#endif
-#if READ_TIMEOUT < 1
-#  error Cannot set READ_TIMEOUT < 1 - edit the config.h
-#endif
 #if BUFSIZE < 64
 #  error Cannot set BUFSIZE < 64 - edit the config.h
 #endif
 #if CHANMAX < 16
 #  error Cannot set CHANMAX < 16 - edit the config.h
 #endif
-#if NICKMAX < 9
+#if NICKMAX < 8
 #  error Cannot set NICKMAX < 9 - edit the config.h
 #endif
-#if PASSMAX < 5
+#if PASSMAX < 4
 #  error Cannot set PASSMAX < 5 - edit the config.h
 #endif
-
-/*************************************************************************/
-
-/* Version number for data files; if structures below change, increment
- * this.  (Otherwise -very- bad things will happen!)
- * TO DATE: 1  - Original
- *          2  - Sreamlined Auto Kill Database
- *          3  - Added URL/E-Mail to Nick Database
- *          4  - Added IGNORE (memo reject)
- */
-
-/* If your not using MEMOS, its no use being on FILE_VERSION 4.  Change
-   Below if you want to override (but why would you?). */
-
-#ifdef MEMOS
-# define FILE_VERSION	4
-#else
-# define FILE_VERSION	3
+#if MODEMAX < 8
+#  error Cannot set MODEMAX < 15 - edit the config.h
+#endif
+#if LASTMSGMAX < 4
+#  error Cannot set LASTMSGMAX < 4 - edit the config.h
 #endif
 
 /*************************************************************************/
@@ -132,6 +85,8 @@ extern int toupper(char), tolower(char);
 #define RUN_NOSEND	0x00000080
 #define	RUN_QUITTING	0x00000100
 #define	RUN_TERMINATING	0x00000200
+#define RUN_NOSLEEP	0x00000400
+#define RUN_LIVE	0x00000800
 
 /*************************************************************************/
 
@@ -139,29 +94,12 @@ extern int toupper(char), tolower(char);
  * lists; the list is determined by the first character of the nick.  Nicks
  * are stored in alphabetical order within lists. */
 
-#ifdef NICKSERV
+/* OLD */
+typedef struct nickinfo_v1 NickInfo_V1;
+typedef struct nickinfo_v3 NickInfo_V3;
+
+/* CURRENT */
 typedef struct nickinfo_ NickInfo;
-struct nickinfo_ {
-    NickInfo *next, *prev;
-    char nick[NICKMAX];
-    char pass[PASSMAX];
-#if FILE_VERSION > 2
-    char *email;
-    char *url;
-#endif
-    char *last_usermask;
-    char *last_realname;
-    time_t time_registered;
-    time_t last_seen;
-    long accesscount;	/* # of entries */
-    char **access;	/* Array of strings */
-#if FILE_VERSION > 3
-    long ignorecount;   /* # of entries */
-    char **ignore;	/* Array of strings */
-#endif
-    long flags;		/* See below */
-    long reserved[4];	/* For future expansion -- set to 0 */
-};
 
 #define	NI_KILLPROTECT	0x00000001  /* Kill others who take this nick */
 #define	NI_SECURE	0x00000002  /* Don't recognize unless IDENTIFY'd */
@@ -175,7 +113,6 @@ struct nickinfo_ {
 #define	NI_IDENTIFIED	0x80000000  /* User has IDENTIFY'd */
 #define	NI_RECOGNIZED	0x40000000  /* User comes from a known addy */
 #define	NI_KILL_HELD	0x20000000  /* Nick is being held after a kill */
-#endif /* NICKSERV */
 
 /*************************************************************************/
 
@@ -184,51 +121,14 @@ struct nickinfo_ {
  * determine the list.  (Hashing based on the first character of the name
  * wouldn't get very far. ;) ) */
 
-#ifdef CHANSERV
-/* Access levels for users. */
-typedef struct {
-    short level;
-    short is_nick;	/* 1 if this is a nick, 0 if a user@host mask.  If
-			 * -1, then this entry is currently unused (a hack
-			 * to get numbered lists to have consistent
-			 * numbering). */
-    char *name;
-} ChanAccess;
+/* OLD */
+typedef struct chaninfo_v1 ChannelInfo_V1;
+typedef struct chaninfo_v3 ChannelInfo_V3;
 
-/* AutoKick data. */
-typedef struct {
-    short is_nick;
-    short pad;
-    char *name;
-    char *reason;
-} AutoKick;
-
+/* CURRENT */
+typedef struct chanaccess_ ChanAccess;
+typedef struct autokick_ AutoKick;
 typedef struct chaninfo_ ChannelInfo;
-struct chaninfo_ {
-    ChannelInfo *next, *prev;
-    char name[CHANMAX];
-    char founder[NICKMAX];		/* Always a reg'd nick */
-    char founderpass[PASSMAX];
-    char *desc;
-#if FILE_VERSION > 2
-    char *url;
-#endif
-    time_t time_registered;
-    time_t last_used;
-    long accesscount;
-    ChanAccess *access;			/* List of authorized users */
-    long akickcount;
-    AutoKick *akick;
-    short mlock_on, mlock_off;		/* See channel modes below */
-    long mlock_limit;			/* 0 if no limit */
-    char *mlock_key;			/* NULL if no key */
-    char *last_topic;			/* Last topic on the channel */
-    char last_topic_setter[NICKMAX];	/* Who set the last topic */
-    time_t last_topic_time;		/* When the last topic was set */
-    long flags;				/* See below */
-    short *cmd_access;			/* Access levels for commands */
-    long reserved[3];			/* For future expansion -- set to 0 */
-};
 
 /* Retain topic even after last person leaves channel */
 #define	CI_KEEPTOPIC	0x00000001
@@ -300,52 +200,18 @@ struct chaninfo_ {
 #define	CO_OPER		0
 #define CO_SOP		1
 #define CO_ADMIN	2
-#endif
 
 /*************************************************************************/
 
 /* MemoServ data.  Only nicks that actually have memos get records in
  * MemoServ's lists, which are stored the same way NickServ's are. */
 
-#ifdef MEMOSERV
 typedef struct memo_ Memo;
-
-struct memo_ {
-    char sender[NICKMAX];
-    long number;	/* Index number -- not necessarily array position! */
-    time_t time;	/* When it was sent */
-    char *text;
-    long reserved[4];	/* For future expansion -- set to 0 */
-};
-
-
-#ifdef MEMOS
 typedef struct memolist_ MemoList;
-#endif
-#ifdef NEWS
 typedef struct newslist_ NewsList;
-#endif
 
-#ifdef MEMOS
-struct memolist_ {
-    MemoList *next, *prev;
-    char nick[NICKMAX];	/* Owner of the memos */
-    long n_memos;	/* Number of memos */
-    Memo *memos;	/* The memos themselves */
-    long reserved[4];	/* For future expansion -- set to 0 */
-};
-#endif
-
-#ifdef NEWS
-struct newslist_ {
-    NewsList *next, *prev;
-    char chan[CHANMAX];	/* Owner of the memos */
-    long n_newss;	/* Number of memos */
-    Memo *newss;	/* The memos themselves */
-    long reserved[4];	/* For future expansion -- set to 0 */
-};
-#endif 
-#endif /* MEMOSERV && NICKSERV */
+#define	MS_READ		0x00000001	/* Yes, I had planned to do this */
+#define MS_DELETED	0x00000002
 
 /*************************************************************************/
 
@@ -353,9 +219,7 @@ struct newslist_ {
 
 typedef struct user_ User;
 typedef struct channel_ Channel;
-#ifdef CLONES
 typedef struct clone_ Clone;
-#endif
 
 struct user_ {
     User *next, *prev;
@@ -366,35 +230,26 @@ struct user_ {
     char *server;			/* name of server user is on */
     time_t signon;
     time_t my_signon;			/* when did _we_ see the user? */
-    short mode;				/* see below */
+    char mode[MODEMAX];			/* see below */
     int messages;			/* How many messages in dbase */
-    time_t msg_times[FLOOD_MESSAGES];	/* Time of last X messages */
+    time_t msg_times[LASTMSGMAX];	/* Time of last X messages */
     int flood_offence;			/* Times has triggered flood prot */
+    int passfail;			/* Times has failed password */
     struct u_chanlist {
 	struct u_chanlist *next, *prev;
 	Channel *chan;
     } *chans;				/* channels user has joined */
-#ifdef CHANSERV
     struct u_chaninfolist {
 	struct u_chaninfolist *next, *prev;
 	ChannelInfo *chan;
     } *founder_chans;			/* channels user has identified for */
-#endif
 };
 
-#define	UMODE_O	0x0001
-#define	UMODE_I	0x0002
-#define	UMODE_S	0x0004
-#define	UMODE_W	0x0008
-#define	UMODE_G	0x0010
-
-#ifdef CLONES
 struct clone_ {
     Clone *next, *prev;
     char *host;
     int amount;
 };
-#endif
 
 struct channel_ {
     Channel *next, *prev;
@@ -403,7 +258,7 @@ struct channel_ {
     char *topic;
     char topic_setter[NICKMAX];		/* who set the topic */
     time_t topic_time;			/* when topic was set */
-    int mode;				/* binary modes only */
+    char mode[MODEMAX];			/* binary modes only */
     int limit;				/* 0 if none */
     char *key;				/* NULL if none */
     int bancount, bansize;
@@ -414,28 +269,20 @@ struct channel_ {
     } *users, *chanops, *voices;
 };
 
-#define	CMODE_I	0x01
-#define	CMODE_M	0x02
-#define	CMODE_N	0x04
-#define	CMODE_P	0x08
-#define	CMODE_S	0x10
-#define	CMODE_T	0x20
-#define	CMODE_K	0x40			/* These two used only by ChanServ */
-#define	CMODE_L	0x80
-
 /*************************************************************************/
 
+/* OLD */
+typedef struct akill_v1 Akill_V1;
+
+/* CURRENT */
 typedef struct ignore_ Ignore;
 typedef struct servers_ Servers;
 typedef struct message_ Message;
-#ifdef AKILL
 typedef struct akill_ Akill;
-#endif
-#ifdef CLONES
 typedef struct allow_ Allow;
-#endif
 typedef struct timeout_ Timeout;
 typedef struct timer_ Timer;
+typedef struct sop_ Sop;
 
 struct ignore_ {
     char nick[NICKMAX];
@@ -448,34 +295,6 @@ struct servers_ {
     int hops;
     int lag;
 };
-
-struct message_ {
-    char *text;
-    short type;
-    char who[NICKMAX];
-    time_t time;
-};
-#define	M_LOGON	0
-#define	M_OPER	1
-
-#ifdef AKILL
-struct akill_ {
-    char *mask;
-    char *reason;
-    char who[NICKMAX];
-    time_t time;
-};
-#endif
-
-#ifdef CLONES
-struct allow_ {
-    char *host;
-    int amount;
-    char *reason;
-    char who[NICKMAX];
-    time_t time;
-};
-#endif
 
 struct timeout_ {
     Timeout *next, *prev;
@@ -491,6 +310,9 @@ struct timer_ {
     char *label;
     time_t start;
 };
+
+#define	M_LOGON	0
+#define	M_OPER	1
 
 /*************************************************************************/
 
@@ -539,6 +361,7 @@ struct hash_chan_ {
 
 /*************************************************************************/
 
+#include "datafile.h"
 #include "extern.h"
 
 /*************************************************************************/

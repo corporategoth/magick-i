@@ -12,6 +12,7 @@ MemoServ's commands include:
     LIST    List all of your or a channel's memos
     READ    Read a memo (or all memos)
     FORWARD Forward a memo to a nick/channel
+    REPLY   Reply to a memo by number
     DEL     Delete a memo (or all memos)
 
 Type /msg MemoServ HELP command for help on any of the

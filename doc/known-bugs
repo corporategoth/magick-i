@@ -1,1 +1,30 @@
-No Known Bugs.
+The place to report bugs is magick-devel@magick.tm.
+
+When submitting bug reports, I would appreciate you include the results
+of tests made with all possible combinations of Registered/Unregistered
+nicknames, User/IRC Operator/Services Operator/Services Admin, Registered/
+Unregistered Channels, and the events leading up to it (especially if you
+see a pattern in it).
+Please also include:
+	* System Specs (CPU, Memory, Speed, etc)
+	* Operating System and version, and other tasks of machine
+	* IRCD VERSION reply (/quote VERSION <server-name>)
+	* Magick VERSION reply (/quote VERSION <magick-server-name>)
+	* EXACT error message
+
+==============================================================================
+
+KEY:	ND	== Not Duplicated: Cannot cause this to happen on my local
+		   testing machine (Linux 2.1.xxx, K6/233, 64Mb, Dal4.6.5).
+	NDS	== Not Duplicated, but Seen on another system.
+	NBG	== No Background: No details of situation surround it.
+	NAC	== No Aparent Cause: Checked code, and its all OK.
+	SR#	== Suspected Related to all others with number #.
+	CK	== Cause Known, work in progress.
+
+==============================================================================
+
+Adding a nick!*@* to an access list will make it so only founder can add
+or remove users from the access list [NDS NAC].
+
+Segfault on OS GLOBAL on SunOS [ND] (only some versions)

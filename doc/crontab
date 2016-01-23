@@ -1,0 +1,20 @@
+# Example crontab for making Magick start automatically
+# and for making them grab dbases off another system.
+
+# Default shell
+SHELL=/bin/sh
+
+# Who to mail output to (defaults to your userid)
+#MAILTO=userid
+
+# Based on eggdrop's botchk
+0,5,10,15,20,25,30,35,40,45,50,55 * * * * $HOME/serviceschk
+
+# This will grab dbases from another site at 4am.  For this
+# to work em must be compiled (make backup) and installed
+# (make install-backup).  The directory data/main and
+# data/main.old must exist (where data is where your dbases
+# are).  The script itself must be modified to point to the
+# correct site to download from (site, username, password,
+# directory at remote), aswell as where to put it locally.
+0                                 4 * * * $HOME/getdbases

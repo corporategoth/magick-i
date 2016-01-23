@@ -1,0 +1,22 @@
+/*
+ * This file is generated automatically by "configure".  Any changes made
+ * to it will be erased next time "configure" is run.
+ */
+
+#define SERVICES_DIR		"."
+
+#define RUNGROUP		"ircd"
+#define DEFUMASK		007
+
+#define IRC_DALNET
+#define DAL_SERV
+
+#define HAVE_STRERROR		1
+#define HAVE_SYS_ERRLIST	1
+#define HAVE_SNPRINTF		1
+#define BAD_SNPRINTF		0
+#define HAVE_STRICMP		1
+#define HAVE_STRCASECMP		0
+#define HAVE_STRDUP		1
+#define HAVE_STRSPN		1
+#define HAVE_STRSIGNAL		0

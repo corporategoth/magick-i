@@ -4,130 +4,198 @@ NOTES on Distribution of Magick.
 Getting Magick
 --------------
 
-The official homesite for Magick is:
-	FTP://ftp.goth.net/pub/Magick
-	HTTP://www.goth.net/pub/Magick
+The Magick HomePage is found at:
+	HTTP://www.magick.tm
 
-There is no web page on it yet (coming).
+The official homesite for Magick is:
+	FTP://ftp.magick.tm/pub/Magick
+	HTTP://www.magick.tm/download
 
 Official mirrors for it are:
-	FTP://srealm.goth.net/pub/Magick
+	FTP://chariot.au.magick.tm/pub/Magick
 
-Mailing list for Magick is magick@goth.net -- To subscribe:
-	Email majordomo@goth.net with "subscribe magick" (no quotes)
+Contacting the Author(s):
+	The head of Magick development is PreZ <prez@magick.tm>.
+	If you wish to contact the whole magick development team,
+	that address is magick-devel@magick.tm.  Please send bug
+	reports to bugs@magick.tm, and suggestions/recommendations
+	to suggest@magick.tm.
+
+Mailing list for Magick is magick@magick.tm -- To subscribe:
+	Email majordomo@magick.tm with "subscribe magick" (no quotes)
 	in the body of the message.  This will keep you up to date
 	with the latest release and BETA information of Magick.
 
-Programming Team Mailing List for Magick is magick-devel@goth.net:
+Programming Team Mailing List for Magick is magick-devel@magick.tm,
 	Subscription to this is done the same way, but subject to
 	approval beforehand -- DO NOT subscribe unless you both know
 	how to program in C, and are interested in bettering Magick.
 
-Patching Magick
----------------
+Version Info
+------------
 
-All versions have a patch from the previous version on the home site
-for lettered versions, no complete distribution is released, only patches).
+Magick is versioned as follows.
 
-How do I patch, etc?  -- Lets take it from the top:
+Full releases will be versioned with one decimal place, eg. 1.4s.
+These versions have gone through a whole beta stage, and should be
+bugless, and quite usable as is ... they have gone through substantial
+testing, and been released with all the development team wanted to
+put in that version.
+
+Beta versions will be versioned with a beta number, and an optional
+patchlevel number or pre-release code.  eg. 1.4s-b1p2a.
+These versions MOST LIKELY have bugs.  Beta (bX) means "before-full-release",
+and most versions go through many beta levels before becoming a full
+release.  Patchlevel (pX) means different patches have been applied to the
+beta release (ie. bug fixes only, not new features).  Pre-Release (a) means
+this is code release before the next full beta is issued (ie. usually only
+for testing purposes, not for public release!).  Beta versions are basically
+releases before a full release, that has new features, but not all the new
+stuff the development team wants in the full release.  We TRY to make them
+as bugless as possible, but they havnt been through as extensive testing
+as the full releases have, and often need patching.
+
+Lets look at it in depth
+
+        1.4s-b1p2a
+        ^ ^^ ^^^^^
+        | || ||||+-- Pre-Release (ALPHA)
+        | || ||++--- Patch Level 2
+        | || ++----- Beta Release 1
+        | |+-------- s (Source) or b (Binary)
+        +-+--------- Full Version
+
+Non-Magick Programs
+-------------------
+
+The following programs included in magick distribution are NOT created or
+maintained by the Magick development team, but are of great use under
+certain circumstances.  Magick Dev Team takes NO RESPONCIBILITY for any
+damage or action cause by using these products, and the distribution and
+operation of these products are strictly subject to the license supplied
+by the program itself.  All documentation for any program included with
+Magick is included in the doc directory.
+
+Current programs bundled with Magick:
+	- Easy Mirror (em.txt)
+	  Jag Sandhu <jag@jags.co.uk>
+	  ftp://ftp.jags.co.uk/dist/em
+
+Unpacking/Patching Magick
+-------------------------
+
+Patches are created for going from beta patchlevel to patchlevel, or from
+full version to full version.  NO patches are created for going from full
+version to beta, or beta to beta.
+
+How do I install and patch?  -- Lets take it from the top:
 
 # ============================================================================
+## Starting with a FULL version.
 
 root@castle:~# ls
-Magick-1.2.tar.gz
-Magick-1.2-1.2a-patch.gz
-Magick-1.2a-1.2b-patch.gz
-Magick-1.2b-1.2c-patch.gz
+Magick-1.3s.tar.gz
+Magick-1.3-1.4-patch.gz
 
-root@castle:~# gunzip Magick-1.2.tar.gz
+root@castle:~# gunzip Magick-1.3s.tar.gz
 
-root@castle:~# tar xvf Magick-1.2.tar
+root@castle:~# tar xvf Magick-1.3s.tar
+<some output from extract>
 
 # ----------------------------------------------------------------------------
-## OK -- we now have a successful Magick-1.2 distribution
+# OK -- we now have a successful Magick 1.3 distribution
 
 root@castle:~# ls
-Magick-1.2/
-Magick-1.2.tar
-Magick-1.2-1.2a-patch.gz
-Magick-1.2a-1.2b-patch.gz
-Magick-1.2b-1.2c-patch.gz
+Magick-1.3/
+Magick-1.3s.tar
+Magick-1.3-1.4-patch.gz
 
-root@castle:~# gunzip Magick-1.2-1.2a-patch.gz
+root@castle:~# gunzip Magick-1.3-1.4-patch.gz
 
-root@castle:~# patch <Magick-1.2-1.2a-patch
+root@castle:~# patch <Magick-1.3-1.4-patch
+
+root@castle:~# mv Magick-1.3 Magick-1.4
+# we mv the directory to be able to patch to future versions,
+# and to keep the directory structure up to date.
+
+# ----------------------------------------------------------------------------
+# Now we're on Magick 1.4
+
+root@castle:~# ls
+Magick-1.4/
+Magick-1.3s.tar
+Magick-1.3-1.4-patch
+
+# ============================================================================
+## Starting with a BETA version.
+
+root@castle:~# ls
+Magick-1.4s-b1.tar.gz
+Magick-1.4-b1p1-patch.gz
+Magick-1.4-b1p2-patch.gz
+
+root@castle:~# gunzip Magick-1.4.tar.gz
+
+root@castle:~# tar xvf Magick-1.4.tar
+
+# ----------------------------------------------------------------------------
+## OK -- we now have a successful Magick 1.4-b1 distribution
+
+root@castle:~# ls
+Magick-1.4/
+Magick-1.4s-b1.tar
+Magick-1.4-b1p1-patch.gz
+Magick-1.4-b1p2-patch.gz
+
+root@castle:~# gunzip Magick-1.4-b1p1-patch.gz
+
+root@castle:~# patch <Magick-1.4-b1p1-patch
 <some output on patching>
 
-root@castle:~# mv Magick-1.2 Magick-1.2a
-
 # ----------------------------------------------------------------------------
-## Now we're on Magick-1.2a
-## (note: the mv of the directory is nessicary for later patches).
+## Now we're on Magick 1.4-b1p1
 
 root@castle:~# ls
-Magick-1.2a/
-Magick-1.2.tar
-Magick-1.2-1.2a-patch
-Magick-1.2a-1.2b-patch.gz
-Magick-1.2b-1.2c-patch.gz
+Magick-1.4/
+Magick-1.4s-b1.tar
+Magick-1.4-b1p1-patch
+Magick-1.4-b1p2-patch.gz
 
-root@castle:~# gunzip Magick-1.2a-1.2b-patch.gz
+root@castle:~# gunzip Magick-1.4-b1p2-patch.gz
 
-root@castle:~# patch <Magick-1.2a-1.2b-patch
+root@castle:~# patch <Magick-1.4-b1p2-patch
 <some output on patching>
 
-root@castle:~# mv Magick-1.2a Magick-1.2b
-
 # ----------------------------------------------------------------------------
-## Now we're on Magick-1.2b
-## (note: the mv of the directory is nessicary for later patches).
+## Now we're on Magick-1.4-b1p2
 
 root@castle:~# ls
-Magick-1.2b/
-Magick-1.2.tar
-Magick-1.2-1.2a-patch
-Magick-1.2a-1.2b-patch
-Magick-1.2b-1.2c-patch.gz
-
-root@castle:~# gunzip Magick-1.2b-1.2c-patch.gz
-
-root@castle:~# patch <Magick-1.2b-1.2c-patch
-<some output on patching>
-
-root@castle:~# mv Magick-1.2b Magick-1.2c
-
-# ----------------------------------------------------------------------------
-## Now we're on Magick-1.2c
-## (note: the mv of the directory is nessicary for later patches).
-
-root@castle:~# ls
-Magick-1.2c/
-Magick-1.2.tar
-Magick-1.2-1.2a-patch
-Magick-1.2a-1.2b-patch
-Magick-1.2b-1.2c-patch
+Magick-1.4/
+Magick-1.4s-b1.tar
+Magick-1.4-b1p1-patch
+Magick-1.4-b1p2-patch
 
 # ============================================================================
 
 Simple, right?  Not always.
 
 Sometimes you may get asked "File to patch:" during the patch.  This is
-usually coz I stuffed up the patch (I dont do it often! honest!) -- All you do
-is type the filename after the --- (or the first filename after diff).
+usually coz I stuffed up the patch (I dont do it often! honest!) -- All you
+do is type the filename after the --- (or the first filename after diff).
 
 eg:
 The text leading up to this was:
 --------------------------
-|diff -urNd Magick-1.2a/Makefile Magick-1.2b/Makefile
-|--- Magick-1.2/Makefile	Wed Dec 17 08:07:46 1997
-|+++ Magick-1.2a/Makefile	Tue Dec 30 03:34:12 1997
+|diff -urNd Magick-1.4/Makefile Magick-1.4-b1p1/Makefile
+|--- Magick-1.4/Makefile	Wed Dec 17 08:07:46 1997
+|+++ Magick-1.4-b1p1/Makefile	Tue Dec 30 03:34:12 1997
 --------------------------
-File to patch: Magick-1.2/Makefile
+File to patch: Magick-1.4/Makefile
 
 There are a few possible causes for this:
 	* I made a normal patch instead of a unified one (oops!)
-	* The subdirectory your trying to patch does not exist (ie. you didnt
-	  mv Magick-1.2 to Magick-1.2a, etc)
+	* The subdirectory your trying to patch does not exist
+	  (ensure you mv'd it from patching a previous version).
 	* I patched something that didnt need to be patched!
 	* I used the wrong file version to 'source' the patch from (ie. I
 	  patched 'my' copy of the file instead of the 'distribution' copy).

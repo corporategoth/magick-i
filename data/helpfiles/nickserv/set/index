@@ -8,6 +8,7 @@ Sets various nickname options.  option can be one of:
     SECURE     Turn nickname security on or off
     PASSWORD   Set your nickname password
     PRIVMSG    Use /msg's instead of /notice's
+    PRIVATE    Hide last hostmark and from LISTS
 
 In order to use this command, you must first identify
 with your password (/msg NickServ HELP IDENTIFY for more

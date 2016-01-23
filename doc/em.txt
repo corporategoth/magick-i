@@ -1,0 +1,390 @@
+EM - Easy Mirror (ts=8) $Id: em.txt,v 4.0.0.1 1998/10/17 13:04:56 root Exp $
+Jag Sandhu,  jag@jags.co.uk,  ftp://ftp.jags.co.uk/dist/em
+             Mailing list: mail 'add em.list' to mail listserv@jags.co.uk
+                           (Mailing list is em.list@jags.co.uk)
+
+
+What is EM?
+===========
+
+A solution for creating ftp mirrors of a remote site without the hastle
+of spending days setting it all up or weeks hunting the correct libraries
+so you can use it.
+
+Easy-mirror works by running the ftp command to connect to a remote system.
+The output from the ftp command is monitored by the program and action
+taken accordingly.  Files are only retrieved where needed, Links are ALWAYS
+re-created and Directories checked recursively.
+
+To compile em, simply use the following command..  (Ensure that the em.c and
+em.h source files are in the same directory)
+
+    cc -o em em.c
+
+
+Using EM - The simplest approach
+================================
+
+easy-mirror takes three command line arguments in it's simplest form,
+the remote hostname, the remote directory and the local directory.
+
+host        The name of the remote host to connect to
+
+remote dir  The remote directory you wish to duplicate locally
+
+local dir   The local directory you wish to duplicate to
+            (This directory must be created manually by you)
+
+eg.
+
+em ftp.microsoft.com /msdownload/directx /home/ftp/mirror/msdownload/directx
+
+
+The following switches will help to make your mirror a real 'mirror'
+rather than a dump copy.
+
+-p      Preserve date/times of files.  This is not neccessary as
+        the files being retrieved will be stamped with the current
+        date and time.  However, It's recommended that this option
+        IS used to ensure that you really are mirroring a system
+        rather than copying files blindly.
+
+-s      Check file sizes too.  Don't just compare file dates when
+        deciding to retrieve a file, look at the physical size of
+        files too.  It's usefull not to use this switch if you'r
+        running a two way mirror (either site can update certain
+        files - ie. You don't want to trash a local file if it's
+        been updated by you).
+
+-f      This switch forces a time stamp onto a file, even if it's
+        not being retrieved.  Very usefull if you've lost the time
+        stamp on some files.  Just touch them to the current time
+        and run easy-mirror with the -f flag so that it'll force
+        the correct time stamp onto the files.
+
+I tend to use all of these three flags.
+
+eg.
+
+em -p -f -s ftp.microsoft.com /msdownload /home/ftp/mirror/msdownload
+
+
+If you wish to exclude some files from being retrieved from the remote
+host, the switch -i may be used.
+
+-i      This switch allows you to exclude files from being retrieved.
+        Each entry supplied as input to em must be a valid regular
+        expression (as in ed, vi, egrep and sed).
+
+eg.
+
+em -i -p -s ftp.microsoft.com /msdownload /home/ftp/mirror/msdownload <<EXCL
+.*/old/.*
+.*dirhk2b.zip.*
+EXCL
+
+Or you could write a series of regular expressions into a flat file which
+you could then supply as input to easy-mirror.
+
+eg.
+
+em -i -p -s ftp.microsoft.com /msdownload /home/ftp/mirror/msdownload <excl.txt
+
+
+If you wish to specify a list of files to GET rather than exclude from the
+mirror, then you can use the -g switch instead of the -i switch.  This switch
+works in an identical fashion to the -i switch but allows the files to be
+retrieved to be specified.
+
+And finally, any regular expression can be reversed in logic by prefixing it
+with a '!'.  This would allow you to for example specify a particular file
+to retrieve and a number of files to be excluded, based on a similar name..
+
+em -i -p -s ftp.microsoft.com /msdownload /home/ftp/mirror/msdownload <<END
+!*.zip
+*.txt
+END
+
+The above effectively says to retrieve all zip files and to exclude all .txt
+files from a mirror.  Any unwanted files will be automatically REMOVED from
+the local mirror.  You can keep these if desired by using the -a switch
+(keep All files, regardless of whether we say we want them).
+
+
+If you wish to only retrieve files newer than a given date/time then
+you can use the -n switch.
+
+e.g.
+
+em -n 19971001183000 -p -s ftp.microsoft.com /msdownload /home/ftp/mirror/msdownload
+
+This would ensure that only files newer than 01/10/1997 18:30, are retrieved.
+
+
+Trouble shooting
+================
+
+This section covers some of the switches that may help if you experience
+varying problems with the remote ftp server.  Debug output can be
+enabled from easy-mirror using the -d switch.
+
+-d      This switch forces easy-mirror to display lots (and lots) of
+        debug output.  Very usefull to find out what's happening and
+        to try and figure out what's going wrong.
+
+
+Easy-mirror will automatically re-connect to a remote host if the session
+is disconnected for any reason.  It'll abort the ftp session and re-try if
+it thinks that the remote hosts has stopped responding.  It does this by
+keeping track of two time-outs. 
+
+-t <seconds>    This is the maximum number of seconds to expect a simple
+        command to be issued and it's action to be acknowledged.
+        The default value for this is 180 seconds.  After this
+        time, the ftp session is aborted and a re-try attempted.
+
+-k <seconds for 1k transfer>
+        This allows the expected transfer rate to be specified.
+        (The default is to wait indeffinately).  If a value is
+        specified using this switch, easy-mirror will time the
+        ftp transfer.  If it takes longer than expected then
+        it's assumed that the ftp session has hung and a re-try
+        attempted.  The default is 120 (ie. expect 1k to transfer
+        in upto 2 minutes!)
+
+I tend to use most of the above command (-d because this program is still
+being developped!). In practice the 3 minutes timeout has proven itself to
+not be a problem so I've always left the default in there. The
+value for -k should be adjusted for each mirror, based on the kind of
+transfer speeds you expect.  (The example below indicated that I expect
+1k to transfer in AT MOST 7 seconds - 0.14k per second).
+
+eg.
+
+em -i -k7 -p -s ftp.microsoft.com /msdownload \
+         /home/ftp/mirror/msdownload <excl.txt
+
+
+
+Recovery is performed within easy-mirror by maintaining a 'cache' file. This
+file contains the directories that have yet to be processed.  The default
+name of this file is /tmp/<remote host>.  ie. In our examples above, the
+file /tmp/ftp.microsoft.com would be created if not already present.  The
+cache file is deleted by easy-mirror once a successful mirror has completed.
+If easy-mirror is re-started, it'll use the information contained in this
+file rather than scanning the root directory..  The cache file is written
+to disk at the end of each processed directory.  As the mirror gets nearer
+and nearer to completion, this file should shrink.
+
+-c <cache file> Use this switch to specify an alternate cache file.  This
+        would normally be used if you are running multiple em sessions
+        against a particular ftp site, to mirror different areas.
+
+
+Authentication
+==============
+
+Easy-mirror will by default, sign on as anonymous and supply the password
+of "your username @ $HOSTNAME".  If $HOSTNAME is not set then 'localhost'
+is sent instead.
+
+If you wish, you can supply two additional parameters to specify a
+username and password.
+
+eg.
+
+em -i -k7 -p -s ftp.microsoft.com /msdownload /home/ftp/mirror/msdownload \
+                root <rootpassword>
+
+
+Performance and the site maintained index
+=========================================
+
+em by default will perform a complete recursive scan of the remote site.
+Some sites will have already performed a ls -lR on their entire archive
+and placed the log file for your use.  em may be informed that such a
+file exists for it's use.  The -l option allows you to specify where the
+listing file is.  The contents of this listing MUST be in standard ls -lR
+format.  
+
+eg.  
+
+The site ftp.doc.ic.ac.uk maintains a listing file called ls-lR.gz.
+This file sits in the top level directory of a particular area.
+
+When I run em to mirror the sunsite archive from sunsite.doc.ic.ac.uk, I
+use the option -l to indicate where this listing file is.
+
+/bin/em -s -f -k2 -p -d -l /z/3/mirror/sunsite.unc/ls-lR.gz \
+    ftp.doc.ic.ac.uk \
+    /pub/unix/Linux/sunsite.unc-mirror \
+    /z/3/mirror/sunsite.unc
+
+(Notice the -l option)
+
+In the above example, when mirroring the top directory
+(/pub/unix/Linux/sunsite.unc-mirror), The ls-lR.gz file will not initially
+exist locally.  em would automatically therefore perform a 'ls -l' command
+on the remote system to obtain the required information.  Once the ls-lR.gz
+file had been retrieved it would be used in any further scans of directories.
+
+It is also worth noting that the 'listing' file may be compressed (compress or
+gzip) or uncompressed.  The command line that em uses to feed the file to
+an internal awk (I'm lazy) command is as follows :-
+
+( zcat <a || uncompress <a || cat <a) 2>/dev/null
+
+This command tries zcat on the input file, If that fails, trying uncompress.
+If that too fails then the file is assumed to be uncompressed.
+
+NOTE: The local system's CPU will suffer if the listing file is compressed.
+      You may want to uncompress it first if you have enough disk space.
+      (EM Doesn't attempt to uncompress the listing file at the start as 
+       you may already be low on disk space..)
+
+
+Final thoughts
+==============
+
+Sometimes, You may want to mirror a site but NOT remove any files on the
+local system that aren't present at the remote site.  The switch '-a' informs
+em to keep ALL files, rather than removing these redundant files.
+
+Certain sites may opt to run multiple ftp installations on different port 
+numbers.  In which case, you may need to specify the ftp port number to use
+when connecting to a site.  This may be specified using the -o option.
+
+----
+
+    echo '.*/OLD.*' | /u/bin/em -i ftp.jags.co.uk /dist/em /mirror/em
+
+Won't copy over the directory called OLD from ftp.jags.co.uk:/dist/em,
+while the following WILL copy over the OLD directory (but it'll be empty)..
+
+    echo '.*/OLD/.*' | /u/bin/em -i ftp.jags.co.uk /dist/em /mirror/em
+
+Because in the second example, we've said we want to ignore any files that
+have /OLD/ within them.  The directory /dist/em/OLD doesn't contain /OLD/ so
+it gets created on your local mirror.
+
+----
+
+    /u/bin/em -i ftp.jags.co.uk /dist/em /mirror/em <<EOF
+    !.*/OLD/.*lsm
+    .*/OLD.*
+    EOF
+
+Won't produce the desired effect.  Although we've said to keep .*/OLD/.*lsm
+files, the following line ensures that the OLD directory is removed..
+Replacing the above regular expressions with the following will produce
+the desired result (The second regular expression will ensure that the
+OLD directory itself is not removed)
+
+    !.*/OLD/.*lsm
+    .*/OLD/.*
+
+----
+
+However, if you'r planning on keeping some files in a directory, that is
+some levels below a directory whose contents we want to ignore, the following
+would not work.  Here, we're trying to mirror and ignore the contents of the
+em directory, expect for the sub-directory called OLD, also present in the
+em directory. */em.* ensures that ALL files (and directories) below the
+em directory are removed, including the em/OLD directory.
+
+    /u/bin/em -i ftp.jags.co.uk /dist /mirror <<EOF
+    !.*em/OLD/.*
+    .*/OLD.*
+
+For this type of requirement, I suggest that you create a 'mirror within
+a mirror'.  i.e. You might create a mirror of a popular Linux site and decide
+that you don't want to get the documents from that mirror, instead wishing to
+get the docs directory from a more up-to-date source..  This would best be
+done using two seperate em commands (these could be run in parallel).
+
+    /u/bin/em -a -i linux.net /linux /mirror/linux <<EOF
+    /linux/docs.*
+    EOF
+
+    /u/bin/em -g docs-linux.net /pub/documents /mirror/linux/docs <<EOF
+    /pub/documents.*
+    EOF
+
+----
+
+If you are running EM from cron and would only like to see a mail message if
+some files are retrieved, then you could try the following :-
+
+<cron timing>  em <args> >/tmp/em.log 2>&1 ; egrep '^EM: GOT:' /tmp/em.log
+
+i.e.  Write the output of em into a log file and then just grep out the
+      lines that indicate that a file has been retrieved.  Remember that
+      EM returns ZERO on success and non-zero if there was an error, So you
+      could use this to perhaps mail you with an error message if EM failed.
+
+
+The bogus mirror
+================
+
+A bogus mirror is one where the files are not acually present within the
+archive.  Instead, a file is created locally that simply contains the name
+of the remote file that it's attempting to 'mirror'.  A bogus archive
+can be created using the switch -b.  However, the -s (check file sizes)
+option should not be used when creating a bogus mirror otherwise all
+bogus files will be re-created each time the mirror is attempted.
+
+Why?
+
+It's an option that 'was' going to be used at the INTERact BBS (Uk) 01753
+775533 (telnet jags.co.uk), more info on it's uses as it becomes available.
+<end quick plug>
+
+
+Example easy-mirror script
+==========================
+
+
+Here's a script that's similar to the one I run to create some mirrors :-
+
+
+#!/bin/ksh
+#
+#
+# $1 - Name of mirror to construct (sunsite, mcafee or msdownload)
+#
+#
+
+ps -auwwww | grep $1 | grep -v grep | grep -v mirror
+if [ $? -eq 0 ]
+then
+    echo "Already running"
+    exit 1
+fi
+
+
+case $1 in
+sunsite)
+    exec /bin/em -s -f -k2 -p -d -i -l /z/3/mirror/sunsite.unc/ls-lR.gz \
+            ftp.doc.ic.ac.uk /pub/unix/Linux/sunsite.unc-mirror \
+            /z/3/mirror/sunsite.unc <<END
+.*linux-1\.3\.[0-7][0-9]\.tar\.gz.*
+.*linux-1\.3\.[0-9]\.tar\.gz.*
+.*/kernel/old/patch.*
+.*linux-1\.1\..*\.tar\.gz.*
+.*modules-1\.1\..*\.tar\.gz.*
+.*linux-announce\.archive.*
+END
+    ;;
+
+
+mcafee)
+    exec /bin/em -s -f -k7 -p -d ftp.mcafee.com /pub/antivirus/english \
+        /z/1/mirror/mcafee
+    ;;
+
+msdownload)
+    exec /bin/em -s -f -k7 -p -d ftp.microsoft.com /msdownload \
+        /z/4/mirror/microsoft/msdownload
+    ;;
+esac
+
