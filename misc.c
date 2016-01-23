@@ -54,7 +54,7 @@ char *sgets2(char *buf, long size, int sock)
  *           add a null terminator after the last character copied.
  */
 
-char *strscpy(char *d, const char *s, int len)
+char *strscpy(char *d, const char *s, size_t len)
 {
     char *d_orig = d;
 
@@ -65,6 +65,42 @@ char *strscpy(char *d, const char *s, int len)
     *d = 0;
     return d_orig;
 }
+
+/*************************************************************************/
+
+#if !HAVE_SNPRINTF
+
+/* [v]snprintf: Like [v]sprintf, but don't write more than len bytes
+ *              (including null terminator).  Return the number of bytes
+ *              written.
+ */
+
+int vsnprintf(char *buf, size_t len, const char *fmt, va_list args)
+{
+#if BAD_SNPRINTF
+# undef vsnprintf
+    int res = vsnprintf(buf, len, fmt, args);
+# define vsnprintf my_vsnprintf
+    if (res < 0)
+	res = 0;
+    return res;
+#else
+    /* DANGER WILL ROBINSON!  There's no real portable way to implement
+     * vsnprintf(), so we cheat and call vsprintf.  Buffer overflows
+     * galore! */
+    return vsprintf(buf, fmt, args);
+#endif
+}
+
+int snprintf(char *buf, size_t len, const char *fmt, ...)
+{
+    va_list args;
+
+    va_start(args, fmt);
+    return vsnprintf(buf, len, fmt, args);
+}
+
+#endif /* HAVE_SNPRINTF */
 
 /*************************************************************************/
 
@@ -87,7 +123,7 @@ int stricmp(const char *s1, const char *s2)
     return 1;
 }
 
-int strnicmp(const char *s1, const char *s2, int len)
+int strnicmp(const char *s1, const char *s2, size_t len)
 {
     register int c;
 
@@ -138,7 +174,7 @@ char *stristr(char *s1, char *s2)
 {
     register char *s = s1, *d = s2;
 
-    while (*s1) {
+    while (*s1)
 	if (tolower(*s1) == tolower(*d)) {
 	    s1++; d++;
 	    if (*d == 0)
@@ -147,7 +183,6 @@ char *stristr(char *s1, char *s2)
 	    s = ++s1;
 	    d = s2;
 	}
-    }
     return NULL;
 }
 
@@ -164,9 +199,48 @@ char *strerror(int errnum)
     return sys_errlist[errnum];
 # else
     static char buf[32];
-    sprintf(buf, "Error %d", errnum);
+    snprintf(buf, sizeof(buf), "Error %d", errnum);
     return buf;
 # endif
+}
+#endif
+
+/*************************************************************************/
+
+#if !HAVE_STRSIGNAL
+char *strsignal(int signum)
+{
+    static char buf[32];
+    switch (signum) {
+	case SIGHUP:	strcpy(buf, "Hangup"); break;
+	case SIGINT:	strcpy(buf, "Interrupt"); break;
+	case SIGQUIT:	strcpy(buf, "Quit"); break;
+#ifdef SIGILL
+	case SIGILL:	strcpy(buf, "Illegal instruction"); break;
+#endif
+#ifdef SIGABRT
+	case SIGABRT:	strcpy(buf, "Abort"); break;
+#endif
+#if defined(SIGIOT) && (!defined(SIGABRT) || SIGIOT != SIGABRT)
+	case SIGIOT:	strcpy(buf, "IOT trap"); break;
+#endif
+#ifdef SIGBUS
+	case SIGBUS:	strcpy(buf, "Bus error"); break;
+#endif
+	case SIGFPE:	strcpy(buf, "Floating point exception"); break;
+	case SIGKILL:	strcpy(buf, "Killed"); break;
+	case SIGUSR1:	strcpy(buf, "User signal 1"); break;
+	case SIGSEGV:	strcpy(buf, "Segmentation fault"); break;
+	case SIGUSR2:	strcpy(buf, "User signal 2"); break;
+	case SIGPIPE:	strcpy(buf, "Broken pipe"); break;
+	case SIGALRM:	strcpy(buf, "Alarm clock"); break;
+	case SIGTERM:	strcpy(buf, "Terminated"); break;
+	case SIGSTOP:	strcpy(buf, "Suspended (signal)"); break;
+	case SIGTSTP:	strcpy(buf, "Suspended"); break;
+	case SIGIO:	strcpy(buf, "I/O error"); break;
+	default:	snprintf(buf, sizeof(buf), "Signal %d\n", signum); break;
+    }
+    return buf;
 }
 #endif
 
@@ -234,7 +308,7 @@ char *merge_args(int argc, char **argv)
 
     t = s;
     for (i = 0; i < argc; ++i)
-	t += sprintf(t, "%s%s", *argv++, (i<argc-1) ? " " : "");
+	t += snprintf(t, sizeof(s)-(t-s), "%s%s", *argv++, (i<argc-1) ? " " : "");
     return s;
 }
 
@@ -357,3 +431,62 @@ char *write_string(const char *s, FILE *f, const char *filename)
     if (len != fwrite(s, 1, len, f))
 	fatal_perror("Write error on %s", filename);
 }
+
+/*************************************************************************/
+
+/* Functions for processing the hash tables */
+Hash *get_hash(const char *source, const char *cmd, Hash *hash_table)
+{
+    for(;hash_table->accept;++hash_table)
+	if (match_wild_nocase(hash_table->accept, cmd))
+	    if ((hash_table->access==H_OPER && is_oper(source)) ||
+		(hash_table->access==H_SOP  && is_services_op(source)) ||
+		(hash_table->access==H_NONE))
+		return hash_table;
+    return NULL;
+}
+
+Hash_NI *get_ni_hash(const char *source, const char *cmd, Hash_NI *hash_table)
+{
+    for(;hash_table->accept;++hash_table)
+	if (match_wild_nocase(hash_table->accept, cmd))
+	    if ((hash_table->access==H_OPER && is_oper(source)) ||
+		(hash_table->access==H_SOP  && is_services_op(source)) ||
+		(hash_table->access==H_NONE))
+		return hash_table;
+    return NULL;
+}
+
+Hash_CI *get_ci_hash(const char *source, const char *cmd, Hash_CI *hash_table)
+{
+    for(;hash_table->accept;++hash_table)
+	if (match_wild_nocase(hash_table->accept, cmd))
+	    if ((hash_table->access==H_OPER && is_oper(source)) ||
+		(hash_table->access==H_SOP  && is_services_op(source)) ||
+		(hash_table->access==H_NONE))
+		return hash_table;
+    return NULL;
+}
+
+Hash_HELP *get_help_hash(const char *source, const char *cmd, Hash_HELP *hash_table)
+{
+    for(;hash_table->accept;++hash_table)
+	if (match_wild_nocase(hash_table->accept, cmd))
+	    if ((hash_table->access==H_OPER && is_oper(source)) ||
+		(hash_table->access==H_SOP  && is_services_op(source)) ||
+		(hash_table->access==H_NONE))
+		return hash_table;
+    return NULL;
+}
+
+Hash_CHAN *get_chan_hash(const char *source, const char *cmd, Hash_CHAN *hash_table)
+{
+    for(;hash_table->accept;++hash_table)
+	if (match_wild_nocase(hash_table->accept, cmd))
+	    if ((hash_table->access==H_OPER && is_oper(source)) ||
+		(hash_table->access==H_SOP  && is_services_op(source)) ||
+		(hash_table->access==H_NONE))
+		return hash_table;
+    return NULL;
+}
+

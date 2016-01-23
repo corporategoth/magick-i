@@ -7,21 +7,21 @@
  */
 
 #ifndef CONFIG_H
-#define CONFIG_H
+#define	CONFIG_H
 
 
 /******* General configuration *******/
 
 /* The remote server and port to use, and the password for the link. */
-#define REMOTE_SERVER	"srealm.darker.net"
-#define REMOTE_PORT	9666
-#define PASSWORD	"MyPassword"
+#define	REMOTE_SERVER	"srealm.darker.net"
+#define	REMOTE_PORT	9666
+#define	PASSWORD	"MyPassword"
 
 /* Information about us as a server. */
-#define SERVER_NAME	"hell.darker.net"
-#define SERVER_DESC	"DarkerNet's IRC services"
-#define SERVICES_USER	"reaper"
-#define SERVICES_HOST	"darker.net"
+#define	SERVER_NAME	"hell.darker.net"
+#define	SERVER_DESC	"DarkerNet's IRC services"
+#define	SERVICES_USER	"reaper"
+#define	SERVICES_HOST	"darker.net"
 
 /* Services level means the priority this version of services has over
  * other services on the net (the lower number, the higher priority).
@@ -30,7 +30,7 @@
  * are in READ ONLY mode - no database modification will be allowed.
  * Cannot be set below 1.
  */
-#define SERVICES_LEVEL	1
+#define	SERVICES_LEVEL	1
 
 /* PICK AND CHOOSE:
  *    To select a module, #define it, to exclude it, #undef it.
@@ -69,40 +69,40 @@
 
 /*** End of runtime-configurable options. ***/
 
-#define NICKSERV_NAME		"NickServ"
-#define CHANSERV_NAME		"ChanServ"
-#define OPERSERV_NAME		"OperServ"
-#define MEMOSERV_NAME		"MemoServ"
-#define HELPSERV_NAME		"HelpServ"
-#define GLOBALNOTICER_NAME	"Death"
-#define DEVNULL_NAME		"DevNull"
-#define IRCIIHELP_NAME		"IrcIIHelp"
+#define	NICKSERV_NAME		"NickServ"
+#define	CHANSERV_NAME		"ChanServ"
+#define	OPERSERV_NAME		"OperServ"
+#define	MEMOSERV_NAME		"MemoServ"
+#define	HELPSERV_NAME		"HelpServ"
+#define	GLOBALNOTICER_NAME	"Death"
+#define	DEVNULL_NAME		"DevNull"
+#define	IRCIIHELP_NAME		"IrcIIHelp"
 
 /* Log filename in services directory */
-#define LOG_FILENAME	"magick.log"
+#define	LOG_FILENAME	"magick.log"
 
 /* File for Message of the Dat (/motd) */
-#define MOTD_FILENAME	"magick.motd"
+#define	MOTD_FILENAME	"magick.motd"
 
 /* File for message to user upon logon */
-#define LOGON_MSG	"magick.msg"
+#define	LOGON_MSG	"magick.msg"
 
 /* File for message to user upon /oper */
-#define OPER_MSG	"magick.omsg"
+#define	OPER_MSG	"magick.omsg"
 
 /* Database filenames */
-#define NICKSERV_DB	"nick.db"
-#define CHANSERV_DB	"chan.db"
-#define MEMOSERV_DB	"memo.db"
-#define NEWSSERV_DB	"news.db"
-#define AKILL_DB	"akill.db"
-#define CLONE_DB	"clone.db"
+#define	NICKSERV_DB	"nick.db"
+#define	CHANSERV_DB	"chan.db"
+#define	MEMOSERV_DB	"memo.db"
+#define	NEWSSERV_DB	"news.db"
+#define	AKILL_DB	"akill.db"
+#define	CLONE_DB	"clone.db"
 
 /* File containing process ID */
-#define PID_FILE	"magick.pid"
+#define	PID_FILE	"magick.pid"
 
 /* Subdirectory for help files */
-#define HELPSERV_DIR	"helpfiles"
+#define	HELPSERV_DIR	"helpfiles"
 
 /* Delay (or if) between attempting to reconnect to parent server if
  * server is SQUIT or parent server dies.  Undef or ser -1 to disable.
@@ -110,17 +110,17 @@
  * if defined, but it also means it will create 2 log entries for every
  * (specified) seconds that the parent server is offline.
  */
-#define SERVER_RELINK	5
+#define	SERVER_RELINK	5
 
 /* Delay (in seconds) between database updates.  (Incidentally, this is
  * also how often we check for nick/channel expiration.)
  */
-#define UPDATE_TIMEOUT	300
+#define	UPDATE_TIMEOUT	300
 
 /* Delay (in seconds) before we time out on a read and do other stuff,
  * like checking NickServ timeouts.
  */
-#define READ_TIMEOUT	10
+#define	READ_TIMEOUT	10
 
 /* What timezone is Services in?  (Yes, there is a better way to do
  * this.  No, I can't think of it offhand, and don't really feel like
@@ -129,37 +129,37 @@
  * affect anything critical (though it might confuse users a bit if it's
  * set wrong).
  */
-#define TIMEZONE	"EST"
+#define	TIMEZONE	"EST"
 
 
 
 /******* ChanServ configuration *******/
 
 /* Number of days before a channel expires */
-#define CHANNEL_EXPIRE	14
+#define	CHANNEL_EXPIRE	14
 
 /* Maximum number of AKICKs on a single channel. */
-#define AKICK_MAX	32
+#define	AKICK_MAX	32
 
 /* Default reason for AKICK if none is given. */
-#define DEF_AKICK_REASON "You have been banned from the channel"
+#define	DEF_AKICK_REASON "You have been banned from the channel"
 
 
 
 /******* NickServ configuration *******/
 
 /* Number of days before a nick registration expires */
-#define NICK_EXPIRE	28
+#define	NICK_EXPIRE	28
 
 /* Delay (in seconds) before a NickServ-collided nick is released. */
-#define RELEASE_TIMEOUT	60
+#define	RELEASE_TIMEOUT	60
 
 
 
 /******* MemoServ configuration *******/
 
 /* Number of days before news items expire */
-#define NEWS_EXPIRE	21
+#define	NEWS_EXPIRE	21
 
 
 
@@ -170,21 +170,21 @@
  *	- Have a nickname in the list below
  *	- Identify with NickServ (therefore, the nick must be registered)
  */
-#define SERVICES_OPS		"PreZ Lord_Striker"
+#define	SERVICES_OPS		"PreZ Lord_Striker"
 
 /* Super Password (IMPORTANT) - Services OP's with this password can
  * QUIT, SHUTDOWN, RAW and do the ON/OFF commands
  */
-#define SUPERPASS		"MyPassword"
+#define	SUPERPASS		"MyPassword"
 
 /* Number of days before erasing akills not set with PAKILL */
-#define AKILL_EXPIRE		7
+#define	AKILL_EXPIRE		7
 
 /* How many CLONES are allowed by default? */
-#define CLONES_ALLOWED		2
+#define	CLONES_ALLOWED		2
 
 /* Default reason for AKICK if none is given. */
-#define DEF_CLONE_REASON "Exceeded maximum amount of connections from one host."
+#define	DEF_CLONE_REASON "Exceeded maximum amount of connections from one host."
 
 
 
@@ -193,16 +193,22 @@
 /* Extra warning: if you change these, your data files will be unusable! */
 
 /* Size of input buffer */
-#define BUFSIZE		1024
+#define	BUFSIZE		1024
 
 /* Maximum length of a channel name */
-#define CHANMAX		64
+#define	CHANMAX		64
 
 /* Maximum length of a nickname */
-#define NICKMAX		32
+#define	NICKMAX		32
 
 /* Maximum length of a password */
-#define PASSMAX		32
+#define	PASSMAX		32
+
+/* Non-Star chars needed for AKILL, CLONE and AKICK
+ *    3 means *.com will work, but *.au wont.
+ *    4 means *.com wont work, need *a.com
+ */
+#define	STARTHRESH	4
 
 
 
@@ -221,15 +227,15 @@
  * different, doesnt matter) - TRY CHANGING THAT before defining this -
  * I'm leaving it in just incase there ARE some wierd ircd's out there.
  */
-#undef WIERD_COLLIDE
+#undef	WIERD_COLLIDE
 
 /* IF you cant READ or FORWARD (from channel) memos, define this
  * as some systems are REALLY stupid about it *shrug* (ONLY define
  * this if you are having problems!!
  */
-#undef STUPID
+#undef	STUPID
 
-#undef DAL_SERV		/* This should be handled by sysconf.h */
+#undef	DAL_SERV		/* This should be handled by sysconf.h */
 #include "sysconf.h"
 
 #if !HAVE_STRICMP && HAVE_STRCASECMP

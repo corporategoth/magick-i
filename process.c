@@ -18,7 +18,8 @@ int allow_ignore = 1;
 /* People to ignore (hashed by first character of nick). */
 
 IgnoreData *ignore[256];
-
+int servcnt = 0, serv_size = 0;
+Servers *servlist = NULL;
 
 /* add_ignore: Add someone to the ignorance list for the next `delta'
  *             seconds.
@@ -36,12 +37,12 @@ void add_ignore(const char *nick, time_t delta)
 	if (stricmp(ign->who, who) == 0)
 	    break;
     }
-    if (ign) {
+    if (ign)
 	if (ign->time > now)
 	    ign->time += delta;
 	else
 	    ign->time = now + delta;
-    } else {
+    else {
 	ign = smalloc(sizeof(*ign));
 	strcpy(ign->who, who);
 	ign->time = now + delta;
@@ -62,10 +63,9 @@ IgnoreData *get_ignore(const char *nick)
     time_t now = time(NULL);
     IgnoreData **whichlist = &ignore[tolower(nick[0])];
 
-    for (ign = *whichlist, prev = NULL; ign; prev = ign, ign = ign->next) {
+    for (ign = *whichlist, prev = NULL; ign; prev = ign, ign = ign->next)
 	if (stricmp(ign->who, nick) == 0)
 	    break;
-    }
     if (ign && ign->time <= now) {
 	if (prev)
 	    prev->next = ign->next;
@@ -112,9 +112,8 @@ int split_buf(char *buf, char ***argv, int colon_special)
 		*s++ = 0;
 		while (isspace(*s))
 		    s++;
-	    } else {
+	    } else
 		s = buf + strlen(buf);
-	    }
 	    (*argv)[argc++] = buf;
 	    buf = s;
 	}
@@ -131,7 +130,7 @@ void process()
 {
     char source[64];
     char cmd[64];
-    char buf[512];		/* Longest legal IRC command line */
+    char buf[BUFSIZE];		/* Longest legal IRC command line */
     char *s;
     int ac;			/* Parameters for the command */
     char **av;
@@ -157,9 +156,8 @@ void process()
 	    ;
 	strscpy(source, buf+1, sizeof(source));
 	strcpy(buf, s);
-    } else {
+    } else
 	*source = 0;
-    }
     if (!*buf)
 	return;
     s = strpbrk(buf, " ");
@@ -175,14 +173,11 @@ void process()
 
 
     /* Do something with the command. */
-
     if (stricmp(cmd, "PING") == 0) {
-
 	send_cmd(server_name, "PONG %s %s", ac>1 ? av[1] : server_name, av[0]);
 
     } else if (stricmp(cmd, "436") == 0) {  /* Nick collision caused by us */
-
-   if(services_level==1) introduce_user(av[0]);
+	if(services_level==1) introduce_user(av[0]);
 
     } else if (stricmp(cmd, "AWAY") == 0) {
 #ifdef GLOBALNOTICER
@@ -192,7 +187,8 @@ void process()
 
 	if (ac == 0 || *av[0] == 0) {	/* un-away */
 #ifdef MEMOS
-	    check_memos(source);
+	    if (services_level==1)
+		check_memos(source);
 #endif
 
 #ifdef GLOBALNOTICER
@@ -205,7 +201,7 @@ void process()
 		fclose(f);
 	    }
 	    /* Send global message to user when they set back */
-	    if (is_oper(source)) {
+	    if (is_oper(source))
 		if (f = fopen(OPER_MSG, "r")) {
 		    while (fgets(buf, sizeof(buf), f)) {
 			buf[strlen(buf)-1] = 0;
@@ -213,7 +209,6 @@ void process()
 		    }
 		    fclose(f);
 		}
-	    }
 #endif
 	}
 
@@ -221,34 +216,30 @@ void process()
 	    || stricmp(cmd, "GNOTICE") == 0
 	    || stricmp(cmd, "GOPER"  ) == 0
 	    || stricmp(cmd, "WALLOPS") == 0
-	    || stricmp(cmd, "QLINE"  ) == 0
-	    || stricmp(cmd, "UNQLINE") == 0
+	    || stricmp(cmd, "SQLINE"  ) == 0
+	    || stricmp(cmd, "UNSQLINE") == 0
 	    || stricmp(cmd, "SVSNOOP") == 0
 	    ) {
 
 	/* Do nothing */
 
     } else if (stricmp(cmd, "JOIN") == 0) {
-
 	if (ac != 1)
 	    return;
 	do_join(source, ac, av);
 
     } else if (stricmp(cmd, "KICK") == 0) {
-
 	if (ac != 3)
 	    return;
 	do_kick(source, ac, av);
 
     } else if (stricmp(cmd, "KILL") == 0 || stricmp(cmd, "SVSKILL") == 0) {
-
 	if (ac != 2)
 	    return;
 	do_kill(source, ac, av);
 	if (is_services_nick(av[0])) introduce_user(av[0]);
 
     } else if (stricmp(cmd, "MODE") == 0 || stricmp(cmd, "SVSMODE") == 0) {
-
 	if (*av[0] == '#' || *av[0] == '&') {
 	    if (ac < 2)
 		return;
@@ -260,7 +251,6 @@ void process()
 	}
 
     } else if (stricmp(cmd, "MOTD") == 0) {
-
 	FILE *f;
 	char buf[BUFSIZE];
 
@@ -274,9 +264,8 @@ void process()
 		}
 		send_cmd(server_name, "376 %s :End of /MOTD command.", source);
 		fclose(f);
-	} else {
+	} else
 		send_cmd(server_name, "422 %s :MOTD file not found!", source);
-	}
 
     } else if (stricmp(cmd, "NICK") == 0 || stricmp(cmd, "SVSNICK") == 0) {
 
@@ -298,21 +287,17 @@ void process()
 #endif
 
     } else if (stricmp(cmd, "NOTICE") == 0) {
-
 	/* Do nothing */
 
     } else if (stricmp(cmd, "PART") == 0) {
-
 	if (ac < 1 || ac > 2)
 	    return;
 	do_part(source, ac, av);
 
     } else if (stricmp(cmd, "PASS") == 0) {
-
 	/* Do nothing - we assume we're not being fooled */
 
     } else if (stricmp(cmd, "PRIVMSG") == 0) {
-
 	char buf[BUFSIZE];
 	if (ac != 2)
 	    return;
@@ -325,7 +310,6 @@ void process()
 		return;
 	    }
 	}
-
 	starttime = time(NULL);
 
 #ifdef OPERSERV
@@ -356,7 +340,7 @@ void process()
 #ifdef IRCIIHELP
 	if (stricmp(av[0], s_IrcIIHelp) == 0) {
 	    char *s = smalloc(strlen(av[1]) + 7);
-	    sprintf(s, "ircII %s", av[1]);
+	    snprintf(s, sizeof(s), "ircII %s", av[1]);
 	    helpserv(s_IrcIIHelp, source, s);
 	    free(s);
 	}
@@ -372,7 +356,7 @@ void process()
 #endif
 #ifdef DAL_SERV
 #ifdef OPERSERV
-	sprintf(buf, "%s@%s", s_OperServ, SERVER_NAME);
+	snprintf(buf, sizeof(buf), "%s@%s", s_OperServ, SERVER_NAME);
 	if (stricmp(av[0], buf) == 0) {
 	    if (is_oper(source))
 		operserv(source, av[1]);
@@ -382,30 +366,30 @@ void process()
 	} else if (mode!=0) {
 #endif
 #ifdef NICKSERV
-	sprintf(buf, "%s@%s", s_NickServ, SERVER_NAME);
+	snprintf(buf, sizeof(buf), "%s@%s", s_NickServ, SERVER_NAME);
 	if (stricmp(av[0], buf) == 0)
 	    nickserv(source, av[1]);
 #endif
 #ifdef CHANSERV
-	sprintf(buf, "%s@%s", s_ChanServ, SERVER_NAME);
+	snprintf(buf, sizeof(buf), "%s@%s", s_ChanServ, SERVER_NAME);
 	if (stricmp(av[0], buf) == 0)
 	    chanserv(source, av[1]);
 #endif
 #ifdef MEMOSERV
-	sprintf(buf, "%s@%s", s_MemoServ, SERVER_NAME);
+	snprintf(buf, sizeof(buf), "%s@%s", s_MemoServ, SERVER_NAME);
 	if (stricmp(av[0], buf) == 0)
 	    memoserv(source, av[1]);
 #endif
 #ifdef HELPSERV
-	sprintf(buf, "%s@%s", s_HelpServ, SERVER_NAME);
+	snprintf(buf, sizeof(buf), "%s@%s", s_HelpServ, SERVER_NAME);
 	if (stricmp(av[0], buf) == 0)
 	    helpserv(s_HelpServ, source, av[1]);
 #endif
 #ifdef IRCIIHELP
-	sprintf(buf, "%s@%s", s_IrcIIHelp, SERVER_NAME);
+	snprintf(buf, sizeof(buf), "%s@%s", s_IrcIIHelp, SERVER_NAME);
 	if (stricmp(av[0], buf) == 0) {
 	    char *s = smalloc(strlen(av[1]) + 7);
-	    sprintf(s, "ircII %s", av[1]);
+	    snprintf(s, sizeof(s), "ircII %s", av[1]);
 	    helpserv(s_IrcIIHelp, source, s);
 	    free(s);
 	}
@@ -420,7 +404,6 @@ void process()
 	}
 #endif
 #endif
-
 	/*Add to ignore list if the command took a significant amount of time.*/
 	if (allow_ignore) {
 	    stoptime = time(NULL);
@@ -429,28 +412,42 @@ void process()
 	}
 
     } else if (stricmp(cmd, "QUIT") == 0) {
-
 	if (ac != 1)
 	    return;
 	do_quit(source, ac, av);
 	if (is_services_nick(av[0])) introduce_user(av[0]);
 
     } else if (stricmp(cmd, "SERVER") == 0) {
-
-	/* nothing */
+	if (servcnt >= serv_size) {
+	    if (serv_size < 8)
+		serv_size = 8;
+	    else
+		serv_size *= 2;
+	    servlist = srealloc(servlist, sizeof(*servlist) * serv_size);
+	}
+	servlist[servcnt].server = sstrdup(av[0]);
+	servlist[servcnt].hops = atoi(av[1]);
+	servlist[servcnt].desc = sstrdup(av[2]);
+	servcnt++;
 
     } else if (stricmp(cmd, "SQUIT") == 0) {
-
+	int i;
+	for (i=0;i<servcnt && stricmp(servlist[i].server, av[0])!=0;i++) ;
+	if (i<servcnt) {
+	    free(servlist[i].server);
+	    free(servlist[i].desc);
+	    --servcnt;
+	    if (i < servcnt)
+		bcopy(servlist+i+1, servlist+i, sizeof(*servlist) * (servcnt-i));
+	}
 	if (services_level!=1) introduce_user(NULL);
 
     } else if (stricmp(cmd, "TOPIC") == 0) {
-
 	if (ac != 4)
 	    return;
 	do_topic(source, ac, av);
 
     } else if (stricmp(cmd, "USER") == 0) {
-
 #if defined(IRC_CLASSIC) || defined(IRC_TS8)
 	char *new_av[7];
 
@@ -478,7 +475,6 @@ void process()
 #endif
 
     } else if (stricmp(cmd, "VERSION") == 0) {
-
 	if (source)
 	    send_cmd(server_name, "351 %s Magick %s v%s (%s%s%s%s%s%s%s%s%s%s%s%s%d) :-- %s%s",
 			source, server_name, version_number,
@@ -545,10 +541,6 @@ void process()
 			services_level, version_build,
 			debug ? " (debug mode)" : "");
 
-    } else {
-
+    } else
 	log("unknown message from server (%s)", inbuf);
-
-    }
-
 }

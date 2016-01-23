@@ -10,6 +10,10 @@
 #include <setjmp.h>
 
 
+FILE **files;		/* Array of FILE *'s; files[s] = fdopen(s, "r+") */
+int filescnt = 0;	/* Size of files array */
+
+
 static jmp_buf alarm_jmp;
 
 static void alarm_handler(int sig_unused)
@@ -51,9 +55,8 @@ char *sgets(char *buf, unsigned int len, int s)
 
     if (len == 0)
 	return NULL;
-    if (setjmp(alarm_jmp)) {
+    if (setjmp(alarm_jmp))
 	return (char *)-1;
-    }
     signal(SIGALRM, alarm_handler);
     alarm(READ_TIMEOUT);
     c = sgetc(s);
@@ -74,15 +77,30 @@ int sputs(char *str, int s)
     return write(s, str, strlen(str));
 }
 
-int sockprintf(int s, char *fmt,...)
+int sockprintf(int s, char *fmt, ...)
 {
     va_list args;
-    static char buf[16384];
 
     va_start(args, fmt);
-    vsprintf(buf, fmt, args);
-    sputs(buf, s);
-    return strlen(buf);
+    if (s >= filescnt) {
+	int oldcnt = filescnt;
+	filescnt *= 2;
+	if (filescnt <= s)
+	    filescnt = s+1;
+	files = realloc(files, sizeof(FILE *) * filescnt);
+	if (!files) {
+	    filescnt = 0;
+	    errno = ENOMEM;
+	    return 0;
+	}
+	memset(files+oldcnt, 0, sizeof(FILE *) * (filescnt-oldcnt));
+    }
+    if (!files[s]) {
+	if (!(files[s] = fdopen(s, "r+")))
+	    return 0;
+	setbuf(files[s], NULL);
+    }
+    return vfprintf(files[s], fmt, args);
 }
 
 /*************************************************************************/
@@ -103,9 +121,35 @@ int conn(char *host, int port)
     if ((sock = socket(hp->h_addrtype, SOCK_STREAM, 0)) < 0)
 	return -1;
 
-    if (connect(sock, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
+    if (filescnt <= sock) {
+	int oldcnt = filescnt;
+	filescnt *= 2;
+	if (filescnt <= sock)
+	    filescnt = sock+1;
+	files = realloc(files, sizeof(FILE *) * filescnt);
+	if (!files) {
+	    filescnt = 0;
+	    shutdown(sock, 2);
+	    close(sock);
+	    errno = ENOMEM;
+	    return -1;
+	}
+	memset(files+oldcnt, 0, sizeof(FILE *) * (filescnt-oldcnt));
+    }
+    if (!(files[sock] = fdopen(sock, "r+"))) {
+	int errno_save = errno;
 	shutdown(sock, 2);
 	close(sock);
+	errno = errno_save;
+	return -1;
+    }
+    setbuf(files[sock], NULL);
+
+    if (connect(sock, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
+	int errno_save = errno;
+	shutdown(sock, 2);
+	fclose(files[sock]);
+	errno = errno_save;
 	return -1;
     }
 
@@ -115,5 +159,9 @@ int conn(char *host, int port)
 void disconn(int s)
 {
     shutdown(s, 2);
-    close(s);
+    if (s < filescnt)
+	fclose(files[s]);
+    else
+	close(s);
 }
+

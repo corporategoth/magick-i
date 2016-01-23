@@ -2,29 +2,47 @@
 
 #ifdef OPERSERV
 
+#ifdef DAL_SERV
 static const char *os_help[] = {
-"OperServ commands (IrcOPs):",
+"OperServ commands (IRC Operators):",
 "   \2MODE\2 {\37channel\37|\37nick\37} [\37modes\37] -- See/Change a channel/nick's modes",
 "   \2KICK\2 \37channel\37 \37nick\37 \37reason\37 -- Kick a user from a channel",
 "   \2AKILL\2 {\37ADD\37|\37DEL\37|\37LIST\37|\37VIEW\37} [\37mask\37 [\37reason\37]] -- Manipulate the AKILL list",
 "   \2GLOBAL\2 \37message\37 -- Send a message to all users",
 "   \2STATS\2 -- status of Magick and network",
 "   \2SETTINGS\2 -- Show hardcoded Magick settings",
+"   \2BREAKDOWN\2 -- Show percentages of users per server",
 "   \2USERLIST\2 [\37mask\37] -- Send list of users and their modes",
 "   \2CHANLIST\2 [\37mask\37] -- Send list of channels and their modes/occupants",
-"   \2CHANUSERS\2 \37channel\37 -- Send info about users in channel",
+"   \2QLINE\2 \37nick\37 [\37reason\37] -- Quarentine a nick (disable its use)",
+"   \2UNQLINE\2 \37nick\37 -- Remove nick quarentine",
 "",
 NULL
 };
+#else
+static const char *os_help[] = {
+"OperServ commands (IRC Operators):",
+"   \2MODE\2 {\37channel\37|\37nick\37} [\37modes\37] -- See/Change a channel/nick's modes",
+"   \2KICK\2 \37channel\37 \37nick\37 \37reason\37 -- Kick a user from a channel",
+"   \2AKILL\2 {\37ADD\37|\37DEL\37|\37LIST\37|\37VIEW\37} [\37mask\37 [\37reason\37]] -- Manipulate the AKILL list",
+"   \2GLOBAL\2 \37message\37 -- Send a message to all users",
+"   \2STATS\2 -- status of Magick and network",
+"   \2SETTINGS\2 -- Show hardcoded Magick settings",
+"   \2BREAKDOWN\2 -- Show percentages of users per server",
+"   \2USERLIST\2 [\37mask\37] -- Send list of users and their modes",
+"   \2CHANLIST\2 [\37mask\37] -- Send list of channels and their modes/occupants",
+"",
+NULL
+};
+#endif
 #ifdef DAL_SERV
 static const char *os_sop_help[] = {
-"OperServ commands (Service Admins):",
+"OperServ commands (Services Admins):",
 "   \2KILL\2 \37user\37 \37reason\37 -- Kill user with no indication of IrcOP",
 "   \2PAKILL\2 {\37ADD\37|\37DEL\37} [\37mask\37] [\37reason\37]] -- Manipulate the PAKILL list",
 "   \2CLONE\2 {\37ADD\37|\37DEL\37|\37LIST\37|\37VIEW\37} [\37mask\37] [37amount\37] [\37reason\37]] -- Manipulate the CLONE list",
-"   \2QLINE\2 \37nick\37 [\37reason\37] -- Quarentine a nick (disable its use)",
-"   \2UNQLINE\2 \37nick\37 -- Remove nick quarentine",
 "   \2NOOP\2 \37server\37 {\37+\37|\37-\37} -- Restrict server's Operaters to local",
+"   \2IGNORE\2 \37{ON|OFF|LIST}\37 -- Server auto-ignores.",
 "   \2JUPE\2 \37server\37 -- Make server appear linked",
 "   \2UPDATE\2 -- Update *Serv databases (before QUIT)",
 "   \2QUIT\2 -- Terminate Magick without database save",
@@ -35,9 +53,10 @@ NULL
 };
 #else
 static const char *os_sop_help[] = {
-"OperServ commands (Service Admins):",
+"OperServ commands (Services Admins):",
 "   \2PAKILL\2 {\37ADD\37|\37DEL\37} [\37mask\37] [\37reason\37]] -- Manipulate the PAKILL list",
 "   \2CLONE\2 {\37ADD\37|\37DEL\37|\37LIST\37|\37VIEW\37} [\37mask\37] [37amount\37] [\37reason\37]] -- Manipulate the CLONE list",
+"   \2IGNORE\2 \37{ON|OFF|LIST}\37 -- Server auto-ignores.",
 "   \2JUPE\2 \37server\37 -- Make server appear linked",
 "   \2UPDATE\2 -- Update *Serv databases (before QUIT)",
 "   \2QUIT\2 -- Terminate Magick without database save",
@@ -48,6 +67,10 @@ NULL
 };
 #endif
 static const char *os_end_help[] = {
+"   \2CHANSERV\2, \2NICKSERV\2, and \2MEMOSERV\2 will also tell you",
+"   the available Operator commands for the respective serviers.  Help",
+"   for these commands is done with /msg *Serv HELP command",
+"",
 "\2Notice:\2 All commands sent to OperServ are logged!",
 NULL
 };
@@ -114,7 +137,7 @@ static const char *akill_help[] = {
 "well as the user@host mask and reason.",
 NULL
 };
-/*************************************************************************/
+
 static const char *pakill_help[] = {
 "Syntax: PAKILL ADD \37mask\37 \37reason\37",
 "        PAKILL DEL \37mask\37",
@@ -135,7 +158,6 @@ static const char *clone_help[] = {
 "Syntax: CLONE ADD \37mask\37 \37amount\37 \37reason\37",
 "        CLONE DEL \37mask\37",
 "        CLONE LIST [\37mask\37]",
-"        CLONE VIEW [\37mask\37]",
 "",
 "If a user matching a CLONE host attempts to connect, will",
 "Services will grant them \37amount\37 connections at once,",
@@ -148,9 +170,7 @@ static const char *clone_help[] = {
 "CLONE DEL removes the given host from the CLONE list if it",
 "is present.  CLONE LIST shows all current CLONEs; if the",
 "optional host is given, the list is limited to those",
-"CLONEs matching the mask.  CLONE VIEW is a more verbose",
-"version of CLONE LIST, and will show who added an CLONE as",
-"well as the host, amount and reason.",
+"CLONEs matching the mask.",
 NULL
 };
 #endif
@@ -279,6 +299,15 @@ NULL
 };
 #endif /* DAL_SERV */
 /*************************************************************************/
+static const char *breakdown_help[] = {
+"Syntax: \2BREAKDOWN\2",
+"",
+"Shows a listing of servers, with the amount of users",
+"on each server, and the percentage of the network this",
+"tally equates.",
+NULL
+};
+/*************************************************************************/
 static const char *userlist_help[] = {
 "Syntax: \2USERLIST\2 [\37MASK\37]",
 "",
@@ -298,14 +327,6 @@ static const char *chanlist_help[] = {
 NULL
 };
 /*************************************************************************/
-static const char *chanusers_help[] = {
-"Syntax: \2CHANUSERS\2 \37CHANNEL\37",
-"",
-"Sends specific information about a channel's users, ie.",
-"their current status (voiced, opped or nothing).",
-NULL
-};
-/*************************************************************************/
 static const char *offon_help[] = {
 "Syntax: \2OFF\2 \37password\37 [\37reason\37]",
 "        \2ON\2  \37password\37",
@@ -318,4 +339,48 @@ static const char *offon_help[] = {
 NULL
 };
 /*************************************************************************/
+static const char *ignore_help[] = {
+"Syntax: \2IGNORE\2 ON",
+"Syntax: \2IGNORE\2 OFF",
+"Syntax: \2IGNORE\2 LIST [\37MASK\37]",
+"",
+"Maintinance on Services internal ignorance list.  If a",
+"command takes an excessively long time, the user is put",
+"on ignore automatically.  This will allow you to turn",
+"this activity on or off, and also view people currently",
+"currently on ignore.",
+"Limited to \2Services Admin\2.",
+NULL
+};
+
+/*************************************************************************/
+
+static const char *chanserv_help[] = {
+"ChanServ commands (Services Admins):",
+"   \2DROP\2 \37channel\37 - De-registeres a channel",
+"   \2GETPASS\2 \37channel\37 - Gets the founder password of channel",
+"   \2FORBID\2 \37channel\37 - Stops a channel from being used at all",
+"   \2SUSPEND\2 \37channel reason\37 - Immobilizes a channel",
+"   \2UNSUSPEND\2 \37channel\37 - Reverses previous command",
+NULL
+};
+static const char *nickserv_help[] = {
+"NickServ commands (IRC Operators):",
+"   \2SET IRCOP\2 {\37ON\37|\37OFF\37} - Set IRC Operator flag",
+"",
+"NickServ commands (Services Admins):",
+"   \2DROP\2 \37nick\37 - De-registeres a nick",
+"   \2GETPASS\2 \37nick\37 - Gets the password of a nick",
+"   \2FORBID\2 \37nick\37 - Stops a nick from being used at all",
+"   \2SUSPEND\2 \37nick reason\37 - Immobilizes a user",
+"   \2UNSUSPEND\2 \37nick\37 - Reverses previous command",
+"   \2DEOPER\2 \37nick\37 - Removes IRC Operator flag",
+NULL
+};
+static const char *memoserv_help[] = {
+"MemoServ commands (IRC Operators):",
+"   \2OPERSEND\2 \37text\37 - Send a memo to all IRC Operators",
+NULL
+};
+
 #endif /* OPERSERV */

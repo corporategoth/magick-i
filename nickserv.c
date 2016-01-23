@@ -7,25 +7,19 @@
  */
 
 #include "services.h"
-
 #ifdef NICKSERV
-
 NickInfo *nicklists[256];	/* One for each initial character */
 
 const char s_NickServ[] = NICKSERV_NAME;
-
 #include "ns-help.c"
-
 Timeout *timeouts = NULL;
 
 static int is_on_access(User *u, NickInfo *ni);
 static void alpha_insert_nick(NickInfo *ni);
 static NickInfo *makenick(const char *nick);
 static int delnick(NickInfo *ni);
-
 static void collide(NickInfo *ni);
 static void release(NickInfo *ni);
-
 static void add_timeout(NickInfo *ni, int type, time_t delay);
 static void del_timeout(NickInfo *ni, int type);
 
@@ -45,10 +39,19 @@ static void do_set_secure(NickInfo *ni, char *param);
 static void do_set_ircop(NickInfo *ni, char *param);
 static void do_set_privmsg(NickInfo *ni, char *param);
 static void do_access(const char *source);
+static int do_access_help (const char *source, char *cmd, char *nick);
+static void do_access_add(const char *source);
+static void do_access_del(const char *source);
+static void do_access_list(const char *source);
 #if (FILE_VERSION > 3) && defined(MEMOS)
     static void do_ignore(const char *source);
+    static int do_ignore_help (const char *source, char *cmd, char *nick);
+    static void do_ignore_add(const char *source);
+    static void do_ignore_del(const char *source);
+    static void do_ignore_list(const char *source);
     int is_on_ignore(const char *source, char *target);
 #endif
+static void do_deop(const char *source);
 static void do_info(const char *source);
 static void do_list(const char *source);
 static void do_recover(const char *source);
@@ -75,11 +78,9 @@ void listnicks(int count_only, const char *nick)
     time_t curtime = time(NULL);
 
     if (count_only) {
-
-	for (i = 33; i < 256; ++i) {
+	for (i = 33; i < 256; ++i)
 	    for (ni = nicklists[i]; ni; ni = ni->next)
 		++count;
-	}
 	printf("%d nicknames registered.\n", count);
 
     } else if (nick) {
@@ -121,25 +122,25 @@ void listnicks(int count_only, const char *nick)
         if (ni->flags & NI_SUSPENDED)
 	    strcat(buf, "\2SUSPENDED USER\2");
 	else {
-	if (ni->flags & NI_KILLPROTECT)
-	    strcat(buf, "Kill protection");
-	if (ni->flags & NI_SECURE) {
-	    if (*buf)
-		strcat(buf, ", ");
-	    strcat(buf, "Security");
-	}
-	if (ni->flags & NI_PRIVATE) {
-	    if (*buf)
-		strcat(buf, ", ");
-	    strcat(buf, "Private");
-	}
-	if (ni->flags & NI_IRCOP) {
-	    if (*buf)
-		strcat(buf, ", ");
-	    strcat(buf, "IRC Operator");
-	}
-	if (!*buf)
-	    strcpy(buf, "None");
+	    if (ni->flags & NI_KILLPROTECT)
+		strcat(buf, "Kill protection");
+	    if (ni->flags & NI_SECURE) {
+		if (*buf)
+		    strcat(buf, ", ");
+		strcat(buf, "Security");
+	    }
+	    if (ni->flags & NI_PRIVATE) {
+		if (*buf)
+		    strcat(buf, ", ");
+		strcat(buf, "Private");
+	    }
+	    if (ni->flags & NI_IRCOP) {
+		if (*buf)
+		    strcat(buf, ", ");
+		strcat(buf, "IRC Operator");
+	    }
+	    if (!*buf)
+		strcpy(buf, "None");
 	}
 	printf("          Options: %s\n", buf);
 #if (FILE_VERSION > 3) && defined(MEMOS)
@@ -150,8 +151,7 @@ void listnicks(int count_only, const char *nick)
 	    printf("User is currently online.\n");
 
     } else {
-
-	for (i = 33; i < 256; ++i) {
+	for (i = 33; i < 256; ++i)
 	    for (ni = nicklists[i]; ni; ni = ni->next) {
 		printf("    %-20s  %s\n", ni->nick,
 			  ni->flags & NI_VERBOTEN  ? "Disallowed (FORBID)"
@@ -159,9 +159,7 @@ void listnicks(int count_only, const char *nick)
 						: ni->last_usermask);
 		++count;
 	    }
-	}
 	printf("%d nicknames registered.\n", count);
-
     }
 }
 
@@ -176,7 +174,7 @@ void get_nickserv_stats(long *nrec, long *memuse)
     NickInfo *ni;
     char **accptr;
 
-    for (i = 0; i < 256; i++) {
+    for (i = 0; i < 256; i++)
 	for (ni = nicklists[i]; ni; ni = ni->next) {
 	    count++;
 	    mem += sizeof(*ni);
@@ -185,12 +183,10 @@ void get_nickserv_stats(long *nrec, long *memuse)
 	    if (ni->last_realname)
 		mem += strlen(ni->last_realname)+1;
 	    mem += sizeof(char *) * ni->accesscount;
-	    for (accptr=ni->access, j=0; j < ni->accesscount; accptr++, j++) {
+	    for (accptr=ni->access, j=0; j < ni->accesscount; accptr++, j++)
 		if (*accptr)
 		    mem += strlen(*accptr)+1;
-	    }
 	}
-    }
     *nrec = count;
     *memuse = mem;
 }
@@ -206,91 +202,46 @@ void nickserv(const char *source, char *buf)
 
     cmd = strtok(buf, " ");
 
-    if (!cmd) {
+    if (!cmd)
 	return;
 
-    } else if (stricmp(cmd, "\1PING") == 0) {
+    else if (stricmp(cmd, "\1PING") == 0) {
 	if (!(s = strtok(NULL, "")))
 	    s = "\1";
 	notice(s_NickServ, source, "\1PING %s", s);
 
-    } else if (stricmp(cmd, "HELP") == 0) {
-	do_help(source);
-
-    } else if (stricmp(cmd, "REGISTER") == 0) {
-	do_register(source);
-
-    } else if (stricmp(cmd, "IDENTIFY") == 0) {
-	do_identify(source);
-
-    } else if (stricmp(cmd, "DROP") == 0) {
-	do_drop(source);
-
-    } else if (stricmp(cmd, "SET") == 0) {
-	do_set(source);
-
-    } else if (stricmp(cmd, "ACCESS") == 0) {
-	do_access(source);
-
-#if (FILE_VERSION > 3) && defined(MEMOS)
-    } else if (stricmp(cmd, "IGNORE") == 0) {
-	do_ignore(source);
-#endif
-
-    } else if (stricmp(cmd, "INFO") == 0) {
-	do_info(source);
-
-    } else if (stricmp(cmd, "LIST") == 0) {
-	do_list(source);
-
-    } else if (stricmp(cmd, "RECOVER") == 0) {
-	do_recover(source);
-
-    } else if (stricmp(cmd, "RELEASE") == 0) {
-	do_release(source);
-
-    } else if (stricmp(cmd, "GHOST") == 0) {
-	do_ghost(source);
-
-    } else if (!is_services_op(source)) {
-	notice(s_NickServ, source,
-		"Unrecognized command \2%s\2.  Type \"/msg %s HELP\" for help.",
-		cmd, s_NickServ);
-
-    } else if (stricmp(cmd, "GETPASS") == 0) {
-	do_getpass(source);
-
-    } else if (stricmp(cmd, "FORBID") == 0) {
-	do_forbid(source);
-
-    } else if (stricmp(cmd, "SUSPEND") == 0) {
-	do_suspend(source);
-
-    } else if (stricmp(cmd, "UNSUSPEND") == 0) {
-	do_unsuspend(source);
-
-    } else if (stricmp(cmd, "DEOP") == 0) {
-
-	NickInfo *ni;
-	if (!(s = strtok(NULL, " "))) {
-	    notice(s_NickServ, source, "Syntax: \2DEOP \37nickname\37\2");
-	    return;
-	}
-
-	if (!(ni = findnick(s)))
-	    notice(s_NickServ, source, "Nick %s does not exist.", s);
-	else {
-	    ni->flags &= ~NI_IRCOP;
-	    notice(s_NickServ, source, "IRC Operator for \2%s\2 is now \2OFF\2.", ni->nick);
-	}
-
     } else {
-	notice(s_NickServ, source,
+	Hash *command, hash_table[] = {
+		{ "HELP",	H_NONE,	do_help },
+		{ "REG*",	H_NONE,	do_register },
+		{ "ID*",	H_NONE,	do_identify },
+		{ "DROP",	H_NONE,	do_drop },
+		{ "SET*",	H_NONE,	do_set },
+		{ "ACC*",	H_NONE,	do_access },
+		{ "INFO",	H_NONE,	do_info },
+		{ "CHANINFO",	H_NONE,	do_info },
+		{ "LIST",	H_NONE,	do_list },
+		{ "REC*",	H_NONE,	do_recover },
+		{ "REL*",	H_NONE,	do_release },
+		{ "GHOST",	H_NONE,	do_ghost },
+		{ "GETPASS",	H_SOP,	do_getpass },
+		{ "FORBID",	H_SOP,	do_forbid },
+		{ "SUSPEND",	H_SOP,	do_suspend },
+		{ "UNSUSPEND",	H_SOP,	do_unsuspend },
+		{ "DEOP*",	H_SOP,	do_deop },
+#if (FILE_VERSION > 3) && defined(MEMOS)
+		{ "IGN*",	H_NONE,	do_ignore },
+#endif
+		{ NULL }
+	};
+
+	if (command = get_hash(source, cmd, hash_table))
+	    (*command->process)(source);
+	else
+	    notice(s_NickServ, source,
 		"Unrecognized command \2%s\2.  Type \"/msg %s HELP\" for help.",
 		cmd, s_NickServ);
-
     }
-
 }
 
 /*************************************************************************/
@@ -310,7 +261,7 @@ void load_ns_dbase(void)
     switch (i = get_file_version(f, NICKSERV_DB)) {
       case 4:
 #if FILE_VERSION > 3
-	for (i = 33; i < 256; ++i) {
+	for (i = 33; i < 256; ++i)
 	    while (fgetc(f) == 1) {
 		ni = smalloc(sizeof(NickInfo));
 		if (1 != fread(ni, sizeof(NickInfo), 1, f))
@@ -336,12 +287,11 @@ void load_ns_dbase(void)
 			*ignore = read_string(f, NICKSERV_DB);
 		}
 	    }
-	}
 	break;
 #endif
       case 3:
 #if FILE_VERSION > 2
-	for (i = 33; i < 256; ++i) {
+	for (i = 33; i < 256; ++i)
 	    while (fgetc(f) == 1) {
 		ni = smalloc(sizeof(NickInfo));
 		if (1 != fread(ni, sizeof(NickInfo), 1, f))
@@ -360,12 +310,11 @@ void load_ns_dbase(void)
 			*access = read_string(f, NICKSERV_DB);
 		}
 	    }
-	}
 	break;
 #endif
       case 2:
       case 1:
-	for (i = 33; i < 256; ++i) {
+	for (i = 33; i < 256; ++i)
 	    while (fgetc(f) == 1) {
 		ni = smalloc(sizeof(NickInfo));
 		if (1 != fread(ni, sizeof(NickInfo), 1, f))
@@ -386,7 +335,6 @@ void load_ns_dbase(void)
 			*access = read_string(f, NICKSERV_DB);
 		}
 	    }
-	}
 	break;
       default:
         fatal("Unsupported version number (%d) on %s", i, NICKSERV_DB);
@@ -505,7 +453,6 @@ int validate_user(User *u)
 		"(If this is your nick, type \2/msg %s IDENTIFY \37password\37\2.)",
 		s_NickServ);
     }
-
     if ((ni->flags & NI_KILLPROTECT)
 		&& !((ni->flags & NI_SECURE) && on_access)) {
 	notice(s_NickServ, u->nick,
@@ -556,7 +503,7 @@ void check_timeouts()
 	else
 	    timeouts = to->next;
 	switch (to->type) {
-	case TO_COLLIDE:
+	  case TO_COLLIDE:
 	    /* If they identified or don't exist anymore, don't kill them. */
 	    if (to->ni->flags & NI_IDENTIFIED
 			|| !(u = finduser(to->ni->nick))
@@ -567,10 +514,10 @@ void check_timeouts()
 	     * triggered yet anyway. */
 	    collide(to->ni);
 	    break;
-	case TO_RELEASE:
+	  case TO_RELEASE:
 	    release(to->ni);
 	    break;
-	default:
+	  default:
 	    log("%s: Unknown timeout type %d for nick %s", s_NickServ,
 						to->type, to->ni->nick);
 	}
@@ -591,14 +538,25 @@ void expire_nicks()
     time_t now = time(NULL);
 
     for (i = 33; i < 256; ++i) {
-	for (ni = nicklists[i]; ni; ni = ni->next) {
-	    if (!(ni->flags & NI_IRCOP)) {
+	ni = nicklists[i];
+	while (ni) {
+	    if (!(ni->flags & NI_IRCOP))
 		if (now - ni->last_seen >= expire_time
 					&& !(ni->flags & NI_VERBOTEN)) {
+		    NickInfo *ni2;
+		    if (ni->prev) {
+			ni2 = ni->prev;
+			if (ni->next)
+			    ni2->next = ni->next;
+			else
+			    ni2->next = NULL;
+		    } else
+			ni2 = NULL;
 		    log("Expiring nickname %s", ni->nick);
 		    delnick(ni);
+		    ni = ni2;
 		}
-	    }
+	    if (ni) ni = ni->next;
 	}
     }
 }
@@ -612,10 +570,9 @@ NickInfo *findnick(const char *nick)
 {
     NickInfo *ni;
 
-    for (ni = nicklists[tolower(*nick)]; ni; ni = ni->next) {
+    for (ni = nicklists[tolower(*nick)]; ni; ni = ni->next)
 	if (stricmp(ni->nick, nick) == 0)
 	    return ni;
-    }
     return NULL;
 }
 
@@ -635,12 +592,11 @@ static int is_on_access(User *u, NickInfo *ni)
     buf = smalloc(i + strlen(u->host) + 2);
     sprintf(buf, "%s@%s", u->username, u->host);
     strlower(buf+i+1);
-    for (i = 0; i < ni->accesscount; ++i) {
+    for (i = 0; i < ni->accesscount; ++i)
 	if (match_wild_nocase(ni->access[i], buf)) {
 	    free(buf);
 	    return 1;
 	}
-    }
     free(buf);
     return 0;
 }
@@ -658,10 +614,9 @@ int is_on_ignore(const char *source, char *target)
     if (ni = findnick(target)) {
         if (ni->flags & NI_SUSPENDED)
         	return 1;
-	for (ignore = ni->ignore, i = 0; i < ni->ignorecount; ++ignore, ++i) {
+	for (ignore = ni->ignore, i = 0; i < ni->ignorecount; ++ignore, ++i)
 	    if (stricmp(*ignore,source)==0)
 		return 1;
-	}
     }
     return 0;
 }
@@ -723,36 +678,30 @@ static int delnick(NickInfo *ni)
 
 /* Delete the user's MEMOS  */
 #ifdef MEMOS
-    MemoList *ml;
-    if (ml = find_memolist(ni->nick)) {
-	for (i = 0; i < ml->n_memos; ++i)
-	    free(ml->memos[i].text);
-	ml->n_memos = 0;
+    if (services_level==1) {
+	MemoList *ml;
+	if (ml = find_memolist(ni->nick))
+	    del_memolist(ml);
     }
 #endif /* MEMOS */
 
 /* Delete the user from channel access lists
  * and delete any channels this user owns */
 #ifdef CHANSERV
-    for (i = 33; i < 256; ++i) {
-	for (ci = chanlists[i]; ci; ci = ci->next) {
-	    if (stricmp(ci->founder, ni->nick)==0)
+    for (i = 33; i < 256; ++i)
+	for (ci = chanlists[i]; ci; ci = ci->next)
+	    if (stricmp(ci->founder, ni->nick)==0) {
+		ChannelInfo *ci2 = ci->prev;
 		delchan(ci);
-	}
-    }
-    for (i = 33; i < 256; ++i) {
-	for (ci = chanlists[i]; ci; ci = ci->next) {
-	    for (access = ci->access, j = 0; access && j < ci->accesscount;
-							access++, j++) {
-		if (access->is_nick) {
-		    if (stricmp(access->name, ni->nick)==0) {
-			free(access->name);
-			access->is_nick = -1;
-		    }
-		}		
-	    }
-	}
-    }
+		ci = ci2;
+	    } else
+		for (access = ci->access, j = 0; access && j < ci->accesscount;
+							access++, j++)
+		    if (access->is_nick)
+			if (stricmp(access->name, ni->nick)==0) {
+			    free(access->name);
+			    access->is_nick = -1;
+			}
 #endif /* CHANSERV */
 
     if (ni->next)
@@ -801,26 +750,24 @@ static void collide(NickInfo *ni)
 #ifdef DAL_SERV
     for(success=0, strcpy(newnick, ni->nick);
 		strlen(newnick)<NICKMAX && success!=1;) {
-	sprintf(newnick, "%s_", newnick);
+	snprintf(newnick, NICKMAX, "%s_", newnick);
 	if(!(finduser(newnick)))
 	    success=1;
     }
-    if(success!=1) {
+    if(success!=1)
 	for(success=0, strcpy(newnick, ni->nick);
 		    strlen(newnick)<NICKMAX && success!=1;) {
-	    sprintf(newnick, "%s_", newnick);
+	    snprintf(newnick, NICKMAX, "%s_", newnick);
 	    if(!(finduser(newnick)))
 		success=1;
 	}
-    }
-    if(success!=1) {
+    if(success!=1)
 	for(success=0, strcpy(newnick, ni->nick);
 		    strlen(newnick)<NICKMAX && success!=1;) {
-	    sprintf(newnick, "%s_", newnick);
+	    snprintf(newnick, NICKMAX, "%s_", newnick);
 	    if(!(finduser(newnick)))
 		success=1;
 	}
-    }
 
     if(success!=1)
 	kill_user(s_NickServ, ni->nick, "Nick kill enforced");
@@ -892,7 +839,7 @@ static void del_timeout(NickInfo *ni, int type)
     Timeout *to, *to2;
 
     to = timeouts;
-    while (to) {
+    while (to)
 	if (to->ni == ni && to->type == type) {
 	    to2 = to->next;
 	    if (to->next)
@@ -903,10 +850,8 @@ static void del_timeout(NickInfo *ni, int type)
 		timeouts = to->next;
 	    free(to);
 	    to = to2;
-	} else {
+	} else
 	    to = to->next;
-	}
-    }
 }
 
 /*************************************************************************/
@@ -918,35 +863,32 @@ static void del_timeout(NickInfo *ni, int type)
 static void do_help(const char *source)
 {
     char *cmd = strtok(NULL, "");
-    char buf[256];
+    char buf[BUFSIZE];
 
-    if (cmd && is_oper(source)) {
+    if (cmd) {
+	Hash_HELP *command, hash_table[] = {
+		{ "SET *OP*",	H_OPER,	set_ircop_help },
+		{ "DROP",	H_SOP,	oper_drop_help },
+		{ "GETPASS",	H_SOP,	getpass_help },
+		{ "FORBID",	H_SOP,	forbid_help },
+		{ "SUSPEND",	H_SOP,	suspend_help },
+		{ "UNSUSPEND",	H_SOP,	unsuspend_help },
+		{ "DEOP*",	H_SOP,	deop_help },
+		{ NULL }
+	};
 
-	if (stricmp(cmd, "DROP") == 0) {
-	    notice_list(s_NickServ, source, oper_drop_help);
-	    return;
-	} else if (stricmp(cmd, "GETPASS") == 0) {
-	    notice_list(s_NickServ, source, getpass_help);
-	    return;
-	} else if (stricmp(cmd, "FORBID") == 0) {
-	    notice_list(s_NickServ, source, forbid_help);
-	    return;
-	} else if (stricmp(cmd, "SUSPEND") == 0) {
-	    notice_list(s_NickServ, source, suspend_help);
-	    return;
-	} else if (stricmp(cmd, "UNSUSPEND") == 0) {
-	    notice_list(s_NickServ, source, unsuspend_help);
-	    return;
-	} else if (stricmp(cmd, "SET IRCOP") == 0) {
-	    notice_list(s_NickServ, source, set_ircop_help);
-	    return;
+	if (command = get_help_hash(source, cmd, hash_table))
+	    notice_list(s_NickServ, source, command->process);
+	else {
+		snprintf(buf, BUFSIZE, "%s%s", s_NickServ, cmd ? " " : "");
+		strscpy(buf+strlen(buf), cmd ? cmd : "", sizeof(buf)-strlen(buf));
+		helpserv(s_NickServ, source, buf);
 	}
-
+    } else {
+	snprintf(buf, BUFSIZE, "%s%s", s_NickServ, cmd ? " " : "");
+	strscpy(buf+strlen(buf), cmd ? cmd : "", sizeof(buf)-strlen(buf));
+	helpserv(s_NickServ, source, buf);
     }
-
-    sprintf(buf, "%s%s", s_NickServ, cmd ? " " : "");
-    strscpy(buf+strlen(buf), cmd ? cmd : "", sizeof(buf)-strlen(buf));
-    helpserv(s_NickServ, source, buf);
 }
 
 /*************************************************************************/
@@ -959,45 +901,39 @@ static void do_register(const char *source)
     User *u;
     char *pass = strtok(NULL, " ");
 
-  if(services_level!=1) {
-    notice(s_NickServ, source,
+    if(services_level!=1) {
+	notice(s_NickServ, source,
 		"Sorry, nickname registration is temporarily disabled.");
-    return;
-  }
+	return;
+    }
 
     if (!pass) {
-
 	notice(s_NickServ, source, "Syntax: \2REGISTER \37password\37\2");
 	notice(s_NickServ, source,
 			"\2/msg %s HELP REGISTER\2 for more information.",
 			s_NickServ);
 
     } else if (!(u = finduser(source))) {
-
 	log("%s: Can't register nick %s: nick not online", s_NickServ, source);
 	notice(s_NickServ, source, "Sorry, registration failed.");
 
     } else if (is_services_nick(source)) {
-
 	log("%s: %s@%s tried to register a SERVICES nick %s", s_NickServ,
 			u->username, u->host, source);
 	notice(s_NickServ, source,
 			"Nickname \2%s\2 may not be registered.", source);
 
-    } else if (ni = findnick(source)) {
-
+    } else if (ni = findnick(source))
 	if (ni->flags & NI_VERBOTEN) {
 	    log("%s: %s@%s tried to register FORBIDden nick %s", s_NickServ,
 			u->username, u->host, source);
 	    notice(s_NickServ, source,
 			"Nickname \2%s\2 may not be registered.", source);
-	} else {
+	} else
 	    notice(s_NickServ, source,
 			"Nickname \2%s\2 is already registered!", source);
-	}
 
-    } else if (stricmp(source, pass) == 0 || strlen(pass) < 5) {
-
+    else if (stricmp(source, pass) == 0 || strlen(pass) < 5) {
 	notice(s_NickServ, source,
 		"Please try again with a more obscure password.");
 	notice(s_NickServ, source,
@@ -1009,8 +945,7 @@ static void do_register(const char *source)
 	notice(s_NickServ, source,
 		"\2/msg %s HELP REGISTER\2 for more information.");
 
-    } else {
-
+    } else
 	if (ni = makenick(source)) {
 	    strscpy(ni->pass, pass, PASSMAX);
 #if FILE_VERSION > 2
@@ -1036,13 +971,9 @@ static void do_register(const char *source)
 	    notice(s_NickServ, source,
 		    "Your password is \2%s\2 - remember this for later use.",
 		    pass);
-	} else {
+	} else
 	    notice(s_NickServ, source,
 		"Sorry, couldn't register your nickname.");
-	}
-
-    }
-
 }
 
 /*************************************************************************/
@@ -1054,34 +985,28 @@ static void do_identify(const char *source)
     User *u;
 
     if (!pass) {
-
 	notice(s_NickServ, source, "Syntax: \2IDENTIFY \37password\37\2");
 	notice(s_NickServ, source,
 		"\2/msg %s HELP IDENTIFY\2 for more information.",
 		s_NickServ);
 
-    } else if (!ni) {
-
+    } else if (!ni)
 	notice(s_NickServ, source, "Your nick isn't registered.");
 
-    } else if (!(u = finduser(source))) {
-
+    else if (!(u = finduser(source))) {
 	log("%s: IDENTIFY from nonexistent nick %s", s_NickServ, source);
 	notice(s_NickServ, source, "Sorry, identification failed.");
 
-    } else if (ni->flags & NI_SUSPENDED) {
-
+    } else if (ni->flags & NI_SUSPENDED)
 	notice(s_NickServ, source,
 		"Access Denied for SUSPENDED users.");
 
-    } else if (strcmp(pass, ni->pass) != 0) {
-
+    else if (strcmp(pass, ni->pass) != 0) {
 	log("%s: Failed IDENTIFY for %s!%s@%s",
 		s_NickServ, source, u->username, u->host);
 	notice(s_NickServ, source, "Password incorrect.");
 
     } else {
-
 	ni->flags |= NI_IDENTIFIED;
 	if (!(ni->flags & NI_RECOGNIZED)) {
 	    ni->last_seen = time(NULL);
@@ -1105,7 +1030,7 @@ static void do_identify(const char *source)
 	    send_cmd(s_NickServ, "SVSMODE %s +a", u->nick);
 #endif
 #ifdef MEMOS
-	if (!(ni->flags & NI_RECOGNIZED))
+	if (!(ni->flags & NI_RECOGNIZED) && services_level==1)
 	    check_memos(source);
 #endif
     }
@@ -1119,34 +1044,28 @@ static void do_drop(const char *source)
     NickInfo *ni;
     User *u = finduser(source);;
 
-  if(services_level!=1) {
-    if (!is_services_op(source)) {
+    if (services_level!=1 && !is_services_op(source)) {
 	notice(s_NickServ, source,
 		"Sorry, nickname de-registration is temporarily disabled.");
 	return;
     }
-  }
 
     if (!is_services_op(source) && nick) {
-
 	notice(s_NickServ, source, "Syntax: \2DROP\2");
 	notice(s_NickServ, source,
 		"\2/msg %s DROP\2 for more information.", s_NickServ);
 
-    } else if (!(ni = findnick(nick ? nick : source))) {
-
+    } else if (!(ni = findnick(nick ? nick : source)))
 	if (nick)
 	    notice(s_NickServ, source, "Nick %s isn't registered.", nick);
 	else
 	    notice(s_NickServ, source, "Your nick isn't registered.");
 
-    } else if (!is_services_op(source) && (ni->flags & NI_SUSPENDED)) {
-
+    else if (!is_services_op(source) && (ni->flags & NI_SUSPENDED))
 	notice(s_NickServ, source,
 		"Access Denied for SUSPENDED users.");
 
-    } else if (!nick && (!u || !(ni->flags & NI_IDENTIFIED))) {
-
+    else if (!nick && (!u || !(ni->flags & NI_IDENTIFIED))) {
 	notice(s_NickServ, source,
 		"Password authentication required for that command.");
 	notice(s_NickServ, source,
@@ -1156,16 +1075,13 @@ static void do_drop(const char *source)
 	    log("%s: DROP from nonexistent user %s", s_NickServ, source);
 
     } else if (nick && !u) {
-
 	log("%s: DROP %s from nonexistent oper %s", s_NickServ, nick, source);
 	notice(s_NickServ, source, "Can't find your user record!");
 
     } else {
-
-  if(services_level!=1) {
-	notice(s_NickServ, source,
+	if(services_level!=1)
+	    notice(s_NickServ, source,
 		"Warning: Services is in read-only mode.  Changes will not be saved.");
-  }
 	delnick(ni);
 	log("%s: %s!%s@%s dropped nickname %s", s_NickServ,
 		source, u->username, u->host, nick ? nick : source);
@@ -1173,7 +1089,6 @@ static void do_drop(const char *source)
 	    notice(s_NickServ, source, "Nickname %s has been dropped.", nick);
 	else
 	    notice(s_NickServ, source, "Your nickname has been dropped.");
-
     }
 }
 
@@ -1186,30 +1101,26 @@ static void do_set(const char *source)
     NickInfo *ni = findnick(source);
     User *u;
 
-  if(services_level!=1) {
-    notice(s_NickServ, source,
+    if(services_level!=1) {
+	notice(s_NickServ, source,
 		"Sorry, nickname option setting is temporarily disabled.");
-    return;
-  }
+	return;
+    }
 
     if (!param) {
-
 	notice(s_NickServ, source,
 		"Syntax: \2SET \37option\37 \37parameters\37\2");
 	notice(s_NickServ, source,
 		"\2/msg %s HELP SET\2 for more information.", s_NickServ);
 
-    } else if (!(ni = findnick(source))) {
-
+    } else if (!(ni = findnick(source)))
 	notice(s_NickServ, source, "Your nickname is not registered.");
 
-    } else if (ni->flags & NI_SUSPENDED) {
-
+    else if (ni->flags & NI_SUSPENDED)
 	notice(s_NickServ, source,
 		"Access Denied for SUSPENDED users.");
 
-    } else if (!(u = finduser(source)) || !(ni->flags & NI_IDENTIFIED)) {
-
+    else if (!(u = finduser(source)) || !(ni->flags & NI_IDENTIFIED)) {
 	notice(s_NickServ, source,
 		"Password authentication required for that command.");
 	notice(s_NickServ, source,
@@ -1218,45 +1129,30 @@ static void do_set(const char *source)
 	if (!u)
 	    log("%s: SET from nonexistent user %s", s_NickServ, source);
 
-    } else if (stricmp(cmd, "PASSWORD") == 0) {
-
-	do_set_password(ni, param);
-
-#if FILE_VERSION > 2
-    } else if (stricmp(cmd, "EMAIL") == 0) {
-
-	do_set_email(ni, param);
-
-    } else if (stricmp(cmd, "URL") == 0) {
-
-	do_set_url(ni, param);
-#endif
-
-    } else if (stricmp(cmd, "PRIVATE") == 0) {
-
-	do_set_private(ni, param);
-
-    } else if (stricmp(cmd, "KILL") == 0) {
-
-	do_set_kill(ni, param);
-
-    } else if (stricmp(cmd, "SECURE") == 0) {
-
-	do_set_secure(ni, param);
-
-    } else if (stricmp(cmd, "PRIVMSG") == 0) {
-
-	do_set_privmsg(ni, param);
-
-    } else if (stricmp(cmd, "IRCOP") == 0 && is_oper(source)) {
-    
-        do_set_ircop(ni,param);
-    
     } else {
+	Hash_NI *command, hash_table[] = {
+		{ "PASS*",	H_NONE,	do_set_password },
+		{ "KILL*",	H_NONE,	do_set_kill },
+#if FILE_VERSION > 2
+		{ "*MAIL",	H_NONE,	do_set_email },
+		{ "CONTACT",	H_NONE,	do_set_email },
+		{ "U*R*L",	H_NONE,	do_set_url },
+		{ "W*W*W",	H_NONE,	do_set_url },
+		{ "HOME*",	H_NONE,	do_set_url },
+		{ "*PAGE",	H_NONE,	do_set_url },
+#endif
+		{ "*M*S*G*",	H_NONE,	do_set_privmsg },
+		{ "PRIV*",	H_NONE,	do_set_private },
+		{ "SEC*",	H_NONE,	do_set_secure },
+		{ "*OP*",	H_OPER,	do_set_ircop },
+		{ NULL }
+	};
 
-	notice(s_NickServ, source,
-			"Unknown SET option \2%s\2.", strupper(cmd));
-
+	if (command = get_ni_hash(source, cmd, hash_table))
+	    (*command->process)(ni,  param);
+	else
+	    notice(s_NickServ, source,
+		"Unknown SET option \2%s\2.", strupper(cmd));
     }
 }
 
@@ -1301,17 +1197,14 @@ static void do_set_kill(NickInfo *ni, char *param)
     char *source = ni->nick;
 
     if (stricmp(param, "ON") == 0) {
-
 	ni->flags |= NI_KILLPROTECT;
 	notice(s_NickServ, source, "Kill protection is now \2ON\2.");
 
     } else if (stricmp(param, "OFF") == 0) {
-
 	ni->flags &= ~NI_KILLPROTECT;
 	notice(s_NickServ, source, "Kill protection is now \2OFF\2.");
 
     } else {
-
 	notice(s_NickServ, source, "Syntax: \2SET KILL {ON|OFF}\2");
 	notice(s_NickServ, source,
 		"\2/msg %s HELP SET KILL\2 for more information.", s_NickServ);
@@ -1323,17 +1216,14 @@ static void do_set_private(NickInfo *ni, char *param)
     char *source = ni->nick;
 
     if (stricmp(param, "ON") == 0) {
-
 	ni->flags |= NI_PRIVATE;
 	notice(s_NickServ, source, "Privacy mode is now \2ON\2.");
 
     } else if (stricmp(param, "OFF") == 0) {
-
 	ni->flags &= ~NI_PRIVATE;
 	notice(s_NickServ, source, "Privacy mode is now \2OFF\2.");
 
     } else {
-
 	notice(s_NickServ, source, "Syntax: \2SET PRIVATE {ON|OFF}\2");
 	notice(s_NickServ, source,
 		"\2/msg %s HELP SET PRIVATE\2 for more information.", s_NickServ);
@@ -1347,17 +1237,14 @@ static void do_set_secure(NickInfo *ni, char *param)
     char *source = ni->nick;
 
     if (stricmp(param, "ON") == 0) {
-
 	ni->flags |= NI_SECURE;
 	notice(s_NickServ, source, "Secure option is now \2ON\2.");
 
     } else if (stricmp(param, "OFF") == 0) {
-
 	ni->flags &= ~NI_SECURE;
 	notice(s_NickServ, source, "Secure option is now \2OFF\2.");
 
     } else {
-
 	notice(s_NickServ, source, "Syntax: \2SET SECURE {ON|OFF}\2");
 	notice(s_NickServ, source,
 		"\2/msg %s HELP SET SECURE\2 for more information.",
@@ -1372,17 +1259,14 @@ static void do_set_privmsg(NickInfo *ni, char *param)
     char *source = ni->nick;
 
     if (stricmp(param, "ON") == 0) {
-
 	ni->flags |= NI_PRIVMSG;
 	notice(s_NickServ, source, "Now using \2PRIVMSG\2 instead of NOTICE.");
 
     } else if (stricmp(param, "OFF") == 0) {
-
 	ni->flags &= ~NI_PRIVMSG;
 	notice(s_NickServ, source, "Now using \2NOTICE\2 instead of PRIVMSG.");
 
     } else {
-
 	notice(s_NickServ, source, "Syntax: \2SET PRIVMSG {ON|OFF}\2");
 	notice(s_NickServ, source,
 		"\2/msg %s HELP SET PRIVMSG\2 for more information.",
@@ -1397,17 +1281,14 @@ static void do_set_ircop(NickInfo *ni, char *param)
     char *source = ni->nick;
 
     if (stricmp(param, "ON") == 0) {
-
 	ni->flags |= NI_IRCOP;
 	notice(s_NickServ, source, "IRC Operator is now \2ON\2.");
 
     } else if (stricmp(param, "OFF") == 0) {
-
 	ni->flags &= ~NI_IRCOP;
 	notice(s_NickServ, source, "IRC Operator is now \2OFF\2.");
 
     } else {
-
 	notice(s_NickServ, source, "Syntax: \2SET IRCOP {ON|OFF}\2");
 	notice(s_NickServ, source,
 		"\2/msg %s HELP SET IRCOP\2 for more information.",
@@ -1417,40 +1298,39 @@ static void do_set_ircop(NickInfo *ni, char *param)
 
 /*************************************************************************/
 
+static void do_deop(const char *source)
+{
+	NickInfo *ni;
+	char *s;
+
+	if (!(s = strtok(NULL, " "))) {
+	    notice(s_NickServ, source, "Syntax: \2DEOP \37nickname\37\2");
+	    return;
+	}
+	if (!(ni = findnick(s)))
+	    notice(s_NickServ, source, "Nick %s does not exist.", s);
+	else {
+	    ni->flags &= ~NI_IRCOP;
+	    notice(s_NickServ, source, "IRC Operator for \2%s\2 is now \2OFF\2.", ni->nick);
+	}
+}
+
+/*************************************************************************/
+
 static void do_access(const char *source)
 {
     char *cmd = strtok(NULL, " ");
-    char *mask = strtok(NULL, " ");
     NickInfo *ni = findnick(source);
     User *u;
-    int i;
-    char **access;
 
-    if (!cmd || ((stricmp(cmd,"LIST")==0) ? !!mask : !mask)) {
-
-	notice(s_NickServ, source,
-		"Syntax: \2ACCESS {ADD|DEL} [\37mask\37]\2");
-	notice(s_NickServ, source,
-		"\2/msg %s HELP ACCESS\2 for more information.", s_NickServ);
-
-    } else if (mask && !strchr(mask, '@')) {
-
-	notice(s_NickServ, source,
-		"Mask must be in the form \37user\37@\37host\37.");
-	notice(s_NickServ, source,
-		"\2/msg %s HELP ACCESS\2 for more information.", s_NickServ);
-
-    } else if (!ni) {
-
+    if (!ni)
 	notice(s_NickServ, source, "Your nick isn't registered.");
 
-    } else if (ni->flags & NI_SUSPENDED) {
-
+    else if (ni->flags & NI_SUSPENDED)
 	notice(s_NickServ, source,
 		"Access Denied for SUSPENDED users.");
 
-    } else if (!(u = finduser(source)) || !(ni->flags & NI_IDENTIFIED)) {
-
+    else if (!(u = finduser(source)) || !(ni->flags & NI_IDENTIFIED)) {
 	notice(s_NickServ, source,
 		"Password authentication required for that command.");
 	notice(s_NickServ, source,
@@ -1459,35 +1339,91 @@ static void do_access(const char *source)
 	if (!u)
 	    log("%s: SET from nonexistent user %s", s_NickServ, source);
 
-    } else if (stricmp(cmd, "ADD") == 0) {
+    } else {
+	Hash *command, hash_table[] = {
+		{ "ADD",	H_NONE,	do_access_add },
+		{ "CREATE",	H_NONE,	do_access_add },
+		{ "MAKE",	H_NONE,	do_access_add },
+		{ "DEL*",	H_NONE,	do_access_del },
+		{ "ERASE",	H_NONE,	do_access_del },
+		{ "TRASH",	H_NONE,	do_access_del },
+		{ "LIST*",	H_NONE,	do_access_list },
+		{ "VIEW",	H_NONE,	do_access_list },
+		{ "DISP*",	H_NONE,	do_access_list },
+		{ "SHOW*",	H_NONE,	do_access_list },
+		{ NULL }
+	};
 
-	for (access = ni->access, i = 0; i < ni->accesscount; ++access, ++i) {
+	if (command = get_hash(source, cmd, hash_table))
+	    (*command->process)(source);
+	else {
+	    notice(s_NickServ, source,
+		"Syntax: \2ACCESS {ADD|DEL|LIST} [\37mask\37]\2");
+	    notice(s_NickServ, source,
+		"\2/msg %s HELP ACCESS\2 for more information.", s_NickServ);
+	}
+    }
+}
+
+static int do_access_help (const char *source, char *cmd, char *mask)
+{
+    if (!cmd || ((stricmp(cmd,"LIST")==0) ? !!mask : !mask)) {
+	notice(s_NickServ, source,
+		"Syntax: \2ACCESS {ADD|DEL} [\37mask\37]\2");
+	notice(s_NickServ, source,
+		"\2/msg %s HELP ACCESS\2 for more information.", s_NickServ);
+	return 1;
+
+    } else if (mask && !strchr(mask, '@')) {
+	notice(s_NickServ, source,
+		"Mask must be in the form \37user\37@\37host\37.");
+	notice(s_NickServ, source,
+		"\2/msg %s HELP ACCESS\2 for more information.", s_NickServ);
+	return 1;
+    }
+    return 0;
+}
+
+static void do_access_add(const char *source)
+{
+    char *mask = strtok(NULL, " ");
+    NickInfo *ni = findnick(source);
+    int i;
+    char **access;
+
+    if (!do_access_help(source, "ADD", mask)) {
+	for (access = ni->access, i = 0; i < ni->accesscount; ++access, ++i)
 	    if (strcmp(*access, mask) == 0) {
 		notice(s_NickServ, source,
 			"Mask \2%s\2 already present on your access list.",
 			*access);
 		return;
 	    }
-	}
 	++ni->accesscount;
 	ni->access = srealloc(ni->access, sizeof(char *) * ni->accesscount);
 	ni->access[ni->accesscount-1] = sstrdup(mask);
 	notice(s_NickServ, source, "\2%s\2 added to your access list.", mask);
 
-    } else if (stricmp(cmd, "DEL") == 0) {
+    }
+}
 
+static void do_access_del(const char *source)
+{
+    char *mask = strtok(NULL, " ");
+    NickInfo *ni = findnick(source);
+    int i;
+    char **access;
+
+    if (!do_access_help(source, "DEL", mask)) {
 	/* First try for an exact match; then, a case-insensitive one. */
-	for (access = ni->access, i = 0; i < ni->accesscount; ++access, ++i) {
+	for (access = ni->access, i = 0; i < ni->accesscount; ++access, ++i)
 	    if (strcmp(*access, mask) == 0)
 		break;
-	}
-	if (i == ni->accesscount) {
+	if (i == ni->accesscount)
 	    for (access = ni->access, i = 0; i < ni->accesscount;
-							++access, ++i) {
+							++access, ++i)
 		if (stricmp(*access, mask) == 0)
 		    break;
-	    }
-	}
 	if (i == ni->accesscount) {
 	    notice(s_NickServ, source,
 			"\2%s\2 not found on your access list.", mask);
@@ -1505,23 +1441,23 @@ static void do_access(const char *source)
 	    free(ni->access);
 	    ni->access = NULL;
 	}
+    }
+}
 
-    } else if (stricmp(cmd, "LIST") == 0) {
+static void do_access_list(const char *source)
+{
+    char *mask = strtok(NULL, " ");
+    NickInfo *ni = findnick(source);
+    int i;
+    char **access;
 
+    if (!do_access_help(source, "LIST", mask)) {
 	notice(s_NickServ, source, "Access list:");
 	for (access = ni->access, i = 0; i < ni->accesscount; ++access, ++i) {
 	    if (mask && !match_wild_nocase(mask, *access))
 		continue;
 	    notice(s_NickServ, source, "    %s", *access);
 	}
-
-    } else {
-
-	notice(s_NickServ, source,
-		"Syntax: \2ACCESS {ADD|DEL|LIST} [\37mask\37]\2");
-	notice(s_NickServ, source,
-		"\2/msg %s HELP ACCESS\2 for more information.", s_NickServ);
-
     }
 }
 
@@ -1531,30 +1467,17 @@ static void do_access(const char *source)
 static void do_ignore(const char *source)
 {
     char *cmd = strtok(NULL, " ");
-    char *nick = strtok(NULL, " ");
     NickInfo *ni = findnick(source), *tni;
     User *u;
-    int i;
-    char **ignore;
 
-    if (!cmd || ((stricmp(cmd,"LIST")==0) ? !!nick : !nick)) {
-
-	notice(s_NickServ, source,
-		"Syntax: \2IGNORE {ADD|DEL} [\37nick\37]\2");
-	notice(s_NickServ, source,
-		"\2/msg %s HELP IGNORE\2 for more information.", s_NickServ);
-
-    } else if (!ni) {
-
+    if (!ni)
 	notice(s_NickServ, source, "Your nick isn't registered.");
 
-    } else if (ni->flags & NI_SUSPENDED) {
-
+    else if (ni->flags & NI_SUSPENDED)
 	notice(s_NickServ, source,
 		"Access Denied for SUSPENDED users.");
 
-    } else if (!(u = finduser(source)) || !(ni->flags & NI_IDENTIFIED)) {
-
+    else if (!(u = finduser(source)) || !(ni->flags & NI_IDENTIFIED)) {
 	notice(s_NickServ, source,
 		"Password authentication required for that command.");
 	notice(s_NickServ, source,
@@ -1563,16 +1486,59 @@ static void do_ignore(const char *source)
 	if (!u)
 	    log("%s: SET from nonexistent user %s", s_NickServ, source);
 
-    } else if (stricmp(cmd, "ADD") == 0) {
+    } else {
+	Hash *command, hash_table[] = {
+		{ "ADD",	H_NONE,	do_ignore_add },
+		{ "CREATE",	H_NONE,	do_ignore_add },
+		{ "MAKE",	H_NONE,	do_ignore_add },
+		{ "DEL*",	H_NONE,	do_ignore_del },
+		{ "ERASE",	H_NONE,	do_ignore_del },
+		{ "TRASH",	H_NONE,	do_ignore_del },
+		{ "LIST*",	H_NONE,	do_ignore_list },
+		{ "VIEW",	H_NONE,	do_ignore_list },
+		{ "DISP*",	H_NONE,	do_ignore_list },
+		{ "SHOW*",	H_NONE,	do_ignore_list },
+		{ NULL }
+	};
 
-	for (ignore = ni->ignore, i = 0; i < ni->ignorecount; ++ignore, ++i) {
+	if (command = get_hash(source, cmd, hash_table))
+	    (*command->process)(source);
+	else {
+	    notice(s_NickServ, source,
+		"Syntax: \2IGNORE {ADD|DEL|LIST} [\37nick\37]\2");
+	    notice(s_NickServ, source,
+		"\2/msg %s HELP IGNORE\2 for more information.", s_NickServ);
+	}
+    }
+}
+
+static int do_ignore_help (const char *source, char *cmd, char *nick)
+{
+    if (!cmd || ((stricmp(cmd,"LIST")==0) ? !!nick : !nick)) {
+	notice(s_NickServ, source,
+		"Syntax: \2IGNORE {ADD|DEL} [\37nick\37]\2");
+	notice(s_NickServ, source,
+		"\2/msg %s HELP IGNORE\2 for more information.", s_NickServ);
+    return 1;
+    }
+    return 0;
+}
+
+static void do_ignore_add(const char *source)
+{
+    char *nick = strtok(NULL, " ");
+    NickInfo *ni = findnick(source), *tni;
+    int i;
+    char **ignore;
+
+    if (!do_ignore_help(source, "ADD", nick)) {
+	for (ignore = ni->ignore, i = 0; i < ni->ignorecount; ++ignore, ++i)
 	    if (strcmp(*ignore, nick) == 0) {
 		notice(s_NickServ, source,
 			"Nick \2%s\2 already present on your ignore list.",
 			*ignore);
 		return;
 	    }
-	}
 	if (!(tni = findnick(nick))) {
 	    notice(s_NickServ, source, "\2%s\2 is not registered.", nick);
 	    return;
@@ -1585,21 +1551,25 @@ static void do_ignore(const char *source)
 	    ni->ignore[ni->ignorecount-1] = sstrdup(tni->nick);
 	    notice(s_NickServ, source, "\2%s\2 added to your ignore list.", tni->nick);
 	}
+    }
+}
+static void do_ignore_del(const char *source)
+{
+    char *nick = strtok(NULL, " ");
+    NickInfo *ni = findnick(source), *tni;
+    int i;
+    char **ignore;
 
-    } else if (stricmp(cmd, "DEL") == 0) {
-
+    if (!do_ignore_help(source, "DEL", nick)) {
 	/* First try for an exact match; then, a case-insensitive one. */
-	for (ignore = ni->ignore, i = 0; i < ni->ignorecount; ++ignore, ++i) {
+	for (ignore = ni->ignore, i = 0; i < ni->ignorecount; ++ignore, ++i)
 	    if (strcmp(*ignore, nick) == 0)
 		break;
-	}
-	if (i == ni->ignorecount) {
+	if (i == ni->ignorecount)
 	    for (ignore = ni->ignore, i = 0; i < ni->ignorecount;
-							++ignore, ++i) {
+							++ignore, ++i)
 		if (stricmp(*ignore, nick) == 0)
 		    break;
-	    }
-	}
 	if (i == ni->ignorecount) {
 	    notice(s_NickServ, source,
 			"\2%s\2 not found on your ignore list.", nick);
@@ -1617,9 +1587,16 @@ static void do_ignore(const char *source)
 	    free(ni->ignore);
 	    ni->ignore = NULL;
 	}
+    }
+}
+static void do_ignore_list(const char *source)
+{
+    char *nick = strtok(NULL, " ");
+    NickInfo *ni = findnick(source), *tni;
+    int i;
+    char **ignore;
 
-    } else if (stricmp(cmd, "LIST") == 0) {
-
+    if (!do_ignore_help(source, "LIST", nick)) {
 	char *buf;
 	NickInfo *tni;
 	
@@ -1634,14 +1611,6 @@ static void do_ignore(const char *source)
 		notice(s_NickServ, source,
 			"    %s (%s)", *ignore, tni->last_usermask);
 	}
-
-    } else {
-
-	notice(s_NickServ, source,
-		"Syntax: \2IGNORE {ADD|DEL|LIST} [\37nick\37]\2");
-	notice(s_NickServ, source,
-		"\2/msg %s HELP IGNORE\2 for more information.", s_NickServ);
-
     }
 }
 #endif
@@ -1659,14 +1628,14 @@ static void do_info(const char *source)
 	notice(s_NickServ, source,
 		"\2/msg %s HELP IDENTIFY\2 for more information.", s_NickServ);
 
-    } else if (!(ni = findnick(nick))) {
+    } else if (!(ni = findnick(nick)))
 	notice(s_NickServ, source, "Nick \2%s\2 isn't registered.", nick);
 
-    } else if (ni->flags & NI_VERBOTEN) {
+    else if (ni->flags & NI_VERBOTEN)
 	notice(s_NickServ, source,
 		"Nick \2%s\2 may not be registered or used.", nick);
 
-    } else {
+    else {
 	struct tm tm;
 	char buf[512];
 
@@ -1674,10 +1643,10 @@ static void do_info(const char *source)
 		"%s is %s\n", nick, ni->last_realname);
 #if FILE_VERSION > 2
         if (!(ni->flags & NI_SUSPENDED)) {
-	if(strlen(ni->email)>0)
+	    if(strlen(ni->email)>0)
 		notice(s_NickServ, source,
 			"   E-Mail address: %s\n", ni->email);
-	if(strlen(ni->url)>0)
+	    if(strlen(ni->url)>0)
 		notice(s_NickServ, source,
 			"   WWW Page (URL): %s\n", ni->url);
 	}
@@ -1707,33 +1676,33 @@ static void do_info(const char *source)
         if (ni->flags & NI_SUSPENDED)
 	    strcat(buf, "\2SUSPENDED USER\2");
 	else {
-	if (ni->flags & NI_KILLPROTECT)
-	    strcat(buf, "Kill protection");
-	if (ni->flags & NI_SECURE) {
-	    if (*buf)
-		strcat(buf, ", ");
-	    strcat(buf, "Security");
-	}
-	if (ni->flags & NI_PRIVATE) {
-	    if (*buf)
-		strcat(buf, ", ");
-	    strcat(buf, "Private");
-	}
-	if (ni->flags & NI_IRCOP) {
-	    if (*buf)
-		strcat(buf, ", ");
-	    strcat(buf, "IRC Operator");
-	}
-	if (!*buf)
-	    strcpy(buf, "None");
+	    if (ni->flags & NI_KILLPROTECT)
+		strcat(buf, "Kill protection");
+	    if (ni->flags & NI_SECURE) {
+		if (*buf)
+		    strcat(buf, ", ");
+		strcat(buf, "Security");
+	    }
+	    if (ni->flags & NI_PRIVATE) {
+		if (*buf)
+		    strcat(buf, ", ");
+		strcat(buf, "Private");
+	    }
+	    if (ni->flags & NI_IRCOP) {
+		if (*buf)
+		    strcat(buf, ", ");
+		strcat(buf, "IRC Operator");
+	    }
+	    if (!*buf)
+		strcpy(buf, "None");
 	}
 	notice(s_NickServ, source, "          Options: %s", buf);
 #if (FILE_VERSION > 3) && defined(MEMOS)
         if (ni->flags & NI_SUSPENDED)
 	    notice(s_NickServ, source, "NOTE: Cannot send memos to a suspended user.");
 	else
-	if (is_on_ignore(source,nick))
-	    notice(s_NickServ, source, "NOTE: This user is ignoring your memos.");
+	    if (is_on_ignore(source,nick))
+		notice(s_NickServ, source, "NOTE: This user is ignoring your memos.");
 #endif
         if (!(ni->flags & NI_SUSPENDED))
 	    if (finduser(nick))
@@ -1748,44 +1717,42 @@ static void do_list(const char *source)
     char *pattern = strtok(NULL, " ");
     NickInfo *ni;
     int nnicks, i;
-    char buf[512];
+    char buf[BUFSIZE];
 
     if (!pattern) {
-
 	notice(s_NickServ, source, "Syntax: \2LIST \37pattern\37\2");
 	notice(s_NickServ, source,
 		"\2/msg %s HELP LIST\2 for more information.", s_NickServ);
 
     } else {
-
 	nnicks = 0;
 	notice(s_NickServ, source, "List of entries matching \2%s\2:",
 		pattern);
-	for (i = 33; i < 256; ++i) {
+	for (i = 33; i < 256; ++i)
 	    for (ni = nicklists[i]; ni; ni = ni->next) {
-		if (!(is_oper(source))) {
+		if (!(is_oper(source)))
 		    if (ni->flags & (NI_PRIVATE | NI_VERBOTEN | NI_SUSPENDED))
 			continue;
-		}
-		if (ni->flags & (NI_VERBOTEN | NI_SUSPENDED)) {
+		if (ni->flags & (NI_VERBOTEN | NI_SUSPENDED))
 		    if (strlen(ni->nick) > sizeof(buf))
 			continue;
-		} else {
+		else
 		    if (strlen(ni->nick)+strlen(ni->last_usermask) > sizeof(buf))
 			continue;
-		}
 		if (ni->flags & NI_VERBOTEN)
-		    sprintf(buf, "%-20s  << FORBIDDEN >>", ni->nick);
-	        else if (!(ni->flags & NI_SUSPENDED))
-		    sprintf(buf, "%-20s  << SUSPENDED >>", ni->nick);
+		    snprintf(buf, BUFSIZE, "%-20s  << FORBIDDEN >>", ni->nick);
+	        else if (ni->flags & NI_SUSPENDED)
+		    snprintf(buf, BUFSIZE, "%-20s  << SUSPENDED >>", ni->nick);
 		else
-		    sprintf(buf, "%-20s  %s", ni->nick, ni->last_usermask);
+		    if (strlen(ni->last_usermask)>0)
+			snprintf(buf, BUFSIZE, "%-20s  %s", ni->nick, ni->last_usermask);
+		    else
+			snprintf(buf, BUFSIZE, "%-20s", ni->nick);
 		if (match_wild_nocase(pattern, buf)) {
 		    if (++nnicks <= 50)
 			notice(s_NickServ, source, "    %s", buf);
 		}
 	    }
-	}
 	notice(s_NickServ, source, "End of list - %d/%d matches shown.",
 					nnicks>50 ? 50 : nnicks, nnicks);
     }
@@ -1802,27 +1769,22 @@ static void do_recover(const char *source)
     User *u = finduser(source);
 
     if (!nick) {
-
 	notice(s_NickServ, source,
 		"Syntax: \2RECOVER \37nickname\37 [\37password\37]\2");
 	notice(s_NickServ, source,
 		"\2/msg %s HELP RECOVER\2 for more information.", s_NickServ);
 
-    } else if (!(ni = findnick(nick))) {
-
+    } else if (!(ni = findnick(nick)))
 	notice(s_NickServ, source, "Nick %s isn't registered.", nick);
 
-    } else if (!finduser(nick)) {
-
+    else if (!finduser(nick))
 	notice(s_NickServ, source, "Nick %s isn't currently in use.");
 
-    } else if (stricmp(nick, source) == 0) {
-
+    else if (stricmp(nick, source) == 0)
         notice(s_NickServ, source, "You can't recover yourself.");
 
-    } else if (u &&
+    else if (u &&
 		(pass ? strcmp(pass,ni->pass)==0 : u&&is_on_access(u,ni))) {
-
 	collide(ni);
 	notice(s_NickServ, source, "User claiming your nick has been killed.");
 	notice(s_NickServ, source,
@@ -1830,7 +1792,6 @@ static void do_recover(const char *source)
 		"timeout.", s_NickServ);
 
     } else {
-
 	notice(s_NickServ, source,
 		pass && u ? "Password incorrect." : "Access denied.");
 	if (!u)
@@ -1852,29 +1813,24 @@ static void do_release(const char *source)
     User *u = finduser(source);
 
     if (!nick) {
-
 	notice(s_NickServ, source,
 		"Syntax: \2RELEASE \37nickname\37 [\37password\37]\2");
 	notice(s_NickServ, source,
 		"\2/msg %s HELP RELEASE\2 for more information.", s_NickServ);
 
-    } else if (!(ni = findnick(nick))) {
-
+    } else if (!(ni = findnick(nick)))
 	notice(s_NickServ, source, "Nick %s isn't registered.", nick);
 
-    } else if (!(ni->flags & NI_KILL_HELD)) {
-
+    else if (!(ni->flags & NI_KILL_HELD))
 	notice(s_NickServ, source, "Nick %s isn't being held.", nick);
 
-    } else if (u &&
+    else if (u &&
 		(pass ? strcmp(pass,ni->pass)==0 : u&&is_on_access(u,ni))) {
-
 	release(ni);
 	notice(s_NickServ, source,
 		"Services' hold on your nick has been released.");
 
     } else {
-
 	notice(s_NickServ, source,
 		pass && u ? "Password incorrect." : "Access denied.");
 	if (!u)
@@ -1882,7 +1838,6 @@ static void do_release(const char *source)
 	else if (pass)
 	    log("%s: RELEASE: invalid password for %s by %s!%s@%s",
 			s_NickServ, source, u->username, u->host);
-
     }
 }
 
@@ -1896,34 +1851,28 @@ static void do_ghost(const char *source)
     User *u = finduser(source);
 
     if (!nick) {
-
 	notice(s_NickServ, source,
 		"Syntax: \2GHOST \37nickname\37 [\37password\37]\2");
 	notice(s_NickServ, source,
 		"\2/msg %s HELP GHOST\2 for more information.", s_NickServ);
 
-    } else if (!(ni = findnick(nick))) {
-
+    } else if (!(ni = findnick(nick)))
 	notice(s_NickServ, source, "Nick %s isn't registered.", nick);
 
-    } else if (!finduser(nick)) {
-
+    else if (!finduser(nick))
 	notice(s_NickServ, source, "Nick %s isn't currently in use.");
 
-    } else if (stricmp(nick, source) == 0) {
-
+    else if (stricmp(nick, source) == 0)
     	notice(s_NickServ, source, "You can't ghost yourself.");
 
-    } else if (u &&
+    else if (u &&
 		(pass ? strcmp(pass,ni->pass)==0 : u&&is_on_access(u,ni))) {
-
-	char *buf;
-	sprintf(buf, "%s (Removing GHOST user)", source);
+	char buf[NICKMAX+25];
+	snprintf(buf, sizeof(buf), "%s (Removing GHOST user)", source);
 	kill_user(s_NickServ, ni->nick, buf);
 	notice(s_NickServ, source, "Ghost with your nick has been killed.");
 
     } else {
-
 	notice(s_NickServ, source,
 		pass && u ? "Password incorrect." : "Access denied.");
 	if (!u)
@@ -1931,7 +1880,6 @@ static void do_ghost(const char *source)
 	else if (pass)
 	    log("%s: GHOST: invalid password for %s by %s!%s@%s",
 			s_NickServ, source, u->username, u->host);
-
     }
 }
 
@@ -1943,26 +1891,21 @@ static void do_getpass(const char *source)
     NickInfo *ni;
     User *u = finduser(source);
 
-    if (!nick) {
-
+    if (!nick)
 	notice(s_NickServ, source, "Syntax: \2GETPASS \37nickname\37\2");
 
-    } else if (!u) {
-
+    else if (!u)
 	notice(s_NickServ, source, "Couldn't get your user info!");
 
-    } else if (!(ni = findnick(nick))) {
-
+    else if (!(ni = findnick(nick)))
 	notice(s_NickServ, source, "Nick %s isn't registered.", nick);
 
-    } else {
-
+    else {
 	log("%s: %s!%s@%s used GETPASS on %s",
 		s_NickServ, source, u->username, u->host, nick);
-	globops(s_NickServ, "\2%s\2 used GETPASS on \2%s\2", source, nick);
+	wallops(s_NickServ, "\2%s\2 used GETPASS on \2%s\2", source, nick);
 	notice(s_NickServ, source, "Password for %s is \2%s\2.",
 		nick, ni->pass);
-
     }
 }
 
@@ -1978,10 +1921,9 @@ static void do_forbid(const char *source)
 	notice(s_NickServ, source, "Syntax: \2FORBID \37nickname\37\2");
 	return;
     }
-  if(services_level!=1) {
-    notice(s_NickServ, source,
-	"Warning: Services is in read-only mode; changes will not be saved.");
-  }
+    if(services_level!=1)
+	notice(s_NickServ, source,
+	    "Warning: Services is in read-only mode; changes will not be saved.");
     if (ni = findnick(nick))
 	delnick(ni);
     if (ni = makenick(nick)) {
@@ -2007,10 +1949,9 @@ static void do_suspend(const char *source)
 	notice(s_NickServ, source, "Syntax: \2SUSPEND \37nickname reason\37\2");
 	return;
     }
-  if(services_level!=1) {
-    notice(s_NickServ, source,
-	"Warning: Services is in read-only mode; changes will not be saved.");
-  }
+    if(services_level!=1)
+	notice(s_NickServ, source,
+	    "Warning: Services is in read-only mode; changes will not be saved.");
     if (!(ni = findnick(nick)))
     notice(s_NickServ, source,
 	"Nick %s does not exist", nick);
@@ -2035,13 +1976,15 @@ static void do_unsuspend(const char *source)
 	notice(s_NickServ, source, "Syntax: \2UNSUSPEND \37nickname\37\2");
 	return;
     }
-  if(services_level!=1) {
-    notice(s_NickServ, source,
-	"Warning: Services is in read-only mode; changes will not be saved.");
-  }
+    if(services_level!=1)
+	notice(s_NickServ, source,
+	    "Warning: Services is in read-only mode; changes will not be saved.");
     if (!(ni = findnick(nick)))
-    notice(s_NickServ, source,
-	"Nick %s does not exist", nick);
+	notice(s_NickServ, source,
+	    "Nick %s does not exist", nick);
+    else if (ni->flags & NI_SUSPENDED)
+	notice(s_NickServ, source,
+	    "Nick %s is not suspended.", nick);
     else {
 	ni->flags &= ~NI_SUSPENDED;
 	if (ni->last_usermask)
@@ -2053,5 +1996,4 @@ static void do_unsuspend(const char *source)
 }
 
 /*************************************************************************/
-
 #endif  /* NICKSERV */

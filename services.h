@@ -393,6 +393,7 @@ struct channel_ {
 
 /*************************************************************************/
 
+typedef struct servers_ Servers;
 #ifdef AKILL
 typedef struct akill_ Akill;
 #endif
@@ -407,6 +408,12 @@ typedef struct ignore_data {
     char who[NICKMAX];
     time_t time;	/* When do we stop ignoring them? */
 } IgnoreData;
+
+struct servers_ {
+    char *server;
+    int hops;
+    char *desc;
+};
 
 #ifdef AKILL
 struct akill_ {
@@ -435,6 +442,50 @@ struct timeout_ {
 };
 #define TO_COLLIDE	0	/* Collide the user with this nick */
 #define TO_RELEASE	1	/* Release a collided nick */
+
+/*************************************************************************/
+
+/* For the Hash Tables used to accept paramaters */
+
+typedef struct hash_ Hash;
+typedef struct hash_ni_ Hash_NI;
+typedef struct hash_ci_ Hash_CI;
+typedef struct hash_help_ Hash_HELP;
+typedef struct hash_chan_ Hash_CHAN;
+
+struct hash_ {
+    char *accept;
+    short access;
+    void (*process)(const char *source);
+};
+
+struct hash_ni_ {
+    char *accept;
+    short access;
+    void (*process)(NickInfo *ni, char *param);
+};
+
+struct hash_ci_ {
+    char *accept;
+    short access;
+    void (*process)(User *u, ChannelInfo *ci, char *param);
+};
+
+struct hash_help_ {
+    char *accept;
+    short access;
+    const char *(*process);
+};
+
+struct hash_chan_ {
+    char *accept;
+    short access;
+    void (*process)(const char *source, char *chan);
+};
+
+#define H_NONE	0
+#define H_OPER	1
+#define H_SOP	2
 
 /*************************************************************************/
 

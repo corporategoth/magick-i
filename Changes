@@ -4,6 +4,16 @@ Magick I (PreZ <prez@antisocial.com>)
 Renamed to this to avoid conflicting version numbers, etc and finally
 rid myself of all the excess EsperNet baggage.
 
+1997/12/15 .1	Optimized code and implemented hash tables (if you dont know,
+		    dont worry - just take it as a good thing!).
+		Added some of Andy Church's services routines (overflow stuff,
+		    some socket stuff, and the configure script mainly).
+		Removed upaccess - people should have used it, or not need it.
+		Added MemoServ OPERSEND.
+		Fixed user/oper counting when SQUIT.
+		Fixed ghost command and Channel/Nick expiry bugs.
+		Added Users on Servers breakdown (OperServ)
+		OFF/ON commands now close/open logs aswell.
 1997/12/08 .0	Forgot the new services.h for Services 3.0.9, included here.
 		Veriable ChanServ levels implemented (finally).
 		Added deletion of user from access lists, and all

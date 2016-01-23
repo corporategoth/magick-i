@@ -35,19 +35,50 @@ Clone *clonelist = NULL;
 #endif
 
 #ifdef AKILL
-static void do_akill(const char *source, int call);
-static int add_akill(const char *mask, const char *reason, const char *who, int call);
-static int del_akill(const char *mask, int call);
-static int is_on_akill(const char *mask);
+    static void do_akill(const char *source);
+    static void do_pakill(const char *source);
+    static void do_akill_add(const char *source);
+    static void do_pakill_add(const char *source);
+    static void do_akill_addfunc(const char *source, int call);
+    static void do_akill_del(const char *source);
+    static void do_pakill_del(const char *source);
+    static void do_akill_delfunc(const char *source, int call);
+    static void do_akill_list(const char *source);
+    static int add_akill(const char *mask, const char *reason, const char *who, int call);
+    static int del_akill(const char *mask, int call);
+    static int is_on_akill(const char *mask);
 #endif
 #ifdef CLONES
-static void do_clone(const char *source);
-static void add_clone(const char *host, int amount, const char *reason, const char *who);
-static int del_clone(const char *host);
-static Clone *findclone(const char *host);
-static int is_on_clone(char *host);
+    static void do_clone(const char *source);
+    static void do_clone_add(const char *source);
+    static void do_clone_del(const char *source);
+    static void do_clone_list(const char *source);
+    static void add_clone(const char *host, int amount, const char *reason, const char *who);
+    static int del_clone(const char *host);
+    static Clone *findclone(const char *host);
+    static int is_on_clone(char *host);
 #endif
-static void do_set(const char *source);
+static void do_mode(const char *source);
+static void do_os_kick(const char *source);
+static void do_help(const char *source);
+static void do_global(const char *source);
+static void do_settings(const char *source);
+static void do_breakdown(const char *source);
+static void do_stats(const char *source);
+#ifdef DAL_SERV
+    static void do_qline(const char *source);
+    static void do_unqline(const char *source);
+    static void do_noop(const char *source);
+    static void do_os_kill(const char *source);
+#endif
+static void do_ignore(const char *source);
+static void do_update(const char *source);
+static void do_os_quit(const char *source);
+static void do_shutdown(const char *source);
+static void do_jupe(const char *source);
+static void do_off(const char *source);
+static void do_on(const char *source);
+static void do_raw(const char *source);
 
 /*************************************************************************/
 
@@ -56,8 +87,7 @@ static void do_set(const char *source);
 void operserv(const char *source, char *buf)
 {
     char *cmd;
-    char *s, *chan, *nick, *serv;
-    int i;
+    char *s;
 
     log("%s: %s: %s", s_OperServ, source, buf);
     cmd = strtok(buf, " ");
@@ -70,32 +100,90 @@ void operserv(const char *source, char *buf)
 	return;
     }
 
-    if (!cmd) {
-
+    if (!cmd)
 	return;
 
-    } else if (stricmp(cmd, "\1PING") == 0) {
+    if (stricmp(cmd, "\1PING") == 0) {
 
 	if (!(s = strtok(NULL, "")))
 	    s = "\1";
 	notice(s_OperServ, source, "\1PING %s", s);
 
-    } else if (stricmp(cmd, "MODE") == 0) {
+    } else if (stricmp(cmd, "USERLIST") == 0) {
+	s = strtok(NULL, " ");
+	send_user_list(s_OperServ, source, s);
+	
+    } else if (stricmp(cmd, "CHANLIST") == 0) {
+	s = strtok(NULL, " ");
+	send_channel_list(s_OperServ, source, s);
 
+    } else {
+	Hash *command, hash_table[] = {
+		{ "HELP",	H_OPER,	do_help },
+		{ "*MODE",	H_OPER,	do_mode },
+		{ "KICK*",	H_OPER,	do_os_kick },
+		{ "STAT*",	H_OPER,	do_stats },
+		{ "SET*",	H_OPER,	do_settings },
+		{ "BREAKDOWN",	H_OPER,	do_breakdown },
+		{ "COUNT*",	H_OPER,	do_breakdown },
+		{ "IGN*",	H_SOP,	do_ignore },
+		{ "JUPE",	H_SOP,	do_jupe },
+		{ "OFF",	H_SOP,	do_off },
+		{ "ON",		H_SOP,	do_on },
+		{ "RAW",	H_SOP,	do_raw },
+		{ "QUOTE",	H_SOP,	do_raw },
+		{ "UPDATE*",	H_SOP,	do_update },
+		{ "WRITE*",	H_SOP,	do_update },
+		{ "SAVE*",	H_SOP,	do_update },
+		{ "SHUTDOWN",	H_SOP,	do_shutdown },
+		{ "DIE",	H_SOP,	do_shutdown },
+		{ "END",	H_SOP,	do_shutdown },
+		{ "QUIT",	H_SOP,	do_os_quit },
+		{ "*MURDER",	H_SOP,	do_os_quit },
+#ifdef AKILL
+		{ "A*KILL",	H_OPER,	do_akill },
+		{ "P*A*KILL",	H_SOP,	do_pakill },
+#endif
+#ifdef DAL_SERV
+		{ "QLINE",	H_OPER,	do_qline },
+		{ "UNQLINE",	H_OPER,	do_unqline },
+		{ "N*OP*",	H_SOP,	do_noop },
+		{ "KILL*",	H_SOP,	do_os_kill },
+#endif
+#ifdef GLOBALNOTICER
+		{ "GLOB*",	H_OPER,	do_global },
+#endif
+#ifdef CLONES
+		{ "CLONE*",	H_SOP,	do_clone },
+#endif
+		{ NULL }
+	};
+
+	if (command = get_hash(source, cmd, hash_table))
+	    (*command->process)(source);
+	else
+	    notice(s_OperServ, source,
+		"Unrecognized command \2%s\2.  Type \"/msg %s HELP\" for help.",
+		cmd, s_OperServ);
+    }
+}
+
+static void do_mode (const char *source)
+{
 	Channel *c;
 	User *u;
 	char l[16];
-	chan = strtok(NULL, " ");
-	serv = strtok(NULL, " ");
-	s = strtok(NULL, "");
+	char *chan = strtok(NULL, " ");
+	char *serv = strtok(NULL, " ");
+	char *s = strtok(NULL, "");
 	if (!chan)
 	    return;
 
-	if (chan[0]=='#') {
+	if (chan[0]=='#')
 	    if (!(c = findchan(chan)))
 		return;
 	    else if (!serv) {
-		sprintf(l, " %d", c->limit);
+		snprintf(l, sizeof(l), " %d", c->limit);
 		notice(s_OperServ, source, "%s +%s%s%s%s%s%s%s%s%s%s%s", c->name,
 				(c->mode&CMODE_I) ? "i" : "",
 				(c->mode&CMODE_M) ? "m" : "",
@@ -108,13 +196,12 @@ void operserv(const char *source, char *buf)
 				(c->limit)        ?  l  : "",
 				(c->key)          ? " " : "",
 				(c->key)          ? c->key : "");
-	    } else {
+	    } else
 		if (s)
 		    change_cmode(s_OperServ, chan, serv, s);
 		else
 		    change_cmode(s_OperServ, chan, serv, "");
-	    }
-	} else {
+	else
 	    if (!(u = finduser(chan)))
 		return;
 	    else if (!serv)
@@ -136,43 +223,30 @@ void operserv(const char *source, char *buf)
 		
 	    }
 #endif
-	}
+}
 
-    } else if (stricmp(cmd, "KICK") == 0) {
-
-	chan = strtok(NULL, " ");
-	nick = strtok(NULL, " ");
-	s = strtok(NULL, "");
+static void do_os_kick (const char *source)
+{
+	char *chan = strtok(NULL, " ");
+	char *nick = strtok(NULL, " ");
+	char *s = strtok(NULL, "");
 	if (!chan || !nick || !s)
 	    return;
-	sprintf(serv, "%s (%s)", source, s);
-	kick_user(s_OperServ, chan, nick, serv);
+	snprintf(s, sizeof(source)+sizeof(s)+4, "%s (%s)", source, s);
+	kick_user(s_OperServ, chan, nick, s);
+}
 
-    } else if (stricmp(cmd, "HELP") == 0) {
-
-	cmd = strtok(NULL, " ");
+static void do_help (const char *source)
+{
+	char *cmd = strtok(NULL, " ");
 
 	if (!cmd) {
 	    notice_list(s_OperServ, source, os_help);
 	    if (is_services_op(source))
 		notice_list(s_OperServ, source, os_sop_help);
 	    notice_list(s_OperServ, source, os_end_help);
-	} else if (stricmp(cmd, "MODE") == 0)
-	    notice_list(s_OperServ, source, mode_help);
-	else if (stricmp(cmd, "USERLIST") == 0)
-	    notice_list(s_OperServ, source, userlist_help);
-	else if (stricmp(cmd, "CHANLIST") == 0)
-	    notice_list(s_OperServ, source, chanlist_help);
-	else if (stricmp(cmd, "CHANUSERS") == 0)
-	    notice_list(s_OperServ, source, chanusers_help);
-	else if (stricmp(cmd, "KICK") == 0) {
-	    notice_list(s_OperServ, source, kick_help);
-#ifdef AKILL
-	} else if (stricmp(cmd, "AKILL") == 0) {
-	    notice_list(s_OperServ, source, akill_help);
-#endif
 #ifdef GLOBALNOTICER
-	} else if (stricmp(cmd, "GLOBAL") == 0) {
+	} else if (match_wild_nocase("GLOB*", cmd)) {
 	    /* Information varies, so we need to do it manually. */
 	    notice(s_OperServ, source, "Syntax: GLOBAL \37message\37");
 	    notice(s_OperServ, source, "");
@@ -182,50 +256,58 @@ void operserv(const char *source, char *buf)
 			"network.  The message will be sent from the nick");
 	    notice(s_OperServ, source, "\2%s\2.", s_GlobalNoticer);
 #endif
-	} else if (stricmp(cmd, "STATS") == 0)
-	    notice_list(s_OperServ, source, stats_help);
-	else if (stricmp(cmd, "SETTINGS") == 0)
-	    notice_list(s_OperServ, source, settings_help);
-	else if (!is_services_op(source))
-	    notice(s_OperServ, source,
-			"No help available for command \2%s\2.", cmd);
-#ifdef DAL_SERV
-	else if (stricmp(cmd, "QLINE") == 0)
-	    notice_list(s_OperServ, source, qline_help);
-	else if (stricmp(cmd, "UNQLINE") == 0)
-	    notice_list(s_OperServ, source, unqline_help);
-	else if (stricmp(cmd, "NOOP") == 0)
-	    notice_list(s_OperServ, source, noop_help);
-	else if (stricmp(cmd, "KILL") == 0)
-	    notice_list(s_OperServ, source, kill_help);
-#endif
-	else if (stricmp(cmd, "JUPE") == 0)
-	    notice_list(s_OperServ, source, jupe_help);
+	} else {
+
+	    Hash_HELP *command, hash_table[] = {
+		{ "*MODE",	H_OPER,	mode_help },
+		{ "USERLIST",	H_OPER,	userlist_help },
+		{ "CHANLIST",	H_OPER,	chanlist_help },
+		{ "KICK",	H_OPER,	kick_help },
+		{ "STAT*",	H_OPER,	stats_help },
+		{ "SET*",	H_OPER,	settings_help },
+		{ "BREAKDOWN",	H_OPER,	breakdown_help },
+		{ "COUNT*",	H_OPER,	breakdown_help },
+		{ "NICKS?RV",	H_OPER,	nickserv_help },
+		{ "CHANS?RV",	H_OPER,	chanserv_help },
+		{ "MEMOS?RV",	H_OPER,	memoserv_help },
+		{ "JUPE",	H_SOP,	jupe_help },
+		{ "ON",		H_SOP,	offon_help },
+		{ "OFF",	H_SOP,	offon_help },
+		{ "IGNORE",	H_SOP,	ignore_help },
+		{ "UPDATE*",	H_SOP,	update_help },
+		{ "WRITE*",	H_SOP,	update_help },
+		{ "SAVE*",	H_SOP,	update_help },
+		{ "SHUTDOWN",	H_SOP,	shutdown_help },
+		{ "DIE",	H_SOP,	shutdown_help },
+		{ "END",	H_SOP,	shutdown_help },
+		{ "QUIT",	H_SOP,	quit_help },
+		{ "*MURDER",	H_SOP,	quit_help },
 #ifdef AKILL
-	else if (stricmp(cmd, "PAKILL") == 0)
-	    notice_list(s_OperServ, source, pakill_help);
+		{ "A*KILL",	H_OPER,	akill_help },
+		{ "P*A*KILL",	H_SOP,	pakill_help },
+#endif
+#ifdef DAL_SERV
+		{ "QLINE",	H_OPER,	qline_help },
+		{ "UNQLINE",	H_OPER,	unqline_help },
+		{ "N*OP*",	H_SOP,	noop_help },
+		{ "KILL*",	H_SOP,	kill_help },
 #endif
 #ifdef CLONES
-	else if (stricmp(cmd, "CLONE") == 0)
-	    notice_list(s_OperServ, source, clone_help);
+		{ "CLONE*",	H_SOP,	clone_help },
 #endif
-	else if (stricmp(cmd, "UPDATE") == 0)
-	    notice_list(s_OperServ, source, update_help);
-	else if (stricmp(cmd, "ON") == 0)
-	    notice_list(s_OperServ, source, offon_help);
-	else if (stricmp(cmd, "OFF") == 0)
-	    notice_list(s_OperServ, source, offon_help);
-	else if (stricmp(cmd, "QUIT") == 0)
-	    notice_list(s_OperServ, source, quit_help);
-	else if (stricmp(cmd, "SHUTDOWN") == 0)
-	    notice_list(s_OperServ, source, shutdown_help);
-	else
-	    notice(s_OperServ, source,
+		{ NULL }
+	    };
+
+	    if (command = get_help_hash(source, cmd, hash_table))
+		notice_list(s_OperServ, source, command->process);
+	    else
+		notice(s_OperServ, source,
 			"No help available for command \2%s\2.", cmd);
+	}
+}
 
-#ifdef GLOBALNOTICER
-    } else if (stricmp(cmd, "GLOBAL") == 0) {
-
+static void do_global (const char *source)
+{
 	char *msg = strtok(NULL, "");
 
 	if (!msg) {
@@ -235,10 +317,11 @@ void operserv(const char *source, char *buf)
 			s_OperServ);
 	}
 	noticeall(s_GlobalNoticer, "%s", msg);
-#endif /* GLOBALNOTICER */
-    } else if (stricmp(cmd, "SETTINGS") == 0) {
+}
 
-	notice(s_OperServ, source, "Expiries: ");
+static void do_settings (const char *source)
+{
+	notice(s_OperServ, source, "Expiries (days): ");
 #ifdef CHANSERV
 	notice(s_OperServ, source, "    Channels : \2%d\2", CHANNEL_EXPIRE);
 #endif
@@ -270,31 +353,26 @@ void operserv(const char *source, char *buf)
 	notice(s_OperServ, source, "Databases saved every \2%d\2 seconds.",
 		UPDATE_TIMEOUT);
 	notice(s_OperServ, source, "Services OPs: \2%s\2.", SERVICES_OPS);
+}
 
-    } else if (stricmp(cmd, "USERLIST") == 0) {
+static void do_breakdown (const char *source)
+{
+    User *u;
+    int i, cnt;
 
-	s = strtok(NULL, " ");
-	send_user_list(source, s);
-	
-    } else if (stricmp(cmd, "CHANLIST") == 0) {
+    notice(s_OperServ, source, "Servers                          Users  Percent");
+    for (i=0;i<servcnt;++i) {
+	cnt=0;
+	for (u = userlist; u; u = u->next)
+	    if (stricmp(servlist[i].server,u->server)==0)
+		cnt++;
+	notice(s_OperServ, source, "%-32s  %4d  %3.2d%%",
+		servlist[i].server, cnt, cnt/usercnt*100);
+    }
+}
 
-	s = strtok(NULL, " ");
-	send_channel_list(source, s);
-
-    } else if (stricmp(cmd, "CHANUSERS") == 0) {
-
-	chan = strtok(NULL, " ");
-	if (chan)
-	    send_channel_users(source, chan);
-
-#ifdef AKILL
-    } else if (stricmp(cmd, "AKILL") == 0) {
-
-	do_akill(source, 0);
-#endif
-
-    } else if (stricmp(cmd, "STATS") == 0) {
-
+static void do_stats (const char *source)
+{
 	time_t uptime = time(NULL) - start_time;
 	char *extra = strtok(NULL, "");
 
@@ -341,18 +419,20 @@ void operserv(const char *source, char *buf)
 			"ChanServ: \2%6d\2 records, \2%5d\2 kB",
 			count, (mem+1023) / 1024);
 #endif
+	    if (services_level==1) {
 #ifdef MEMOS
-	    get_memoserv_stats(&count, &mem);
-	    notice(s_OperServ, source,
+		get_memoserv_stats(&count, &mem);
+		notice(s_OperServ, source,
 			"MemoServ: \2%6d\2 records, \2%5d\2 kB",
 			count, (mem+1023) / 1024);
 #endif
 #ifdef NEWS
-	    get_newsserv_stats(&count, &mem);
-	    notice(s_OperServ, source,
+		get_newsserv_stats(&count, &mem);
+		notice(s_OperServ, source,
 			"NewsServ: \2%6d\2 records, \2%5d\2 kB",
 			count, (mem+1023) / 1024);
 #endif
+	    }
 	    notice(s_OperServ, source,
 			"OperServ: \2%6d\2 records, \2%5d\2 kB",
 #ifdef AKILL
@@ -367,128 +447,122 @@ void operserv(const char *source, char *buf)
 			nclone, (clone_size * sizeof(*clones) + 1023) / 1024);
 #endif /*AKILL */
 	}
-
-    /* Services ops only below this point. */
-
-    } else if (!is_services_op(source)) {
-
-	notice(s_OperServ, source,
-		"Unrecognized command \2%s\2.  Type \"/msg %s HELP\" for help.",
-		cmd, s_OperServ);
+}
 
 #ifdef DAL_SERV
-    } else if (stricmp(cmd, "QLINE") == 0) {
-
-	nick = strtok(NULL, " ");
-	s = strtok(NULL, "");
+static void do_qline (const char *source)
+{
+	char *nick = strtok(NULL, " ");
+	char *s = strtok(NULL, "");
 	if(!nick)
 	    return;
 
 	if(!s) {
 	    send_cmd(NULL, "SQLINE %s", nick);
-	    globops(s_OperServ, "\2%s\2 has been QUARENTINED by \2%s\2", nick, source);
+	    wallops(s_OperServ, "\2%s\2 has been QUARENTINED by \2%s\2", nick, source);
 	} else {
 	    send_cmd(NULL, "SQLINE %s :%s", nick, s);
-	    globops(s_OperServ, "\2%s\2 has been QUARENTINED by \2%s\2 for %s", nick, source, s);
+	    wallops(s_OperServ, "\2%s\2 has been QUARENTINED by \2%s\2 for %s", nick, source, s);
 	}
+}
 
-    } else if (stricmp(cmd, "UNQLINE") == 0) {
-
-	nick = strtok(NULL, " ");
+static void do_unqline (const char *source)
+{
+	char *nick = strtok(NULL, " ");
 	if(!nick)
 	    return;
 
 	send_cmd(NULL, "UNSQLINE %s", nick);
-	globops(s_OperServ, "\2%s\2 removed QUARENTINE for \2%s\2", source, nick);
+	wallops(s_OperServ, "\2%s\2 removed QUARENTINE for \2%s\2", source, nick);
+}
 
-    } else if (stricmp(cmd, "NOOP") == 0) {
-
-	serv = strtok(NULL, " ");
-	s = strtok(NULL, "");
+static void do_noop (const char *source)
+{
+	char *serv = strtok(NULL, " ");
+	char *s = strtok(NULL, "");
 	if (!s || (s[0]!='+' && s[0]!='-'))
 	    return;
 
 	send_cmd(s_OperServ, "SVSNOOP 1 :%s", serv, s);
 	if(s[0]=='+')
-	     globops(s_OperServ, "\2%s\2 QUARENTINED OPERS on \2%s\2", source, serv);
+	     wallops(s_OperServ, "\2%s\2 QUARENTINED OPERS on \2%s\2", source, serv);
 	else
-	     globops(s_OperServ, "\2%s\2 removed QUARENTINE for OPERS on \2%s\2", source, serv);
+	     wallops(s_OperServ, "\2%s\2 removed QUARENTINE for OPERS on \2%s\2", source, serv);
+}
 
-    } else if (stricmp(cmd, "KILL") == 0) {
-
-	nick = strtok(NULL, " ");
-	s = strtok(NULL, "");
+static void do_os_kill (const char *source)
+{
+	char *nick = strtok(NULL, " ");
+	char *s = strtok(NULL, "");
 	if (!s || !finduser(nick))
 	    return;
 
 	send_cmd(s_OperServ, "SVSKILL %s :%s", nick, s);
-
+}
 #endif
 
-    } else if (stricmp(cmd, "LISTIGNORE") == 0) {
-
+static void do_ignore (const char *source)
+{
 	int sent_header = 0;
 	IgnoreData *id;
 
-	for (i = 0; i < 256; ++i) {
-	    for (id = ignore[i]; id; id = id->next) {
-		if (!sent_header) {
-		    notice(s_OperServ, source, "Services ignorance list:");
-		    sent_header = 1;
+	char *option = strtok(NULL, " ");
+	char *setting = strtok(NULL, "");
+
+	if (!option)
+	    notice(s_OperServ, source,
+			"Syntax: \2IGNORE \37{ON|OFF|LIST}\37 [\37match\37]\2");
+	else if (stricmp(setting, "ON") == 0) {
+	    allow_ignore = 1;
+	    notice(s_OperServ, source, "Ignore code \2will\2 be used.");
+	} else if (stricmp(setting, "OFF") == 0) {
+	    allow_ignore = 0;
+	    notice(s_OperServ, source, "Ignore code \2will not\2 be used.");
+	} else if (stricmp(setting, "LIST") == 0) {
+	    int i;
+	    for (i = 0; i < 256; ++i) 
+		for (id = ignore[i]; id; id = id->next) {
+		    if (!sent_header) {
+			notice(s_OperServ, source, "Services ignorance list:");
+			sent_header = 1;
+		    }
+		    if (!setting || match_wild_nocase(setting, id->who))
+			notice(s_OperServ, source, "%d %s", id->time, id->who);
 		}
-		notice(s_OperServ, source, "%d %s", id->time, id->who);
-	    }
-	}
-	if (!sent_header)
-	    notice(s_OperServ, source, "Ignorance list is empty.");
+	    if (!sent_header)
+		notice(s_OperServ, source, "Ignorance list is empty.");
+	} else
+	    notice(s_OperServ, source, "Unknown option \2%s\2.", option);
+}
 
-    } else if (stricmp(cmd, "UPDATE") == 0) {
 
-	notice(s_OperServ, source, "Updating databases.");
-	save_data = 1;
-
-#ifdef AKILL
-    } else if (stricmp(cmd, "PAKILL") == 0) {
-
-	do_akill(source, 1);
-#endif
-
-#ifdef CLONES
-    } else if (stricmp(cmd, "CLONE") == 0) {
-
-	do_clone(source);
-#endif
-
-    } else if (stricmp(cmd, "SET") == 0) {
-
-	do_set(source);
-
-    } else if (stricmp(cmd, "JUPE") == 0) {
-
-	char *jserver = strtok(NULL, " ");
-	if (!jserver) {
+static void do_jupe (const char *source)
+{
+	char *serv = strtok(NULL, " ");
+	if (!serv)
 	    notice(s_OperServ, source, "Syntax: \2JUPE \37servername\37\2");
-	} else {
-	    globops(s_OperServ, "\2Juping\2 %s by request of \2%s\2.", jserver, source);
-	    send_cmd(NULL, "SERVER %s 2 :Jupitered server", jserver);
+	else {
+	    wallops(s_OperServ, "\2Juping\2 %s by request of \2%s\2.", serv, source);
+	    send_cmd(NULL, "SERVER %s 2 :Jupitered server", serv);
 	}
+}
 
-    } else if (stricmp(cmd, "OFF") == 0) {
-
+static void do_off (const char *source)
+{
 	char *pass = strtok(NULL, " ");
-	s = strtok(NULL, "");
+	char *s = strtok(NULL, "");
 	if (!pass)
 	    return;
 	if (stricmp(pass, SUPERPASS)==0) {
 	    mode = 0;
+	    close_log();
 	    notice(s_OperServ, source, "Services are now switched \2OFF\2.");
-	    globops(s_OperServ, "Services switched \2OFF\2 by request of \2%s\2.", source);
-	    if(s) {
+	    wallops(s_OperServ, "Services switched \2OFF\2 by request of \2%s\2.", source);
+	    if(s)
 		if (offreason = malloc(strlen(s)+1))
-		    sprintf(offreason, "%s", s);
+		    snprintf(offreason, sizeof(offreason), "%s", s);
 		else
 		    offreason = s;
-	    }
 #ifdef GLOBALNOTICER
 	    if (offreason)
 		noticeall(s_GlobalNoticer, "Services are currently \2OFF\2 - %s", offreason);
@@ -497,14 +571,17 @@ void operserv(const char *source, char *buf)
 #endif
 	} else
 	    notice(s_OperServ, source, "Access Denied.");
+}
 
-    } else if (stricmp(cmd, "ON") == 0) {
 
+static void do_on (const char *source)
+{
 	char *pass = strtok(NULL, " ");
 	if (!pass)
 	    return;
 	if (stricmp(pass, SUPERPASS)==0) {
 	    mode = 1;
+	    open_log();
 	    notice(s_OperServ, source, "Services are now switched \2ON\2 again.");
 	if (offreason)
 	    offreason = NULL;
@@ -514,9 +591,16 @@ void operserv(const char *source, char *buf)
 #endif
 	} else
 	    notice(s_OperServ, source, "Access Denied.");
+}
 
-    } else if (stricmp(cmd, "QUIT") == 0) {
+static void do_update (const char *source)
+{
+	notice(s_OperServ, source, "Updating databases.");
+	save_data = 1;
+}
 
+static void do_os_quit (const char *source)
+{
 	char *pass = strtok(NULL, " ");
 	if (!pass)
 	    return;
@@ -525,51 +609,34 @@ void operserv(const char *source, char *buf)
 	    if (!quitmsg)
 		quitmsg = "QUIT command received, but out of memory!";
 	    else
-		sprintf(quitmsg, "QUIT command received from %s", source);
+		snprintf(quitmsg, sizeof(quitmsg), "QUIT command received from %s", source);
 	    quitting = 1;
 	    terminating = 1;
 	} else
 	    notice(s_OperServ, source, "Access Denied.");
+}
 
-    } else if (stricmp(cmd, "SHUTDOWN") == 0) {
+static void do_shutdown (const char *source)
+{
+	do_update(source);
+	do_os_quit(source);
+}
 
-	char *pass = strtok(NULL, " ");
-	if (!pass)
-	    return;
-	if (stricmp(pass, SUPERPASS)==0) {
-	    quitmsg = malloc(32 + strlen(source));
-	    save_data = 1;
-	    if (!quitmsg)
-		quitmsg = "SHUTDOWN command received, but out of memory!";
-            else
-		sprintf(quitmsg, "SHUTDOWN command received from %s", source);
-	    quitting = 1;
-	    terminating = 1;
-	} else
-	    notice(s_OperServ, source, "Access Denied.");
-
-    } else if (stricmp(cmd, "RAW") == 0) {
-
+static void do_raw (const char *source)
+{
 	char *pass = strtok(NULL, " ");
 	char *text = strtok(NULL, "");
 	if (!pass)
 	    return;
-	if (stricmp(pass, SUPERPASS)==0) {
+	if (stricmp(pass, SUPERPASS)==0)
 	    if (!text)
 		notice(s_OperServ, source, "Syntax: \2RAW \37password command\37\2");
 	    else
 		send_cmd(NULL, text);
-	} else
+	else
 	    notice(s_OperServ, source, "Access Denied.");
-
-    } else {
-
-	notice(s_OperServ, source,
-		"Unrecognized command \2%s\2.  Type \"/msg %s HELP\" for help.",
-		cmd, s_OperServ);
-
-    }
 }
+
 
 /*************************************************************************/
 /****************************** AKILL stuff ******************************/
@@ -678,17 +745,77 @@ void save_akill()
 
 /* Handle an AKILL command. */
 
-static void do_akill(const char *source, int call)
+static void do_akill(const char *source)
 {
-    char *cmd, *mask, *reason, *who, *s;
+    char *cmd = strtok(NULL, " ");
+    Hash *command, hash_table[] = {
+		{ "ADD",	H_OPER,	do_akill_add },
+		{ "ALLOW",	H_OPER,	do_akill_add },
+		{ "GRANT",	H_OPER,	do_akill_add },
+		{ "DEL*",	H_OPER,	do_akill_del },
+		{ "ERASE",	H_OPER,	do_akill_del },
+		{ "TRASH",	H_OPER,	do_akill_del },
+		{ "LIST*",	H_OPER,	do_akill_list },
+		{ "VIEW",	H_OPER,	do_akill_list },
+		{ "DISP*",	H_OPER,	do_akill_list },
+		{ "SHOW*",	H_OPER,	do_akill_list },
+		{ NULL }
+    };
+
+    if (command = get_hash(source, cmd, hash_table))
+	    (*command->process)(source);
+    else {
+	notice(s_OperServ, source,
+		"Syntax: \2AKILL {ADD|DEL|LIST} [\37host\37]\2");
+	notice(s_OperServ, source,
+		"For help: \2/msg %s HELP AKILL\2", s_OperServ);
+    }
+}
+
+static void do_pakill(const char *source)
+{
+    char *cmd = strtok(NULL, " ");
+    Hash *command, hash_table[] = {
+		{ "ADD",	H_SOP,	do_pakill_add },
+		{ "ALLOW",	H_SOP,	do_pakill_add },
+		{ "GRANT",	H_SOP,	do_pakill_add },
+		{ "DEL*",	H_SOP,	do_pakill_del },
+		{ "ERASE",	H_SOP,	do_pakill_del },
+		{ "TRASH",	H_SOP,	do_pakill_del },
+		{ "LIST*",	H_OPER,	do_akill_list },
+		{ "VIEW",	H_OPER,	do_akill_list },
+		{ "DISP*",	H_OPER,	do_akill_list },
+		{ "SHOW*",	H_OPER,	do_akill_list },
+		{ NULL }
+    };
+
+    if (command = get_hash(source, cmd, hash_table))
+	    (*command->process)(source);
+    else {
+	notice(s_OperServ, source,
+		"Syntax: \2PAKILL {ADD|DEL|LIST} [\37host\37]\2");
+	notice(s_OperServ, source,
+		"For help: \2/msg %s HELP PAKILL\2", s_OperServ);
+    }
+}
+
+void do_akill_add(const char *source)
+{ do_akill_addfunc(source, 0); }
+void do_pakill_add(const char *source)
+{ do_akill_addfunc(source, 1); }
+
+void do_akill_addfunc(const char *source, int call)
+{
+    char *mask, *reason, *s;
     int i;
-
-    cmd = strtok(NULL, " ");
-    if (!cmd)
-	cmd = "";
-
-    if (stricmp(cmd, "ADD") == 0) {
 	if ((mask = strtok(NULL, " ")) && (reason = strtok(NULL, ""))) {
+	    int nonchr = 0;
+	    for (i=0;mask[i]!='!' && i<strlen(mask);i++) ;
+	    if (i<strlen(mask)) {
+		notice(s_OperServ, source, "Hostmask may not contain a `!'
+			character.");
+		return;
+	    }
 	    strlower(mask);
 	    if (!(s = strchr(mask, '@'))) {
 		notice(s_OperServ, source, "Hostmask must contain an `@'
@@ -696,32 +823,32 @@ static void do_akill(const char *source, int call)
 		return;
 	    }
 		/* Find @*, @*.*, @*.*.*, etc. and dissalow if !SOP */
-	    for(i=strlen(mask)-1;(mask[i]=='*' || mask[i]=='?' || mask[i]=='.') && i>=0;i--) ;
-	    if(mask[i]=='@' && !is_services_op(source))
-		notice(s_OperServ, source, "@* AKILL's are not allowed!!");
-	    else {
-		int nonchr = 0;
-		for(;mask[i]!='@';i--)
-		    if(!(mask[i]=='*' || mask[i]=='?' || mask[i]=='.'))
-			nonchr++;
-		if(nonchr<4 && !is_services_op(source))
-		    notice(s_OperServ, source, "Must have at least 3 non- *, ? or . characters.");
-		else if(is_on_akill(mask))
-		    notice(s_OperServ, source, "AKILL already exists (or inclusive)");
-		else {		
-		    notice(s_OperServ, source, "%s added to AKILL list (%d users killed)", mask, add_akill(mask, reason, source, call));
-		}
-	    }
-	} else {
+	    for(i=strlen(mask)-1;mask[i]!='@';i--)
+		if(!(mask[i]=='*' || mask[i]=='?' || mask[i]=='.'))
+		    nonchr++;
+	    if(nonchr<STARTHRESH && !is_services_op(source))
+		notice(s_OperServ, source, "Must have at least %d non- *, ? or . characters.", STARTHRESH);
+	    else if(is_on_akill(mask))
+		notice(s_OperServ, source, "AKILL already exists (or inclusive)");
+	    else
+		notice(s_OperServ, source, "%s added to AKILL list (%d users killed)", mask, add_akill(mask, reason, source, call));
+	} else
 	    notice(s_OperServ, source,
 			"Syntax: AKILL ADD \37mask\37 \37reason\37");
-	}
-  if(services_level!=1) {
-	notice(s_OperServ, source,
+	if(services_level!=1)
+	    notice(s_OperServ, source,
 		"\2Notice:\2 Changes will not be saved!  Services is in read-only mode.");
-  }
+}
 
-    } else if (stricmp(cmd, "DEL") == 0) {
+void do_akill_del(const char *source)
+{ do_akill_delfunc(source, 0); }
+void do_pakill_del(const char *source)
+{ do_akill_delfunc(source, 1); }
+
+void do_akill_delfunc(const char *source, int call)
+{
+    char *mask, *s;
+    int i;
 	if (mask = strtok(NULL, " ")) {
 	    if (strspn(mask, "1234567890") == strlen(mask) &&
 					(i = atoi(mask)) > 0 && i <= nakill)
@@ -732,48 +859,38 @@ static void do_akill(const char *source, int call)
 		notice(s_OperServ, source, "%s removed from AKILL list.", mask);
 		if (s) {
 		    *s++ = 0;
+#ifdef IRC_DALNET
 		    send_cmd(server_name, "RAKILL %s %s", s, mask);
-		} else {
-		    /* We lose... can't figure out what's a username and what's
-		     * a hostname.  Ah well.
-		     */
-		}
-	    } else {
+#else
+		    send_cmd(server_name, "UNGLINE * %s", mask);
+#endif
+		} /* else
+		   * We lose... can't figure out what's a username and what's
+		   * a hostname.  Ah well.
+		   */
+	    } else
 		if(call==1)
 		    notice(s_OperServ, source, "%s not found on AKILL list.", mask);
 		else
 		    notice(s_OperServ, source, "%s not found on AKILL list or is PERMINANT.", mask);
-	    }
-	} else {
+	} else
 	    notice(s_OperServ, source, "Syntax: AKILL DEL \37mask\37");
-	}
-  if(services_level!=1) {
-	notice(s_OperServ, source,
+	if(services_level!=1)
+	    notice(s_OperServ, source,
 		"\2Notice:\2 Changes will not be saved!  Services is in read-only mode.");
-  }
+}
 
-    } else if (stricmp(cmd, "LIST") == 0) {
+void do_akill_list(const char *source)
+{
+    char *s;
+    int i;
 	s = strtok(NULL, " ");
 	if (s) {
 	    strlower(s);
 	    strchr(s, '@');
 	}
 	notice(s_OperServ, source, "Current AKILL list:");
-	for (i = 0; i < nakill; ++i) {
-	    if (!s || match_wild_nocase(s, akills[i].mask)) {
-		notice(s_OperServ, source, "  %3d %-32s  %s",
-					i+1, akills[i].mask, akills[i].reason);
-	    }
-	}
-
-    } else if (stricmp(cmd, "VIEW") == 0) {
-	s = strtok(NULL, " ");
-	if (s) {
-	    strlower(s);
-	    strchr(s, '@');
-	}
-	notice(s_OperServ, source, "Current AKILL list:");
-	for (i = 0; i < nakill; ++i) {
+	for (i = 0; i < nakill; ++i)
 	    if (!s || match_wild_nocase(s, akills[i].mask)) {
 	    	char timebuf[32];
 	    	time_t t;
@@ -789,24 +906,15 @@ static void do_akill(const char *source, int call)
 				akills[i].time ? timebuf : "PERMINANT");
 		notice(s_OperServ, source, "      %s", akills[i].reason);
 	    }
-	}
-
-    } else {
-	notice(s_OperServ, source,
-		"Syntax: \2AKILL {ADD|DEL|LIST|view} [\37mask\37]\2");
-	notice(s_OperServ, source,
-		"For help: \2/msg %s HELP AKILL\2", s_OperServ);
-    }
 }
 
 static int is_on_akill(const char *mask)
 {
     int i;
 
-    for (i = 0; i < nakill; ++i) {
+    for (i = 0; i < nakill; ++i)
 	if (match_wild_nocase(akills[i].mask, mask))
 	    return 1;
-    }
     return 0;
 }
 
@@ -816,7 +924,7 @@ void expire_akill () {
     int i;
     const time_t expire_time = AKILL_EXPIRE*24*60*60;
     time_t tm;
-    for (i = 0; i < nakill; ++i) {
+    for (i = 0; i < nakill; ++i)
 	if (akills[i].time > 0) {
 	    tm = time(NULL) - akills[i].time;
 	    if (tm > expire_time) {
@@ -827,7 +935,6 @@ void expire_akill () {
 		    bcopy(akills+i+1, akills+i, sizeof(*akills) * (nakill-i));
 	    }
 	}
-    }
 }
 
 /*************************************************************************/
@@ -843,7 +950,7 @@ int check_akill(const char *nick, const char *username, const char *host)
     i = strlen(buf);
     buf[i++] = '@';
     strlower(strscpy(buf+i, host, sizeof(buf)-i));
-    for (i = 0; i < nakill; ++i) {
+    for (i = 0; i < nakill; ++i)
 	if (match_wild_nocase(akills[i].mask, buf)) {
 	    char *av[2], nickbuf[NICKMAX], myuser[512] = "", myhost[512] = "";
 	    int j, k;
@@ -856,12 +963,17 @@ int check_akill(const char *nick, const char *username, const char *host)
 	    for (k=0;j<strlen(akills[i].mask);j++, k++)
 		myhost[k]=akills[i].mask[j];
 	    myhost[k]=0;
+#ifdef IRC_DALNET
 	    send_cmd(server_name,
 			"AKILL %s %s :You are Banned (%s)",
 			myhost, myuser, akills[i].reason);
+#else
+	    send_cmd(server_name,
+			"GLINE * +99999999 %s@%s :You are Banned (%s)",
+			myuser, myhost, akills[i].reason);
+#endif
 	    return 1;
 	}
-    }
     return 0;
 }
 
@@ -872,7 +984,7 @@ static int add_akill(const char *mask, const char *reason, const char *who, int 
     User *user;
     int cnt, killd;
     char buf[strlen(reason)+20];
-    sprintf(buf, "You are banned (%s)", reason);
+    snprintf(buf, sizeof(buf), "You are banned (%s)", reason);
 
     if (nakill >= akill_size) {
 	if (akill_size < 8)
@@ -916,9 +1028,8 @@ static int del_akill(const char *mask, int call)
 	if (i < nakill)
 	    bcopy(akills+i+1, akills+i, sizeof(*akills) * (nakill-i));
 	return 1;
-    } else {
+    } else
 	return 0;
-    }
 }
 #endif /* AKILL */
 
@@ -1002,26 +1113,56 @@ void save_clone()
 
 static void do_clone(const char *source)
 {
-    char *cmd, *host, *amt, *reason;
-    int i, amount;
+    char *cmd = strtok(NULL, " ");
+    Hash *command, hash_table[] = {
+		{ "ADD",	H_SOP,	do_clone_add },
+		{ "ALLOW",	H_SOP,	do_clone_add },
+		{ "GRANT",	H_SOP,	do_clone_add },
+		{ "DEL*",	H_SOP,	do_clone_del },
+		{ "ERASE",	H_SOP,	do_clone_del },
+		{ "TRASH",	H_SOP,	do_clone_del },
+		{ "LIST*",	H_SOP,	do_clone_list },
+		{ "VIEW",	H_SOP,	do_clone_list },
+		{ "DISP*",	H_SOP,	do_clone_list },
+		{ "SHOW*",	H_SOP,	do_clone_list },
+		{ NULL }
+    };
 
-    cmd = strtok(NULL, " ");
-    if (!cmd)
-	cmd = "";
+    if (command = get_hash(source, cmd, hash_table))
+	    (*command->process)(source);
+    else {
+	notice(s_OperServ, source,
+		"Syntax: \2CLONE {ADD|DEL|LIST} [\37host\37]\2");
+	notice(s_OperServ, source,
+		"For help: \2/msg %s HELP CLONE\2", s_OperServ);
+    }
+}
 
-    if (stricmp(cmd, "ADD") == 0) {
+static void do_clone_add(const char *source)
+{
+    char *host, *amt, *reason;
 	host   = strtok(NULL, " ");
 	amt    = strtok(NULL, " ");
 	reason = strtok(NULL, "");
 	if (reason) {
+	    int i, amount, nonchr = 0;
+	    for (i=0;host[i]!='!' && host[i]!='@' && i<strlen(host);i++) ;
+	    if (i<strlen(host)) {
+		notice(s_OperServ, source, "Host may not contain a `!'
+			or `@' character.");
+		return;
+	    }
 	    strlower(host);
 	    amount = atoi(amt);
+
 		/* Find @*, @*.*, @*.*.*, etc. and dissalow */
-	    for(i=strlen(host)-1;(host[i]=='*' || host[i]=='?' || host[i]=='.') && i>=0;i--) ;
-	    if(i==-1)
-		notice(s_OperServ, source, "* CLONE HOST's are not allowed!!");
+	    for(i=strlen(host)-1;i>=0;i--)
+		if(!(host[i]=='*' || host[i]=='?' || host[i]=='.'))
+		    nonchr++;
+	    if(nonchr<STARTHRESH)
+		notice(s_OperServ, source, "Must have at least %d non- *, ? or . characters.", STARTHRESH);
 	    else if(is_on_clone(host))
-		notice(s_OperServ, source, "CLONE HOST already exists (or inclusive)");
+		notice(s_OperServ, source, "CLONE already exists (or inclusive)");
 	    else if (amount<1)
 		notice(s_OperServ, source, "CLONE AMOUNT must be greater than 0");
 	    else if (amount>999)
@@ -1030,55 +1171,46 @@ static void do_clone(const char *source)
 		add_clone(host, amount, reason, source);
 		notice(s_OperServ, source, "%s added to CLONE list.", host);
 	    }
-
-	} else {
-
+	} else
 	    notice(s_OperServ, source,
 			"Syntax: CLONE ADD \37host\37 \37amount\37 \37reason\37");
-	}
-  if(services_level!=1) {
-	notice(s_OperServ, source,
+	if(services_level!=1)
+	    notice(s_OperServ, source,
 		"\2Notice:\2 Changes will not be saved!  Services is in read-only mode.");
-  }
+}
 
-    } else if (stricmp(cmd, "DEL") == 0) {
+static void do_clone_del(const char *source)
+{
+    char *host;
+    int i;
+
 	host   = strtok(NULL, " ");
 	if (host) {
 	    if (strspn(host, "1234567890") == strlen(host) &&
 					(i = atoi(host)) > 0 && i <= nclone)
 		strcpy(host, clones[i-1].host);
 	    strlower(host);
-	    if (del_clone(host)) {
+	    if (del_clone(host))
 		notice(s_OperServ, source, "%s removed from CLONE list.", host);
-	    } else {
+	    else
 		notice(s_OperServ, source, "%s not found on CLONE list.", host);
-	    }
-	} else {
+	} else
 	    notice(s_OperServ, source, "Syntax: CLONE DEL \37host\37");
-	}
-  if(services_level!=1) {
-	notice(s_OperServ, source,
+	if(services_level!=1)
+	    notice(s_OperServ, source,
 		"\2Notice:\2 Changes will not be saved!  Services is in read-only mode.");
-  }
+}
 
-    } else if (stricmp(cmd, "LIST") == 0) {
+static void do_clone_list(const char *source)
+{
+    char *host;
+    int i;
+
 	host   = strtok(NULL, " ");
 	if (host)
 	    strlower(host);
 	notice(s_OperServ, source, "Current CLONE list:");
-	for (i = 0; i < nclone; ++i) {
-	    if (!host || match_wild_nocase(host, clones[i].host)) {
-		notice(s_OperServ, source, "  %3d %-32s  [%3d] %s",
-			i+1, clones[i].host, clones[i].amount, clones[i].reason);
-	    }
-	}
-
-    } else if (stricmp(cmd, "VIEW") == 0) {
-	host   = strtok(NULL, " ");
-	if (host)
-	    strlower(host);
-	notice(s_OperServ, source, "Current CLONE list:");
-	for (i = 0; i < nclone; ++i) {
+	for (i = 0; i < nclone; ++i)
 	    if (!host || match_wild_nocase(host, clones[i].host)) {
 	    	char timebuf[32];
 	    	time_t t;
@@ -1094,14 +1226,6 @@ static void do_clone(const char *source)
 		notice(s_OperServ, source, "      [%3d] %s",
 				clones[i].amount, clones[i].reason);
 	    }
-	}
-
-    } else {
-	notice(s_OperServ, source,
-		"Syntax: \2CLONE {ADD|DEL|LIST|VIEW} [\37host\37]\2");
-	notice(s_OperServ, source,
-		"For help: \2/msg %s HELP CLONE\2", s_OperServ);
-    }
 }
 
 static int is_on_clone(char *host)
@@ -1109,11 +1233,9 @@ static int is_on_clone(char *host)
     int i;
 
     strlower(host);
-    for (i = 0; i < nclone; ++i) {
-	if (match_wild_nocase(clones[i].host, host)) {
+    for (i = 0; i < nclone; ++i)
+	if (match_wild_nocase(clones[i].host, host))
 	    return 1;
-	}
-    }
     return 0;
 }
 
@@ -1156,9 +1278,8 @@ static int del_clone(const char *host)
 	if (i < nclone)
 	    bcopy(clones+i+1, clones+i, sizeof(*clones) * (nclone-i));
 	return 1;
-    } else {
+    } else
 	return 0;
-    }
 }
 
 /* We just got a new user; does it look like a clone?  If so, kill the
@@ -1186,13 +1307,11 @@ void clones_add(const char *nick, const char *host)
 
 	strscpy(buf, host, sizeof(buf)-1);
 	strlower(buf);
-	for (i = 0; i < nclone; ++i) {
-	    if (match_wild(clones[i].host, buf)) {
+	for (i = 0; i < nclone; ++i)
+	    if (match_wild(clones[i].host, buf))
 		if (clone->amount>clones[i].amount)
 		    kill_user(s_OperServ, nick, DEF_CLONE_REASON);
 		return;
-	    }
-	}
 	if (clone->amount>CLONES_ALLOWED)
 	    kill_user(s_OperServ, nick, DEF_CLONE_REASON);
     }
@@ -1239,23 +1358,21 @@ static void do_set(const char *source)
     char *option = strtok(NULL, " ");
     char *setting = strtok(NULL, " ");
 
-    if (!option || !setting) {
+    if (!option || !setting)
 	notice(s_OperServ, source,
 			"Syntax: \2SET \37option\37 \37setting\37\2");
-    } else if (stricmp(option, "IGNORE") == 0) {
+    else if (stricmp(option, "IGNORE") == 0)
 	if (stricmp(setting, "on") == 0) {
 	    allow_ignore = 1;
 	    notice(s_OperServ, source, "Ignore code \2will\2 be used.");
 	} else if (stricmp(setting, "off") == 0) {
 	    allow_ignore = 0;
 	    notice(s_OperServ, source, "Ignore code \2will not\2 be used.");
-	} else {
+	} else
 	    notice(s_OperServ, source,
 			"Setting for \2IGNORE\2 must be \2ON\2 or \2OFF\2.");
-	}
-    } else {
+    else
 	notice(s_OperServ, source, "Unknown option \2%s\2.", option);
-    }
 }
 
 /*************************************************************************/

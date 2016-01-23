@@ -29,10 +29,9 @@ void get_channel_stats(long *nrec, long *memuse)
 	if (chan->key)
 	    mem += strlen(chan->key)+1;
 	mem += sizeof(char *) * chan->bansize;
-	for (i = 0; i < chan->bancount; i++) {
+	for (i = 0; i < chan->bancount; i++)
 	    if (chan->bans[i])
 		mem += strlen(chan->bans[i])+1;
-	}
 	for (cu = chan->users; cu; cu = cu->next)
 	    mem += sizeof(*cu);
 	for (cu = chan->chanops; cu; cu = cu->next)
@@ -48,18 +47,17 @@ void get_channel_stats(long *nrec, long *memuse)
 
 /* Send the current list of channels to the named user. */
 
-#ifdef OPERSERV
-void send_channel_list(const char *user, const char *x)
+void send_channel_list(const char *who, const char *user, const char *x)
 {
     Channel *c;
-    char s[16], buf[512], *end;
+    char s[16], buf[BUFSIZE], *end;
     struct c_userlist *u, *u2;
     int isop, isvoice;
 
     for (c = chanlist; c; c = c->next)
       if (!x || match_wild_nocase(x, c->name)) {
-	sprintf(s, " %d", c->limit);
-	notice(s_OperServ, user, "%s %lu +%s%s%s%s%s%s%s%s%s%s%s %s", c->name,
+	snprintf(s, sizeof(s), " %d", c->limit);
+	notice(who, user, "%s %lu +%s%s%s%s%s%s%s%s%s%s%s %s", c->name,
 				c->creation_time,
 				(c->mode&CMODE_I) ? "i" : "",
 				(c->mode&CMODE_M) ? "m" : "",
@@ -74,49 +72,48 @@ void send_channel_list(const char *user, const char *x)
 				(c->key)          ? c->key : "",
 				c->topic ? c->topic : "");
 	end = buf;
-	end += sprintf(end, "%s", c->name);
+	end += snprintf(end, BUFSIZE, "%s", c->name);
 	for (u = c->users; u; u = u->next) {
 	    isop = isvoice = 0;
-	    for (u2 = c->chanops; u2; u2 = u2->next) {
+	    for (u2 = c->chanops; u2; u2 = u2->next) 
 		if (u2->user == u->user) {
 		    isop = 1; break;
 		}
-	    }
-	    for (u2 = c->voices; u2; u2 = u2->next) {
+	    for (u2 = c->voices; u2; u2 = u2->next)
 		if (u2->user == u->user) {
 		    isvoice = 1; break;
 		}
-	    }
-	    end += sprintf(end, " %s%s%s", isvoice ? "+" : "",
+	    end += snprintf(end, BUFSIZE, " %s%s%s", isvoice ? "+" : "",
 					isop ? "@" : "", u->user->nick);
 	}
-	notice(s_OperServ, user, buf);
+	notice(who, user, buf);
       }
 }
 
 /* Send list of users on a single channel. */
-
-void send_channel_users(const char *user, const char *chan)
+void send_channel_users(const char *who, const char *user, const char *chan)
 {
     Channel *c = findchan(chan);
     struct c_userlist *u;
+    char buf[BUFSIZE] = "";
 
     if (!c) {
-	notice(s_OperServ, user, "Channel %s not found!",
+	notice(who, user, "Channel %s not found!",
 		chan ? chan : "(null)");
 	return;
     }
-    notice(s_OperServ, user, "Channel %s users:", chan);
+    notice(who, user, "Channel %s users:", chan);
     for (u = c->users; u; u = u->next)
-	notice(s_OperServ, user, "%s", u->user->nick);
-    notice(s_OperServ, user, "Channel %s chanops:", chan);
-    for (u = c->chanops; u; u = u->next)
-	notice(s_OperServ, user, "%s", u->user->nick);
-    notice(s_OperServ, user, "Channel %s voices:", chan);
-    for (u = c->voices; u; u = u->next)
-	notice(s_OperServ, user, "%s", u->user->nick);
+	if (strlen(buf)+strlen(u->user->nick)>=512) {
+	    notice(who, user, "%s", buf);
+	    strcpy(buf, "");
+	} else
+	    snprintf(buf, BUFSIZE, "%s %s%s", buf, is_chanop(u->user->nick, chan) ? "@" :
+				is_voiced(u->user->nick, chan) ? "+" : "",
+				u->user->nick);
+    if (buf)
+	notice(who, user, "%s", buf);
 }
-#endif
 
 /*************************************************************************/
 
@@ -223,18 +220,13 @@ void chan_deluser(User *user, Channel *c)
 	}
 	if (c->bansize)
 	    free(c->bans);
-	if (c->chanops || c->voices) {
+	if (c->chanops || c->voices)
 	    log("channel: Memory leak freeing %s: %s%s%s %s non-NULL!",
 			c->name,
 			c->chanops ? "c->chanops" : "",
 			c->chanops && c->voices ? " and " : "",
 			c->voices ? "c->voices" : "",
 			c->chanops && c->voices ? "are" : "is");
-    for (u = c->chanops; u && u->user != user; u = u->next)
-	log("Still opped: %s", u->user->nick);
-    for (u = c->voices; u && u->user != user; u = u->next)
-	log("Still voiced: %s", u->user->nick);
-	}
 	if (c->next)
 	    c->next->prev = c->prev;
 	if (c->prev)
@@ -341,9 +333,8 @@ void do_cmode(const char *source, int ac, char **av)
 		    break;
 		}
 		chan->limit = atoi(*av++);
-	    } else {
+	    } else
 		chan->limit = 0;
-	    }
 	    break;
 
 	case 'b':
@@ -375,7 +366,7 @@ void do_cmode(const char *source, int ac, char **av)
 			setlev=get_access(user, ci);
 
 		    /* Find out the level of the BANNEE (banlev) */
-		    if ((i=countusermask(chan->bans[chan->bancount-1]))>0) {
+		    if ((i=countusermask(chan->bans[chan->bancount-1]))>0)
 			while (i) {
 			    user = findusermask(chan->bans[chan->bancount-1], i);
 			    if (get_access(user, ci)>banlev) {
@@ -384,7 +375,6 @@ void do_cmode(const char *source, int ac, char **av)
 			    }
 			    i--;
 			}
-		    }
 
 		    /* Unban if the BANEE is HIGHER or EQUAL TO the BANER */
 		    if(debug)
@@ -436,10 +426,6 @@ void do_cmode(const char *source, int ac, char **av)
 		}
 		if(debug)
 		    log("debug: Setting +o on %s for %s", chan->name, nick);
-#ifdef CHANSERV
-		if (!check_valid_op(user, chan->name, !!strchr(source, '.')))
-		    break;
-#endif
 		u = smalloc(sizeof(*u));
 		u->next = chan->chanops;
 		u->prev = NULL;
@@ -447,6 +433,9 @@ void do_cmode(const char *source, int ac, char **av)
 		    chan->chanops->prev = u;
 		chan->chanops = u;
 		u->user = user;
+#ifdef CHANSERV
+		check_valid_op(user, chan->name, !!strchr(source, '.'));
+#endif
 	    } else {
 #ifdef CHANSERV
 		if (stricmp(s_ChanServ, nick)==0) do_cs_reop(chan->name);
@@ -493,23 +482,22 @@ void do_cmode(const char *source, int ac, char **av)
 		    break;
 		user = finduser(nick);
 		if (!user) {
-		    log("channe: MODE %s +v for nonexistent user %s",
+		    log("channel: MODE %s +v for nonexistent user %s",
 							chan->name, nick);
 		    break;
 		}
 		if(debug)
 		    log("debug: Setting +v on %s for %s", chan->name, nick);
 		u = smalloc(sizeof(*u));
-#ifdef CHANSERV
-		if (!check_valid_voice(user, chan->name, !!strchr(source, '.')))
-		    break;
-#endif
 		u->next = chan->voices;
 		u->prev = NULL;
 		if (chan->voices)
 		    chan->voices->prev = u;
 		chan->voices = u;
 		u->user = user;
+#ifdef CHANSERV
+		check_valid_voice(user, chan->name, !!strchr(source, '.'));
+#endif
 	    } else {
 		for (u = chan->voices; u && stricmp(u->user->nick, nick);
 								u = u->next)

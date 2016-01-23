@@ -3,7 +3,7 @@
 
 include Makefile.inc
 
-VERSION = 1.0
+VERSION = 1.1
 
 ########################## Configuration section ##########################
 
@@ -24,10 +24,7 @@ CDEFS =
 # takes.  This should be the command to copy a directory and all its
 # files to another directory.  (This is correct for Linux.)
 
-CP_ALL = cp -dpr
-
 CFLAGS = $(CDEFS) $(EXTRA_CFLAGS) -g
-LFLAGS = $(LIBS) $(EXTRA_LFLAGS)
 
 OBJS =	channels.o chanserv.o helpserv.o main.o memoserv.o misc.o \
 	nickserv.o operserv.o process.o send.o sockutil.o users.o
@@ -47,16 +44,13 @@ spotless: clean
 
 install: all
 	$(INSTALL) magick $(BINDEST)/magick
-	@if [ -x upaccess ]; then \
-		$(INSTALL) upaccess $(BINDEST)/upaccess \
-	fi
 	$(INSTALL) up
 	rm -f $(BINDEST)/listnicks $(BINDEST)/listchans
 	ln $(BINDEST)/magick $(BINDEST)/listnicks
 	ln $(BINDEST)/magick $(BINDEST)/listchans
 
 install-data:
-	$(CP_ALL) data $(DATDEST)
+	$(CP_ALL) data/* $(DATDEST)
 	@if [ "$(RUNGROUP)" ] ; then \
 		echo chgrp -R $(RUNGROUP) $(DATDEST) ; \
 		chgrp -R $(RUNGROUP) $(DATDEST) ; \
@@ -71,24 +65,10 @@ install-data:
 
 
 magick: version.h $(OBJS)
-	$(CC) $(LFLAGS) $(OBJS) -o $@
-	@echo
-	@echo '#**************************************************#'
-	@echo '# If you are upgrading from Services version 3.0.3 #'
-	@echo '# or before you will need to type "make upaccess"  #'
-	@echo '# (no quotes).  ONLY EVER DO THIS ONCE.            #'
-	@echo '#**************************************************#'
+	$(CC) $(LFLAGS) $(LIBS) $(OBJS) -o $@
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
-
-upaccess:
-	$(CC) $(CFLAGS) -o upaccess upaccess.c
-	@echo
-	@echo '#************************************************#'
-	@echo '# READ THE upaccess.c FILE BEFORE USING upaccess #'
-	@echo '# If you've upaccess'd before, DONT DO IT AGAIN! #'
-	@echo '#************************************************#'
 
 channels.o: channels.c services.h
 chanserv.o: chanserv.c cs-help.c services.h

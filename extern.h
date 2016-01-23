@@ -45,10 +45,8 @@ E const char s_DevNull[];
 E Channel *chanlist;
 
 E void get_channel_stats(long *nrec, long *memuse);
-#ifdef OPERSERV
-E void send_channel_list(const char *user, const char *s);
-E void send_channel_users(const char *user, const char *chan);
-#endif
+E void send_channel_list(const char *who, const char *user, const char *s);
+E void send_channel_users(const char *who, const char *user, const char *chan);
 E Channel *findchan(const char *chan);
 E void chan_adduser(User *user, const char *chan);
 E void chan_deluser(User *user, Channel *c);
@@ -130,6 +128,8 @@ E int got_alarm;
 E gid_t file_gid;
 E time_t start_time;
 
+E void open_log();
+E void close_log();
 E void log(const char *fmt,...);
 E void log_perror(const char *fmt,...);
 E void fatal(const char *fmt,...);
@@ -153,6 +153,7 @@ E void load_ms_dbase(void);
 E void save_ms_dbase(void);
 E void check_memos(const char *nick);
 E MemoList *find_memolist(const char *nick);
+E void del_memolist(MemoList *ml);
 # endif
 # ifdef NEWS
 E NewsList *newslists[256];
@@ -161,27 +162,39 @@ E void save_news_dbase(void);
 E void check_newss(const char *chan, const char *source);
 E void expire_news(void);
 E NewsList *find_newslist(const char *chan);
+E void del_newslist(NewsList *nl);
 # endif
 #endif
 
 /**** misc.c ****/
 
-E char *sgets2(char *buf, long size, int sock);
-E char *strscpy(char *d, const char *s, int len);
-#ifdef NEED_STRICMP
-E int stricmp(const char *s1, const char *s2);
-E int strnicmp(const char *s1, const char *s2, int len);
+#if !HAVE_SNPRINTF
+# if BAD_SNPRINTF
+#  define vsnprintf my_vsnprintf
+#  define snprintf my_snprintf
+# endif
+E int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
+E int snprintf(char *buf, size_t size, const char *fmt, ...);
 #endif
-#ifdef NEED_STRDUP
+#if !HAVE_STRICMP && !HAVE_STRCASECMP
+E int stricmp(const char *s1, const char *s2);
+E int strnicmp(const char *s1, const char *s2, size_t len);
+#endif
+#if !HAVE_STRDUP
 E char *strdup(const char *s);
 #endif
-#ifdef NEED_STRSPN
+#if !HAVE_STRSPN
 E size_t strspn(const char *s, const char *accept);
 #endif
 E char *stristr(char *s1, char *s2);
-#ifdef NEED_STRERROR
+#if !HAVE_STRERROR
 E char *strerror(int errnum);
 #endif
+#if !HAVE_STRSIGNAL
+char *strsignal(int signum);
+#endif
+E char *sgets2(char *buf, long size, int sock);
+E char *strscpy(char *d, const char *s, size_t len);
 E void *smalloc(long size);
 E void *scalloc(long elsize, long els);
 E void *srealloc(void *oldptr, long newsize);
@@ -194,6 +207,11 @@ E char *strupper(char *s);
 E char *strlower(char *s);
 E char *read_string(FILE *f, const char *filename);
 E char *write_string(const char *s, FILE *f, const char *filename);
+E Hash *get_hash(const char *source, const char *cmd, Hash *hash_table);
+E Hash_NI *get_ni_hash(const char *source, const char *cmd, Hash_NI *hash_table);
+E Hash_CI *get_ci_hash(const char *source, const char *cmd, Hash_CI *hash_table);
+E Hash_HELP *get_help_hash(const char *source, const char *cmd, Hash_HELP *hash_table);
+E Hash_CHAN *get_chan_hash(const char *source, const char *cmd, Hash_CHAN *hash_table);
 
 
 /**** nickserv.c ****/
@@ -245,6 +263,9 @@ E void clone_del(const char *host);
 
 E int allow_ignore;
 E IgnoreData *ignore[];
+E Servers *servlist;
+E int servcnt;
+E int serv_size;
 
 E void add_ignore(const char *nick, time_t delta);
 E IgnoreData *get_ignore(const char *nick);
@@ -257,10 +278,8 @@ E void process(void);
 E void send_cmd(const char *source, const char *fmt, ...);
 E void vsend_cmd(const char *source, const char *fmt, va_list args);
 E void wallops(const char *whoami, const char *fmt, ...);
-E void globops(const char *whoami, const char *fmt, ...);
 E void notice(const char *source, const char *dest, const char *fmt, ...);
 E void notice_list(const char *source, const char *dest, const char **text);
-E void privmsg(const char *source, const char *dest, const char *fmt, ...);
 
 
 /**** sockutil.c ****/
@@ -278,9 +297,7 @@ E void disconn(int s);
 E int usercnt, opcnt, maxusercnt;
 E User *userlist;
 
-#ifdef OPERSERV
-E void send_user_list(const char *user, const char *s);
-#endif
+E void send_user_list(const char *who, const char *user, const char *s);
 E void get_user_stats(long *nusers, long *memuse);
 E User *finduser(const char *nick);
 E User *findusermask(const char *mask, int matchno);

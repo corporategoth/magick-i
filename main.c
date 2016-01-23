@@ -60,6 +60,9 @@ int save_data = 0;
 /* At what time were we started? */
 time_t start_time;
 
+/* Is the log open? */
+int openlog = 0;
+
 #ifdef OPERSERV
 int mode = 1; /* ON by default! */
 
@@ -107,25 +110,25 @@ static void sighandler(int signum)
 		inbuf[447] = '>';
 		inbuf[448] = 0;
 	    }
-	    globops(NULL, "PANIC! buffer = %s\r\n", inbuf);
+	    wallops(NULL, "PANIC! buffer = %s\r\n", inbuf);
 	} else if (waiting < 0) {
 	    if (waiting == -1) {
-		log("PANIC! in timed_update");
-		globops(NULL, "PANIC! in timed_update");
+		log("PANIC! in timed_update (%s)", strsignal(signum));
+		wallops(NULL, "PANIC! in timed_update (%s)", strsignal(signum));
 	    } else {
-		log("PANIC! waiting=%d", waiting);
-		globops(NULL, "PANIC! waiting=%d", waiting);
+		log("PANIC! waiting=%d (%s)", waiting, strsignal(signum));
+		wallops(NULL, "PANIC! waiting=%d (%s)", waiting, strsignal(signum));
 	    }
 	}
     }
-    if (signum == SIGUSR1 || !(quitmsg = malloc(256))) {
+    if (signum == SIGUSR1 || !(quitmsg = malloc(BUFSIZE))) {
 	quitmsg = "Out of memory!";
 	quitting = 1;
     } else {
 #if HAVE_STRSIGNAL
-	sprintf(quitmsg, "Magick terminating: %s", strsignal(signum));
+	snprintf(quitmsg, BUFSIZE, "Magick terminating: %s", strsignal(signum));
 #else
-	sprintf(quitmsg, "Magick terminating on signal %d", signum);
+	snprintf(quitmsg, BUFSIZE, "Magick terminating on signal %d", signum);
 #endif
 	quitting = 1;
     }
@@ -152,10 +155,12 @@ void log(const char *fmt,...)
     time(&t);
     tm = *localtime(&t);
     strftime(buf, sizeof(buf)-1, "[%b %d %H:%M:%S %Y] ", &tm);
-    fputs(buf, stderr);
-    vfprintf(stderr, fmt, args);
-    fputc('\n', stderr);
-    fflush(stderr);
+    if (openlog) {
+	fputs(buf, stderr);
+	vfprintf(stderr, fmt, args);
+	fputc('\n', stderr);
+	fflush(stderr);
+    }
 }
 
 /* Like log(), but tack a ": " and a system error message (as returned by
@@ -173,10 +178,12 @@ void log_perror(const char *fmt,...)
     time(&t);
     tm = *localtime(&t);
     strftime(buf, sizeof(buf)-1, "[%b %d %H:%M:%S %Y] ", &tm);
-    fputs(buf, stderr);
-    vfprintf(stderr, fmt, args);
-    fprintf(stderr, ": %s\n", strerror(errno));
-    fflush(stderr);
+    if (openlog) {
+	fputs(buf, stderr);
+	vfprintf(stderr, fmt, args);
+	fprintf(stderr, ": %s\n", strerror(errno));
+	fflush(stderr);
+    }
 }
 
 /*************************************************************************/
@@ -196,11 +203,13 @@ void fatal(const char *fmt,...)
     time(&t);
     tm = *localtime(&t);
     strftime(buf, sizeof(buf)-1, "[%b %d %H:%M:%S %Y]", &tm);
-    vsprintf(buf2, fmt, args);
-    fprintf(stderr, "%s FATAL: %s\n", buf, buf2);
-    fflush(stderr);
+    vsnprintf(buf2, sizeof(buf2), fmt, args);
+    if (openlog) {
+	fprintf(stderr, "%s FATAL: %s\n", buf, buf2);
+	fflush(stderr);
+    }
     if (servsock >= 0)
-	globops(NULL, "FATAL ERROR!  %s", buf2);
+	wallops(NULL, "FATAL ERROR!  %s", buf2);
     exit(1);
 }
 
@@ -218,11 +227,13 @@ void fatal_perror(const char *fmt,...)
     time(&t);
     tm = *localtime(&t);
     strftime(buf, sizeof(buf)-1, "[%b %d %H:%M:%S %Y]", &tm);
-    vsprintf(buf2, fmt, args);
-    fprintf(stderr, "%s FATAL: %s: %s\n", buf, buf2, strerror(errno));
-    fflush(stderr);
+    vsnprintf(buf2, sizeof(buf2), fmt, args);
+    if (openlog) {
+	fprintf(stderr, "%s FATAL: %s: %s\n", buf, buf2, strerror(errno));
+	fflush(stderr);
+    }
     if (servsock >= 0)
-	globops(NULL, "FATAL ERROR!  %s", buf2);
+	wallops(NULL, "FATAL ERROR!  %s", buf2);
     exit(1);
 }
 
@@ -355,42 +366,36 @@ static void check_introduce(const char *nick, const char *name)
     
     if (!(u = finduser(nick)))
 	NICK(nick, name);
-    else {
+    else
 #ifdef WIERD_COLLIDE
 	if (u->signon < offset-services_level)
 #else
 	if (u->signon > offset-services_level)
 #endif
 	    NICK(nick, name);
-    }
 }
 
 void introduce_user(const char *user)
 {
 #ifdef NICKSERV
-    if (!user || stricmp(user, s_NickServ) == 0) {
+    if (!user || stricmp(user, s_NickServ) == 0)
 	check_introduce(s_NickServ, "Nickname Server");
-    }
 #endif
 #ifdef CHANSERV
-    if (!user || stricmp(user, s_ChanServ) == 0) {
+    if (!user || stricmp(user, s_ChanServ) == 0)
 	check_introduce(s_ChanServ, "Channel Server");
-    }
 #endif
 #ifdef HELPSERV
-    if (!user || stricmp(user, s_HelpServ) == 0) {
+    if (!user || stricmp(user, s_HelpServ) == 0)
 	check_introduce(s_HelpServ, "Help Server");
-    }
 #endif
 #ifdef IRCIIHELP
-    if (!user || stricmp(user, s_IrcIIHelp) == 0) {
+    if (!user || stricmp(user, s_IrcIIHelp) == 0)
 	check_introduce(s_IrcIIHelp, "ircII Help Server");
-    }
 #endif
 #ifdef MEMOSERV
-    if (!user || stricmp(user, s_MemoServ) == 0) {
+    if (!user || stricmp(user, s_MemoServ) == 0)
 	check_introduce(s_MemoServ, "Memo Server");
-    }
 #endif
 #ifdef DEVNULL
     if (!user || stricmp(user, s_DevNull) == 0) {
@@ -440,13 +445,13 @@ void reset_dbases()
     int i, j;
 
     userlist = NULL;
+    usercnt = opcnt = 0;
     chanlist = NULL;
-#ifdef CLONES
-    clonelist = NULL;
-    clones = NULL;
-    nclone = 0;
-    clone_size = 0;
-#endif
+    servlist = NULL;
+    servcnt = 0;
+    serv_size = 0;
+    for (j = 33; j < 256; ++j)
+	ignore[j] = NULL;
 #ifdef NICKSERV
     for (j = 33; j < 256; ++j) {
 	ni = nicklists[j];
@@ -503,8 +508,8 @@ void reset_dbases()
 		free(ci->access);
 	    for (i = 0; i < ci->akickcount; ++i) {
 		free(ci->akick[i].name);
-		    if (ci->akick[i].reason)
-			free(ci->akick[i].reason);
+		if (ci->akick[i].reason)
+		    free(ci->akick[i].reason);
 	    }
 	    if (ci->akick)
 		free(ci->akick);
@@ -519,38 +524,46 @@ void reset_dbases()
 	chanlists[j] = NULL;
     }
 #endif
+    if (services_level==1) {
 #ifdef MEMOS
-    for (j = 33; j < 256; ++j) {
-	ml = memolists[j];
-	while (ml) {
-	    free(ml->memos);
-	    mln = ml->next;
-	    free(ml);
-	    ml = mln;
-	    if (mln)
-		free(mln);
+	for (j = 33; j < 256; ++j) {
+	    ml = memolists[j];
+	    while (ml) {
+		free(ml->memos);
+		mln = ml->next;
+		free(ml);
+		ml = mln;
+		if (mln)
+		    free(mln);
+	    }
+	    memolists[j] = NULL;
 	}
-	memolists[j] = NULL;
-    }
 #endif
 #ifdef NEWS
-    for (j = 33; j < 256; ++j) {
-	nl = newslists[j];
-	while (nl) {
-	    free(nl->newss);
-	    nln = nl->next;
-	    free(nl);
-	    nl = nln;
-	    if (nln)
-		free(nln);
+	for (j = 33; j < 256; ++j) {
+	    nl = newslists[j];
+	    while (nl) {
+		free(nl->newss);
+		nln = nl->next;
+		free(nl);
+		nl = nln;
+		if (nln)
+		    free(nln);
+	    }
+	    newslists[j] = NULL;
 	}
-	newslists[j] = NULL;
-    }
 #endif
+    }
 #ifdef AKILL
     akills = NULL;
     nakill = 0;
     akill_size = 0;
+#endif
+#ifdef CLONES
+    clonelist = NULL;
+    clones = NULL;
+    nclone = 0;
+    clone_size = 0;
 #endif
 }
 
@@ -560,6 +573,23 @@ void reset_dbases()
 void remove_pidfile()
 {
     remove(PID_FILE);
+}
+void open_log()
+{
+    /* Redirect stderr to logfile. */
+    if (!openlog)
+	if (freopen(log_filename, "a", stderr))
+	    openlog = 1;
+	else
+	    log("Cannot open %s, no logging output used.", log_filename);
+    else
+	log("Tried to open log, but already open!");
+}
+void close_log()
+{
+    if (openlog)
+	fclose(stderr);
+    openlog = 0;
 }
 
 /*************************************************************************/
@@ -695,9 +725,8 @@ are given, detailed information about those nicks is displayed.\n\
 	if (ac > 1) {
 	    for (i = 1; i < ac; ++i)
 		listnicks(0, av[i]);
-	} else {
+	} else
 	    listnicks(count, NULL);
-	}
 	return 0;
 
 #endif
@@ -757,9 +786,8 @@ are given, detailed information about those channels is displayed.\n\
 	if (ac > 1) {
 	    for (i = 1; i < ac; ++i)
 		listchans(0, av[i]);
-	} else {
+	} else
 	    listchans(count, NULL);
-	}
 	return 0;
 
 #endif
@@ -825,9 +853,9 @@ are given, detailed information about those channels is displayed.\n\
 		    break;
 		}
 		time_zone = av[i];
-	    } else if (strcmp(s, "debug") == 0) {
+	    } else if (strcmp(s, "debug") == 0)
 		debug = 1;
-	    } else if (strcmp(s, "relink") == 0) {
+	    else if (strcmp(s, "relink") == 0) {
 		if (++i >= ac) {
 		    log("-relink requires a parameter");
 		    break;
@@ -847,9 +875,9 @@ are given, detailed information about those channels is displayed.\n\
 		    break;
 		}
 		services_level = atoi(av[i]);
-	    } else if (strcmp(s, "norelink") == 0) {
+	    } else if (strcmp(s, "norelink") == 0)
 		server_relink = -1;
-	    } else if (strcmp(s, "update") == 0) {
+	    else if (strcmp(s, "update") == 0) {
 		if (++i >= ac) {
 		    log("-update requires a parameter");
 		    break;
@@ -859,39 +887,30 @@ are given, detailed information about those channels is displayed.\n\
 		    log("-update: number of seconds must be positive");
 		else
 		    update_timeout = (atoi(s));
-	    } else {
+	    } else
 		log("Unknown option -%s", s);
-	    }
-	} else {
+	} else
 	    log("Non-option arguments not allowed");
-	}
     }
 #ifndef WIERD_COLLIDE
     offset = services_level * 2;
 #endif
 
-    /* Redirect stderr to logfile. */
-
-    if (!freopen(log_filename, "a", stderr)) {
-	perror(log_filename);
-	return 20;
-    }
+    open_log();
 
 #ifdef RUNGROUP
     if (errmsg)
 	log("%s: %s", errmsg, RUNGROUP);
 #endif
 
-
     /* Detach ourselves */
-
     if ((i = fork()) < 0) {
 	log_perror("fork()");
 	return 1;
     } else if (i != 0)
 	return 0;
-    if (setpgrp(0, 0) < 0) {
-	log_perror("setpgrp()");
+    if (setpgid(0, 0) < 0) {
+	log_perror("setpgid()");
 	return 1;
     }
 
@@ -901,18 +920,14 @@ are given, detailed information about those channels is displayed.\n\
     if (pidfile) {
     	fprintf(pidfile, "%d\n", getpid());
     	fclose(pidfile);
-/*    	atexit(remove_pidfile); */
-    } else {
+    } else
     	log_perror("Warning: cannot write to PID file %s", PID_FILE);
-    }
 
 
     log("Services starting up");
     start_time = time(NULL);
 
-
     /* Set signal handlers */
-
     signal(SIGINT, sighandler);
     signal(SIGTERM, sighandler);
     signal(SIGPIPE, SIG_IGN);		/* We don't care about broken pipes */
@@ -932,7 +947,6 @@ are given, detailed information about those channels is displayed.\n\
     signal(SIGTTIN, SIG_IGN);
     signal(SIGTTOU, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
-
     signal(SIGUSR1, sighandler);	/* This is our "out-of-memory" panic switch */
 
 
@@ -944,12 +958,14 @@ are given, detailed information about those channels is displayed.\n\
 #ifdef CHANSERV
     load_cs_dbase();
 #endif
+if (services_level==1) {
 #ifdef MEMOS
     load_ms_dbase();
 #endif
 #ifdef NEWS
     load_news_dbase();
 #endif
+}
 #ifdef AKILL
     load_akill();
 #endif
@@ -957,9 +973,7 @@ are given, detailed information about those channels is displayed.\n\
     load_clone();
 #endif
 
-
     /* Connect to the remote server */
-
     servsock = conn(remote_server, remote_port);
     if (servsock < 0) {
 	log_perror("Can't connect to server");
@@ -976,9 +990,7 @@ are given, detailed information about those channels is displayed.\n\
     /* Bring in our pseudo-clients. */
     introduce_user(NULL);
 
-
     /*** Main loop. ***/
-
     /* We have a line left over from earlier, so process it first. */
     process();
 
@@ -1003,7 +1015,8 @@ are given, detailed information about those channels is displayed.\n\
 	    expire_chans();
 #endif
 #if defined(NEWS) && NEWS_EXPIRE > 0
-	    expire_news();
+	    if (services_level==1)
+		expire_news();
 #endif
 #if defined(AKILL) && AKILL_EXPIRE > 0
 	    expire_akill();
@@ -1018,12 +1031,14 @@ are given, detailed information about those channels is displayed.\n\
 #ifdef CHANSERV
 	    save_cs_dbase();
 #endif
+	    if (services_level==1) {
 #ifdef MEMOS
-	    save_ms_dbase();
+		save_ms_dbase();
 #endif
 #ifdef NEWS
-	    save_news_dbase();
+		save_news_dbase();
 #endif
+	    }
 #ifdef AKILL
 	    save_akill();
 #endif
@@ -1047,11 +1062,11 @@ are given, detailed information about those channels is displayed.\n\
 	waiting = 1;
 	i = (int)sgets2(inbuf, sizeof(inbuf), servsock);
 	waiting = 0;
-	if (i > 0) {
+	if (i > 0)
 	    process();
-	} else if (i == 0) {
-	    if (quitmsg = malloc(512))
-		sprintf(quitmsg, "Read error from server: %s", strerror(errno));
+	else if (i == 0) {
+	    if (quitmsg = malloc(BUFSIZE))
+		snprintf(quitmsg, BUFSIZE, "Read error from server: %s", strerror(errno));
 	    else
 		quitmsg = "Read error from server";
 	    quitting = 1;
@@ -1059,9 +1074,7 @@ are given, detailed information about those channels is displayed.\n\
 	waiting = -4;
     }
 
-
     /* Disconnect and exit */
-
     if (!quitmsg)
 	quitmsg = "Terminating, reason unknown";
     log("%s", quitmsg);
@@ -1070,6 +1083,7 @@ are given, detailed information about those channels is displayed.\n\
 restart:
     disconn(servsock);
     reset_dbases();
+    close_log();
 
     if (server_relink > 0)
 	sleep(server_relink);

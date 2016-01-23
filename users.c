@@ -1,4 +1,4 @@
-/* Routines to maintain a list of online users.
+/*
  *
  * Magick is copyright (c) 1996-1997 Preston A. Elder.
  *     E-mail: <prez@antisocial.com>   IRC: PreZ@DarkerNet
@@ -134,17 +134,16 @@ void get_user_stats(long *nusers, long *memuse)
 
 /* Send the current list of users to the named user. */
 
-#ifdef OPERSERV
-void send_user_list(const char *source, const char *x)
+void send_user_list(const char *who, const char *source, const char *x)
 {
     User *u;
 
     for (u = userlist; u; u = u->next)
       if (!x || match_wild_nocase(x, u->nick)) {
-	char buf[1024], *s;
+	char buf[BUFSIZE], *s;
 	struct u_chanlist *c;
 	struct u_chaninfolist *ci;
-	notice(s_OperServ, source, "%s!%s@%s +%s%s%s%s%s %ld %s :%s",
+	notice(who, source, "%s!%s@%s +%s%s%s%s%s %ld %s :%s",
 		u->nick, u->username, u->host,
 		(u->mode&UMODE_G)?"g":"", (u->mode&UMODE_I)?"i":"",
 		(u->mode&UMODE_O)?"o":"", (u->mode&UMODE_S)?"s":"",
@@ -152,18 +151,17 @@ void send_user_list(const char *source, const char *x)
 	buf[0] = 0;
 	s = buf;
 	for (c = u->chans; c; c = c->next)
-	    s += sprintf(s, " %s", c->chan->name);
-	notice(s_OperServ, source, "%s%s", u->nick, buf);
+	    s += snprintf(s, sizeof(c->chan->name)+2, " %s", c->chan->name);
+	notice(who, source, "%s%s", u->nick, buf);
 #ifdef CHANSERV
 	buf[0] = 0;
 	s = buf;
 	for (ci = u->founder_chans; ci; ci = ci->next)
-	    s += sprintf(s, " %s", ci->chan->name);
+	    s += snprintf(s, sizeof(ci->chan->name)+2, " %s", ci->chan->name);
+	notice(who, source, "%s%s", u->nick, buf);
 #endif
-	notice(s_OperServ, source, "%s%s", u->nick, buf);
       }
 }
-#endif
 
 /*************************************************************************/
 
@@ -268,7 +266,7 @@ void do_nick(const char *source, int ac, char **av)
 
 #ifdef GLOBALNOTICER
 	/* Send global message to user when they log on */
-	if (!is_services_nick(av[0])) {
+	if (!is_services_nick(av[0]))
 	    if (f = fopen(LOGON_MSG, "r")) {
 		while (fgets(buf, sizeof(buf), f)) {
 		    buf[strlen(buf)-1] = 0;
@@ -276,7 +274,6 @@ void do_nick(const char *source, int ac, char **av)
 		}
 		fclose(f);
 	    }
-	}
 #endif
 
     } else {
@@ -307,7 +304,8 @@ void do_nick(const char *source, int ac, char **av)
 #ifdef MEMOS
     if (!is_services_nick(av[0]))
 	if (validate_user(user))
-	    check_memos(user->nick);
+	    if (services_level==1)
+		check_memos(user->nick);
 #endif
 }
 
@@ -350,7 +348,8 @@ void do_join(const char *source, int ac, char **av)
 	c->chan = findchan(s);
     }
 #ifdef NEWS
-    check_newss(av[0], source);
+    if (services_level==1)
+	check_newss(av[0], source);
 #endif
 }
 
@@ -407,6 +406,7 @@ void do_kick(const char *source, int ac, char **av)
     User *user;
     char *s, *t;
     struct u_chanlist *c;
+
 #ifdef CHANSERV
     if (stricmp(s_ChanServ, av[1])==0) do_cs_join(av[0]);
 #endif
@@ -438,6 +438,11 @@ void do_kick(const char *source, int ac, char **av)
 	    free(c);
 	}
     }
+    if (!source) {
+	log("user: KICK by nonexistent user %s on %s: %s", source, av[0],
+						merge_args(ac-2, av+2));
+	return;
+    }
 #ifdef CHANSERV
     do_cs_revenge(av[0], source, av[1], CR_KICK);
 #endif
@@ -464,7 +469,7 @@ void do_umode(const char *source, int ac, char **av)
 
     if (stricmp(source, av[0]) != 0 && !is_services_nick(source)) {
 	log("user: MODE %s %s from different nick %s!", av[0], av[1], source);
-	globops(NULL, "%s attempted to change mode %s for %s", source, av[1], av[0]);
+	wallops(NULL, "%s attempted to change mode %s for %s", source, av[1], av[0]);
 	return;
     }
     user = finduser(av[0]);
@@ -625,10 +630,9 @@ int is_on_chan(const char *nick, const char *chan)
 
     if (!u)
 	return 0;
-    for (c = u->chans; c; c = c->next) {
+    for (c = u->chans; c; c = c->next)
 	if (stricmp(c->chan->name, chan) == 0)
 	    return 1;
-    }
     return 0;
 }
 
@@ -643,10 +647,9 @@ int is_chanop(const char *nick, const char *chan)
 
     if (!c)
 	return 0;
-    for (u = c->chanops; u; u = u->next) {
+    for (u = c->chanops; u; u = u->next)
 	if (stricmp(u->user->nick, nick) == 0)
 	    return 1;
-    }
     return 0;
 }
 
@@ -661,10 +664,9 @@ int is_voiced(const char *nick, const char *chan)
 
     if (!c)
 	return 0;
-    for (u = c->voices; u; u = u->next) {
+    for (u = c->voices; u; u = u->next)
 	if (stricmp(u->user->nick, nick) == 0)
 	    return 1;
-    }
     return 0;
 }
 
@@ -760,7 +762,7 @@ char *create_mask(User *u)
     char *mask, *s, *end;
 
     end = mask = smalloc(strlen(u->username) + strlen(u->host) + 2);
-    end += sprintf(end, "*%s@", u->username);
+    end += snprintf(end, sizeof(end), "*%s@", u->username);
     if (strspn(u->host, "0123456789.") == strlen(u->host)) {	/* IP addr */
 	s = sstrdup(u->host);
 	*strrchr(s, '.') = 0;
@@ -768,15 +770,14 @@ char *create_mask(User *u)
 	    *strrchr(s, '.') = 0;
 	if (atoi(u->host) < 128)
 	    *strrchr(s, '.') = 0;
-	sprintf(end, "%s.*", s);
+	snprintf(end, sizeof(end), "%s.*", s);
 	free(s);
     } else {
 	if ((s = strchr(u->host, '.')) && strchr(s+1, '.')) {
 	    s = sstrdup(strchr(u->host, '.')-1);
 	    *s = '*';
-	} else {
+	} else
 	    s = sstrdup(u->host);
-	}
 	strcpy(end, s);
 	free(s);
     }

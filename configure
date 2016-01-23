@@ -1,42 +1,103 @@
 #!/bin/sh
 #
-# Configuration script for Magick.
+# Configuration script for Services.
 
 ###########################################################################
 
-# How can we echo something without going to the next line?
+# Nifty handy functions.
 
-ECHO2SUF=''
-if [ "`echo -n a ; echo b`" = "ab" ] ; then
-	ECHO2='echo -n'
-elif [ "`echo 'a\c' ; echo 'b'`" = "ab" ] ; then
-	ECHO2='echo' ; ECHO2SUF='\c'
-elif [ "`printf 'a' 2>&1 ; printf 'b\n' 2>&1`" = "ab" ] ; then
-	ECHO2='printf "%s"'
-else
-	# oh well...
-	ECHO2='echo'
-fi
+echo2 () {
+	$ECHO2 "$*$ECHO2SUF"	# these are defined later
+}
 
+log () {
+	echo >&3 "$MODE: $*"
+}
+
+run () {
+	echo >&3 "$MODE: >>> $*"
+	$* >&3 2>&3 </dev/null
+}
+
+exists () {			# because some shells don't have test -e
+	if [ -f $1 -o -d $1 -o -h $1 -o -p $1 -o -c $1 -o -b $1 ] ; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+###########################################################################
+
+# Test for the presence of a given include file or function.  If the
+# variable TEST is non-empty, it contains code to be placed at the end of
+# main(), and should return 0 if everything is okay, else 1.
+#
+# For includes: Pass the include filename as an argument.  The variable
+# HAVE_include_name, where "include_name" is the name of the include file
+# with letters uppercased and non-alphanumerics replaced by underscores, is
+# set to 1 if the include file is present, else 0.
+#
+# For functions: Pass the return type, function name, and prototype as
+# arguments.  The variable HAVE_function, where "function" is the name
+# of the function with letters uppercased, is set to 1 if the function is
+# available, else 0.
+#
+# For both: The result code of the function will be 0 (true) if the entity
+# is present, else 1 (false).
+
+test_include () {
+	return 1
+}
+
+test_function () {
+	rettype="$1"
+	func="$2"
+	proto="$3"
+	if [ ! "$rettype" -o ! "$func" ] ; then
+		log "test_function: missing parameter(s)"
+		return 1
+	fi
+	if [ ! "$proto" ] ; then
+		proto="(...)"
+	fi
+	func2=`echo $func | tr '[a-z]' '[A-Z]'`
+	if [ ! "$TEST" ] ; then
+		TEST="return 0;"
+	fi
+	cat >tmp/test.c <<EOT
+	extern $rettype $func$proto;
+	int main() {
+		$TEST
+	}
+EOT
+	rm -f tmp/test
+	if run $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test && run tmp/test ; then
+		eval "HAVE_${func2}=1"
+		log "found $func"
+		return 0
+	else
+		eval "HAVE_${func2}=0"
+		log "didn't find $func"
+		return 1
+	fi
+}
+
+###########################################################################
 ###########################################################################
 
 # Create a temporary directory for our use.
 
-if [ ! -d tmp ] ; then
-	if mkdir tmp ; then
-		$ECHO2 "$ECHO2SUF"
-	else
-		res=$?
-		echo "Failed to create temporary directory!  Exiting."
-		exit $res
-	fi
+if [ -d tmp ] ; then
+	rm -rf tmp
 fi
-if chmod u+rwx tmp ; then
-	$ECHO2 "$ECHO2SUF"
-else
-	res=$?
+if mkdir tmp ; then : ; else
+	echo "Failed to create temporary directory!  Exiting."
+	exit 2
+fi
+if chmod u+rwx tmp ; then : ; else
 	echo "Cannot write to temporary directory!  Exiting."
-	exit $res
+	exit 2
 fi
 
 ###########################################################################
@@ -53,6 +114,7 @@ IRCTYPE_DEF=
 DALSERV=n
 
 INSTALL=
+CP_ALL=
 
 CC=
 CC_FLAGS=bonkle
@@ -61,11 +123,31 @@ CC_LIBS=bonkle
 HAVE_STRERROR=
 HAVE_SYS_ERRLIST=0
 
+HAVE_SNPRINTF=
+BAD_SNPRINTF=
 HAVE_STRICMP=
+HAVE_STRCASECMP=
 HAVE_STRDUP=
 HAVE_STRSPN=
 HAVE_STRSIGNAL=
 MISSING=bonkle
+
+###########################################################################
+
+# How can we echo something without going to the next line?
+
+ECHO2SUF=''
+if [ "`echo -n a ; echo b`" = "ab" ] ; then
+	ECHO2='echo -n'
+elif [ "`echo 'a\c' ; echo 'b'`" = "ab" ] ; then
+	ECHO2='echo' ; ECHO2SUF='\c'
+elif [ "`printf 'a' 2>&1 ; printf 'b\n' 2>&1`" = "ab" ] ; then
+	ECHO2='printf "%s"'
+else
+	# oh well...
+	ECHO2='echo'
+fi
+export ECHO2 ECHO2SUF
 
 ###########################################################################
 
@@ -103,7 +185,7 @@ Available options:
 	-lflags		Specify link flags for C compiler (default: none)
 	-libs		Specify extra link libraries to use (default: none)
 EOT
-		exit 2
+		exit 1
 	fi
 	shift
 done
@@ -111,7 +193,7 @@ done
 ###########################################################################
 
 echo ""
-echo "Beginning Magick configuration."
+echo "Beginning Services configuration."
 echo ""
 
 ###########################################################################
@@ -120,13 +202,22 @@ echo ""
 # don't use it (-ignore-cache), or let the user know how to not use it and
 # then use it.
 
-if [ -f config.cache -a ! "$IGNORE_CACHE" ] ; then
+if [ -f config.cache -a -r config.cache -a ! "$IGNORE_CACHE" ] ; then
 	cat <<EOT
 Using defaults from config.cache.  To ignore, either remove config.cache or
 give the command-line option "-ignore-cache".
 
 EOT
 	. config.cache
+	if [ ! "$HAVE_SNPRINTF" \
+			-o ! "$BAD_SNPRINTF" \
+			-o ! "$HAVE_STRICMP" \
+			-o ! "$HAVE_STRCASECMP" \
+			-o ! "$HAVE_STRDUP" \
+			-o ! "$HAVE_STRSPN" \
+			-o ! "$HAVE_STRSIGNAL" ] ; then
+		MISSING=bonkle
+	fi
 fi
 
 ###########################################################################
@@ -141,17 +232,17 @@ ok=0
 echo "In what directory do you want the binaries to be installed?"
 echo "Press Return for the default, or enter a new value."
 while [ $ok -eq 0 ] ; do
-	$ECHO2 "[$BINDEST] $ECHO2SUF"
-	read INPUT
+	echo2 "[$BINDEST] "
+	if read INPUT ; then : ; else echo "" ; exit 1 ; fi
 	if [ ! "$INPUT" ] ; then
 		INPUT=$BINDEST
 	fi
 	if [ ! -d "$INPUT" ] ; then
-		if [ -e "$INPUT" ] ; then
+		if exists "$INPUT" ; then
 			echo "$INPUT exists, but is not a directory!"
 		else
 			echo "$INPUT does not exist.  Create it?"
-			$ECHO2 "[y] $ECHO2SUF"
+			echo2 "[y] "
 			read YN
 			if [ "$YN" != "n" ] ; then
 				if mkdir $INPUT ; then
@@ -171,17 +262,17 @@ echo ""
 ok=0
 echo "Where do you want the data files to be installed?"
 while [ $ok -eq 0 ] ; do
-	$ECHO2 "[$DATDEST] $ECHO2SUF"
-	read INPUT
+	echo2 "[$DATDEST] "
+	if read INPUT ; then : ; else echo "" ; exit 1 ; fi
 	if [ ! "$INPUT" ] ; then
 		INPUT=$DATDEST
 	fi
 	if [ ! -d "$INPUT" ] ; then
-		if [ -e "$INPUT" ] ; then
+		if exists "$INPUT" ; then
 			echo "$INPUT exists, but is not a directory!"
 		else
 			echo "$INPUT does not exist.  Create it?"
-			$ECHO2 "[y] $ECHO2SUF"
+			echo2 "[y] "
 			read YN
 			if [ "$YN" != "n" ] ; then
 				if mkdir $INPUT ; then
@@ -199,11 +290,11 @@ echo ""
 ####
 
 OLD_RUNGROUP="$RUNGROUP"
-echo "Which group should all Magick data files be owned by?  (If Magick"
+echo "Which group should all Services data files be owned by?  (If Services"
 echo "should not force files to be owned by a particular group, just press"
 echo "Return.)"
-$ECHO2 "[$RUNGROUP] $ECHO2SUF"
-read INPUT
+echo2 "[$RUNGROUP] "
+if read INPUT ; then : ; else echo "" ; exit 1 ; fi
 if [ "$INPUT" ] ; then
 	RUNGROUP=`echo $INPUT`
 fi
@@ -223,8 +314,8 @@ ok=0
 echo "What should the default umask for data files be (in octal)?"
 echo "(077 = only accessible by owner; 007 = accessible by owner and group)"
 while [ $ok -eq 0 ] ; do
-	$ECHO2 "[$UMASK] $ECHO2SUF"
-	read INPUT
+	echo2 "[$UMASK] "
+	if read INPUT ; then : ; else echo "" ; exit 1 ; fi
 	if [ ! "$INPUT" ] ; then
 		INPUT=$UMASK
 	fi
@@ -245,22 +336,19 @@ echo ""
 ok=0
 echo "Which of the following is closest to the type of server on your IRC"
 echo "network?"
-echo "    1) Base irc2 distribution"
+echo "    1) Base irc2 distribution (RFC 1459 compatible--but see README)"
 echo "    2) irc2 with TS8 protocol"
 echo "    3) Undernet (ircu)"
-echo "    4) DALnet (ircd.dal)"
-echo "If you're uncertain which of the above applies to your server, try 1 or 2"
-echo "and see if Magick functions correctly.  If not, please send a copy of"
-echo "services.log generated with "\`"magick -debug' to prez@antisocial.com."
+echo "    4) DALnet (ircd.dal) prior to 4.4.15"
 while [ $ok -eq 0 ] ; do
-	$ECHO2 "[$IRCTYPE] $ECHO2SUF"
-	read INPUT
+	echo2 "[$IRCTYPE] "
+	if read INPUT ; then : ; else echo "" ; exit 1 ; fi
 	if [ ! "$INPUT" ] ; then
 		INPUT=$IRCTYPE
 	fi
 	case $INPUT in
 		no\ default)
-			echo "You must specify your IRC server type in order for Magick to function"
+			echo "You must specify your IRC server type in order for Services to function"
 			echo "correctly."
 			;;
 		1)
@@ -295,7 +383,7 @@ while [ $ok -eq 0 ] ; do
 			ok=1
 			;;
 		*)
-			echo "Please enter a number from 1 to 4."
+			echo "Please enter a number from 1 to 5."
 			;;
 	esac
 done
@@ -309,29 +397,46 @@ echo ""
 
 ###########################################################################
 
+# Set up log file for automated tests, so we have a clue what's going on if
+# something dies.
+
+exec 3>configure.log
+
+MODE="                "
+TEST=""
+export MODE TEST
+
+###########################################################################
+
 # Search for a compiler.
 
-$ECHO2 "Searching for a suitable compiler... $ECHO2SUF"
+MODE="find_cc         "
+echo2 "Searching for a suitable compiler... "
 if [ "$USER_CC" ] ; then
 	CC="$USER_CC"
 	echo "(supplied) using $CC."
+	log user supplied \`"$USER_CC'"
 elif [ "$CC" ] ; then
 	echo "(cached) using $CC."
-elif gcc --version >/dev/null 2>&1 ; then
+	log cache supplied \`"$CC'"
+elif run gcc --version ; then
 	echo "great, found gcc!"
 	CC=gcc
 	DEF_CC_FLAGS=-O2
+	log using \`gcc\'
 else
 	echo "gcc not found."
-	$ECHO2 "    Looking for alternatives... $ECHO2SUF"
-	if cc >/dev/null 2>&1 ; then
+	echo2 "    Looking for alternatives... "
+	echo >tmp/test.c "int main(){return 1;}"
+	if run cc tmp/test.c -o tmp/test ; then
 		CC=cc
-	elif c89 >/dev/null 2>&1 ; then
+	elif run c89 tmp/test.c -o tmp/test ; then
 		CC=c89
 	else
 		echo "no C compiler found!"
 		echo "    Use the -cc command line option to specify your C compiler."
-		exit 1
+		log "automatic tests failed"
+		exit 2
 	fi
 	# See if it handles ANSI.
 	cat >tmp/test.c <<EOT
@@ -339,12 +444,15 @@ else
 		extern void foo(int bar);
 	}
 EOT
-	if $CC tmp/test.c -o tmp/test >/dev/null 2>&1 ; then
+	log "test for ANSI..."
+	if run $CC tmp/test.c -o tmp/test ; then
 		echo "using $CC."
+		log using \`"$CC'"
 	else
 		echo "found $CC, but it's not ANSI-compliant!"
 		echo "    Use the -cc command line option to specify your C compiler."
-		exit 1
+		log \`"$CC' not ANSI-compliant"
+		exit 2
 	fi
 	DEF_CC_FLAGS=-O
 fi
@@ -352,26 +460,30 @@ fi
 
 # Test compiler options.
 
+MODE="find_ccopts     "
 if [ "$USER_CC_FLAGS" != bonkle ] ; then
 	CC_FLAGS="$USER_CC_FLAGS"
 	echo "Compiler flags supplied: $CC_FLAGS"
+	log user supplied flags: \`"$CC_FLAGS'"
 elif [ "$CC_FLAGS" != bonkle ] ; then
 	echo "Compiler flags: (cached) $CC_FLAGS"
+	log cache supplied flags: \`"$CC_FLAGS'"
 else
 	CC_FLAGS=$DEF_CC_FLAGS
-	$ECHO2 "Testing default compiler flags ($CC_FLAGS)... $ECHO2SUF"
+	echo2 "Testing default compiler flags ($CC_FLAGS)..."
 	cat >tmp/test.c <<EOT
 	int main(int argc, char **argv) {
 		extern void foo(int bar);
 	}
 EOT
-	if $CC $CC_FLAGS tmp/test.c -o tmp/test >/dev/null 2>&1 ; then
+	if run $CC $CC_FLAGS tmp/test.c -o tmp/test ; then
 		echo "looks good."
 	else
 		echo "no luck!  Using no flags."
 		echo "    If you know what flags you want, use the -cflags option to configure."
 		CC_FLAGS=
 	fi
+	log using flags: \`"$CC_FLAGS'"
 fi
 
 ###########################################################################
@@ -380,37 +492,40 @@ if [ "$USER_CC_LFLAGS" != "bonkle" ] ; then
 	CC_LFLAGS=$USER_CC_LFLAGS
 fi
 
+###########################################################################
+
 # See what libraries we have that we might need.
 
-$ECHO2 "Let's see what libraries are lying around... $ECHO2SUF"
+MODE="find_libs       "
+echo2 "Let's see what libraries are lying around... "
 if [ "$CC_LIBS" != bonkle ] ; then
 	if [ "$CC_LIBS" ] ; then
 		echo "(cached) $CC_LIBS"
 	else
 		echo "(cached) none"
 	fi
+	log cache supplied \`"$CC_LIBS'"
 else
 	CC_LIBS=
-	rm -f tmp/test
-	if $CC $CC_FLAGS tmp/test.c -lnsl -o tmp/test >/dev/null 2>&1 ; then
+	if run $CC $CC_FLAGS tmp/test.c -lnsl -o tmp/test ; then
 		CC_LIBS="$CC_LIBS -lnsl"
-		$ECHO2 "-lnsl $ECHO2SUF"
-		rm -f tmp/test
+		echo2 "-lnsl "
 	fi
-	if $CC $CC_FLAGS tmp/test.c -lsocket -o tmp/test >/dev/null 2>&1 ; then
+	if run $CC $CC_FLAGS tmp/test.c -lsocket -o tmp/test ; then
 		CC_LIBS="$CC_LIBS -lsocket"
-		$ECHO2 "-lsocket $ECHO2SUF"
-		rm -f tmp/test
+		echo2 "-lsocket "
 	fi
-	if $CC $CC_FLAGS tmp/test.c -lbsd -o tmp/test >/dev/null 2>&1 ; then
+	if run $CC $CC_FLAGS tmp/test.c -lbsd -o tmp/test ; then
 		CC_LIBS="$CC_LIBS -lbsd"
-		$ECHO2 "-lbsd $ECHO2SUF"
+		echo2 "-lbsd "
 	fi
 	echo ""
+	CC_LIBS="`echo $CC_LIBS | sed 's/^ +//'`"
 fi
 if [ "$USER_CC_LIBS" ] ; then
 	CC_LIBS="$CC_LIBS $USER_CC_LIBS"
 	echo "Additional user-supplied libraries: $USER_CC_LIBS"
+	log user added \`"$USER_CC_LIBS'"
 fi
 
 ###########################################################################
@@ -418,15 +533,19 @@ fi
 # Look for missing/broken built-in routines, and similar compatibility
 # stuff.
 
-$ECHO2 "How to complain when something goes wrong... $ECHO2SUF"
+MODE="check_strerror  "
+echo2 "How to complain when something goes wrong... "
 if [ "$HAVE_STRERROR" ] ; then
 	if [ "$HAVE_STRERROR" = 1 ] ; then
 		echo "(cached) strerror()."
+		log "cache supplied strerror()"
 	elif [ "$HAVE_SYS_ERRLIST" = 1 ] ; then
 		echo "(cached) sys_errlist."
+		log "cache supplied sys_errlist"
 	else
 		HAVE_SYS_ERRLIST=0	# just in case... you never know.
 		echo "(cached) pseudo sys_errlist."
+		log "cache supplied pseudo sys_errlist"
 	fi
 else
 	cat >tmp/test.c <<EOT
@@ -435,9 +554,10 @@ else
 		strerror();
 	}
 EOT
-	if $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test >/dev/null 2>&1 ; then
+	if run $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test ; then
 		HAVE_STRERROR=1
 		echo "ah, strerror() is here."
+		log "using strerror()"
 	else
 		HAVE_STRERROR=0
 		echo "no strerror()."
@@ -448,143 +568,198 @@ int main() {
 	s = sys_errlist[0];
 }
 EOT
-		if $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test >/dev/null 2>&1 ; then
+		log "trying sys_errlist..."
+		if run $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test ; then
 			HAVE_SYS_ERRLIST=1
 			echo "    But you have sys_errlist, which will do nicely."
+			log "using sys_errlist"
 		else
 			HAVE_SYS_ERRLIST=0
 			echo "    You don't have sys_errlist either, so we'll have to make do."
+			log "using pseudo sys_errlist"
 		fi
 	fi
 fi
 
 
-$ECHO2 "Looking for other routines we need that you don't have... $ECHO2SUF"
+echo2 "Looking for other routines we need that you don't have... "
 
+MODE="check_compat    "
 if [ "$MISSING" != bonkle ] ; then
-	echo "(cached)$MISSING"
+	if [ ! "$MISSING" ] ; then
+		echo "(cached) none"
+		log "cache supplied: (none)"
+	else
+		echo "(cached)$MISSING"
+		log "cache supplied:$MISSING"
+	fi
 else
 	MISSING=
 
-	cat >tmp/test.c <<EOT
-	int main() {
-		extern int stricmp(char *s1, char *s2);
-		extern int strnicmp(char *s1, char *s2, int len);
-		return stricmp("ABC","abc") == 0 &&
-			strnicmp("ABC","abd",2) == 0 ? 0 : 1;
-	}
-EOT
-	if $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test >/dev/null 2>&1 && tmp/test >/dev/null 2>&1 ; then
-		HAVE_STRICMP=1
+	MODE="check_snprintf  "
+	TEST='	char buf[16];
+		int res;
+		if ((res = snprintf(buf, 8, "%d", 123456789)) != 7)
+			printf("test: snprintf broken (wrong return value: wanted 7, got %d)\n", res);
+		else if (strcmp(buf, "1234567") != 0)
+			printf("test: snprintf broken (bad result in buffer: wanted 1234567, got %s)\n", buf);
+		return 0;'
+	if test_function int snprintf "(char *, int, const char *, ...)" ; then
+		tmp="`tmp/test 2>&1`"
+		if [ "`echo $tmp | cut -d\  -f3 2>&1`" = "broken" ] ; then
+			BAD_SNPRINTF=1
+			log "found, but broken"
+		else
+			BAD_SNPRINTF=0
+			MISSING="$MISSING snprintf"
+			echo2 "snprintf "
+		fi
+	else
+		BAD_SNPRINTF=0
+	fi
+
+	MODE="check_stricmp   "
+	TEST='extern int strnicmp(const char *, const char *, int); return stricmp("ABC","abc")==0 && strnicmp("ABC","abd",2)==0 ? 0 : 1;'
+	if test_function int stricmp "(const char *, const char *)" ; then
 		HAVE_STRCASECMP=0	# doesn't really matter
 	else
-		HAVE_STRICMP=0
-		cat >tmp/test.c <<EOT
-		int main() {
-			extern int strcasecmp(char *s1, char *s2);
-			extern int strncasecmp(char *s1, char *s2, int len);
-			return strcasecmp("ABC","abc") == 0 &&
-				strncasecmp("ABC","abd",2) == 0 ? 0 : 1;
-		}
-EOT
-		if $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test >/dev/null 2>&1 && tmp/test >/dev/null 2>&1 ; then
-			HAVE_STRCASECMP=1
-		else
-			HAVE_STRCASECMP=0
+		TEST='extern int strncasecmp(const char *, const char *, int); return strcasecmp("ABC","abc")==0 && strncasecmp("ABC","abd",2)==0 ? 0 : 1;'
+		if test_function int strcasecmp "(const char *, const char *)"
+		then : ; else
 			MISSING="$MISSING str[n]icmp"
-			$ECHO2 "str[n]icmp $ECHO2SUF"
+			echo2 "str[n]icmp "
 		fi
 	fi
 
-	cat >tmp/test.c <<EOT
-	int main() {
-		extern char *strdup(char *s);
-		char *s, *t;
-		s = "ABC"; t = strdup(s);
-		return (t != (char *)0 && strcmp(s, t) == 0) ? 0 : 1;
-	}
-EOT
-	if $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test >/dev/null 2>&1 && tmp/test >/dev/null 2>&1 ; then
-		HAVE_STRDUP=1
-	else
-		HAVE_STRDUP=0
+	MODE="check_strdup    "
+	TEST='char *s,*t; s="ABC"; t=strdup(s); '"return (t!=(char *)0 && t[0]=='A' && t[1]=='B' && t[2]=='C' && t[3]==0) ? 0 : 1;"
+	if test_function "char *" strdup "(const char *)" ; then : ; else
 		MISSING="$MISSING strdup"
-		$ECHO2 "strdup $ECHO2SUF"
+		echo2 "strdup "
 	fi
 
-	cat >tmp/test.c <<EOT
-	int main() {
-		extern char *strspn(char *s, char *tok);
-		return (strspn("ABCBA", "BA") == 2 && strspn("123", "123") == 3) ? 0 : 1;
-	}
-EOT
-	if $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test >/dev/null 2>&1 && tmp/test >/dev/null 2>&1 ; then
-		HAVE_STRSPN=1
-	else
-		HAVE_STRSPN=0
+	MODE="check_strspn    "
+	TEST='return (strspn("ABCBA","BA")==2 && strspn("123","123")==3) ? 0 : 1;'
+	if test_function int strspn "(const char *, const char *)" ; then : ; else
 		MISSING="$MISSING strspn"
-		$ECHO2 "strspn $ECHO2SUF"
+		echo2 "strspn "
 	fi
 
-	cat >tmp/test.c <<EOT
-	int main() {
-		extern void strsignal(void);
-		strsignal();
-	}
-EOT
-	if $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test >/dev/null 2>&1 ; then
-		HAVE_STRSIGNAL=1
-	else
-		HAVE_STRSIGNAL=0
+	MODE="check_strsignal "
+	TEST="(void) strsignal(1); return 0;"
+	if test_function "char *" strsignal "(int)" ; then : ; else
 		MISSING="$MISSING strsignal"
-		$ECHO2 "strsignal $ECHO2SUF"
+		echo2 "strsignal "
 	fi
 
 	echo ""
 fi
 
+if [ $HAVE_SNPRINTF = 0 -a $BAD_SNPRINTF = 0 ] ; then
+	cat <<EOT
+
+*** Danger Will Robinson!  Without snprintf(), Services may be vulnerable
+*** to buffer overflows.  Contact your OS vendor about installing a library
+*** with snprintf() on your system.
+
+EOT
+fi
+
 ###########################################################################
 
-$ECHO2 "Checking how to install files... $ECHO2SUF"
+MODE="check_install   "
+echo2 "Checking how to install files... "
 
 if [ "$INSTALL" ] ; then
 	if [ "`echo $INSTALL | cut -c1`" = "." ] ; then
 		echo '(cached) using our own "install".'
+		log "cache says use our own"
 	else
 		echo '(cached) this system'\''s "install" works.'
+		log "cache says use regular "\`"install'"
 	fi
 else
 	cat >tmp/test.c <<EOT
 	int main() { return 0; }
 EOT
-	if $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test >/dev/null 2>&1 ; then
-		$ECHO2 "$ECHO2SUF"
-	else
+	if run $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test ; then : ; else
 		echo ""
 		echo ""
 		echo "*** WHOA THERE! ***"
+		echo ""
 		echo "We suddenly couldn't compile using the C compiler we already tested!"
 		echo "The command line we used was:"
 		echo "     $CC $CC_FLAGS tmp/test.c $CC_LIBS -o tmp/test"
-		echo "Please try to fix this; if you can't, mail prez@antisocial.com"
-		echo "with information about your system and the output from this script."
+		echo "Please try to fix this; if you can't, mail achurch@dragonfire.net"
+		echo "with information about your system, the output from this script,"
+		echo "and the "\`"configure.log' file generated by this script."
 		echo ""
 		exit 4
 	fi
-	if install -c -m 500 tmp/test tmp/test2 >/dev/null 2>&1 && cmp tmp/test tmp/test2 >/dev/null 2>&1 ; then
+	if run install -m 500 tmp/test tmp/test2 && [ -f tmp/test ] && run cmp tmp/test tmp/test2 ; then
 		echo 'looks like "install" will work.'
 		if [ "$RUNGROUP" ] ; then
-			INSTALL="install -c -g $RUNGROUP -m 710"
+			INSTALL="install -g $RUNGROUP -m 710"
 		else
-			INSTALL="install -c -m 700"
+			INSTALL="install -m 700"
 		fi
 	else
 		echo \"install\"" doesn't seem to work."
 		echo "    But we can still use cp and friends, so we'll roll our own "\"install\".
 		if [ "$RUNGROUP" ] ; then
-			INSTALL="./install-script -c -g $RUNGROUP -m 710"
+			INSTALL="./install-script -g $RUNGROUP -m 710"
 		else
-			INSTALL="./install-script -c -m 700"
+			INSTALL="./install-script -m 700"
+		fi
+	fi
+	log "using: $INSTALL"
+fi
+
+###########################################################################
+
+MODE="check_copy_recur"
+echo2 "Checking how to copy directories... "
+
+if [ "$CP_ALL" ] ; then
+	echo "(cached) $CP_ALL"
+	log "cache supplied $CP_ALL"
+else
+	sysname=`uname -s 2>&1`
+	log "sysname: $sysname"
+	case $sysname in
+		Linux) CP_ALL="cp -dpr";
+		       log "guessing: cp -dpr";;
+		*)     CP_ALL="cp -pr";
+		       log "guessing: cp -pr";;
+	esac
+	if [ ! -f tmp/test2 ] ; then
+		run cp tmp/test tmp/test2
+	fi
+	if run mkdir tmp/testA && run mkdir tmp/testB && run mv tmp/test2 tmp/testA
+	then : ; else
+		echo ""
+		echo ""
+		echo "*** WHOA THERE! ***"
+		echo ""
+		echo "A few simple mkdir's and mv's failed!"
+		echo "Are you out of disk space?"
+		exit 4
+	fi
+	if run $CP_ALL tmp/testA/* tmp/testB && run cmp tmp/testA/test2 tmp/testB/test2 ; then
+		echo "$CP_ALL"
+		log \`"$CP_ALL' works"
+	else
+		log \`"$CP_ALL' doesn't work"
+		run rm -rf tmp/testB/*
+		if run sh -c 'tar -Ccf tmp/testA - . | tar -Cxf tmp/testB -' ; then
+			echo "tar (yuck)"
+			CP_ALL="./cp-recursive -t"
+			log "using tar"
+		else
+			log "tar failed(!)"
+			echo ""
+			echo "    Neither cp nor tar work!  I give up."
+			exit 2
 		fi
 	fi
 fi
@@ -593,7 +768,7 @@ fi
 
 # Create files.
 
-$ECHO2 "Creating sysconf.h... $ECHO2SUF"
+echo2 "Creating sysconf.h... "
 cat >sysconf.h <<EOT
 /*
  * This file is generated automatically by "configure".  Any changes made
@@ -618,11 +793,12 @@ if [ "$DALSERV" = "y" ] ; then cat >>sysconf.h <<EOT
 #define DAL_SERV
 EOT
 fi
-
 cat >>sysconf.h <<EOT
 
 #define HAVE_STRERROR		$HAVE_STRERROR
 #define HAVE_SYS_ERRLIST	$HAVE_SYS_ERRLIST
+#define HAVE_SNPRINTF		$HAVE_SNPRINTF
+#define BAD_SNPRINTF		$BAD_SNPRINTF
 #define HAVE_STRICMP		$HAVE_STRICMP
 #define HAVE_STRCASECMP		$HAVE_STRCASECMP
 #define HAVE_STRDUP		$HAVE_STRDUP
@@ -631,7 +807,7 @@ cat >>sysconf.h <<EOT
 EOT
 echo "done."
 
-$ECHO2 "Creating Makefile.inc... $ECHO2SUF"
+echo2 "Creating Makefile.inc... "
 cat >Makefile.inc <<EOT
 # This file is generated automatically by "configure".  Any changes made
 # to it will be erased next time "configure" is run.
@@ -645,6 +821,7 @@ BINDEST=$BINDEST
 DATDEST=$DATDEST
 
 INSTALL=$INSTALL
+CP_ALL=$CP_ALL
 RUNGROUP=$RUNGROUP
 EOT
 echo "done."
@@ -653,16 +830,18 @@ echo "done."
 
 # Save results in cache for next time around.
 
-$ECHO2 "Saving configuration results in config.cache... $ECHO2SUF"
+echo2 "Saving configuration results in config.cache... "
 
 cat <<EOT >config.cache
 BINDEST="$BINDEST"
 DATDEST="$DATDEST"
 
 INSTALL="$INSTALL"
+CP_ALL="$CP_ALL"
 
 RUNGROUP="$RUNGROUP"
 UMASK=$UMASK
+NETWORK_DOMAIN="$NETWORK_DOMAIN"
 IRCTYPE=$IRCTYPE
 IRCTYPE_DEF="$IRCTYPE_DEF"
 DALSERV="$DALSERV"
@@ -675,6 +854,8 @@ CC_LIBS="$CC_LIBS"
 HAVE_STRERROR=$HAVE_STRERROR
 HAVE_SYS_ERRLIST=$HAVE_SYS_ERRLIST
 
+HAVE_SNPRINTF=$HAVE_SNPRINTF
+BAD_SNPRINTF=$BAD_SNPRINTF
 HAVE_STRICMP=$HAVE_STRICMP
 HAVE_STRCASECMP=$HAVE_STRCASECMP
 HAVE_STRDUP=$HAVE_STRDUP

@@ -86,4 +86,15 @@ NULL
 
 /*************************************************************************/
 
+static const char *deop_help[] = {
+"Syntax: \2SET DEOP \37nick\37\2",
+"",
+"Takes away the \37IRC Operator\37 flag from someone",
+"who is no longer an IRC Operator",
+"Limited to \2IRC Operators\2.",
+NULL
+};
+
+/*************************************************************************/
+
 #endif /* NICKSERV */

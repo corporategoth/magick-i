@@ -35,12 +35,9 @@ void helpserv(const char *whoami, const char *source, char *buf)
 	if (!(s = strtok(NULL, "")))
 	    s = "\1";
 	notice(s_HelpServ, source, "\1PING %s", s);
-    } else {
+    } else
 #endif
 	do_help(whoami, source, topic);
-#ifdef HELPSERV
-    }
-#endif
     if (topic)
 	free(topic);
 }
