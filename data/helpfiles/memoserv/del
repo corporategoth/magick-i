@@ -1,0 +1,8 @@
+Syntax: DEL [channel] {num|ALL}
+
+If a number num is given, deletes that memo from your
+memo list.  If ALL is given, deletes all of your memos.
+If channel is specified, it does it for the channel
+instead.  If a channel is defined, this funtion is
+restricted to level 15 for your own memos, and 25
+for other user's or ALL.

@@ -1,0 +1,6 @@
+Syntax: SET channel TOPICLOCK {ON|OFF}
+
+Enables or disables the topic lock option for a channel.
+When topic lock is set, ChanServ will not allow the
+channel topic to be changed except via the SET TOPIC
+command.

@@ -1,0 +1,16 @@
+Syntax: CLEAR channel what
+
+Tells ChanServ to clear certain settings on a channel.  what
+can be any of the following:
+
+     modes   Resets all modes on the channel (i.e. clears
+             modes i,k,l,m,n,p,s,t).
+     bans    Clears all bans on the channel.
+     ops     Removes channel-operator status (mode +o) from
+             all channel operators.
+     voices  Removes "voice" status (mode +v) from anyone
+             with that mode set.
+     users   Removes (kicks) all users from the channel.
+
+Your access level on the channel must be at least 20 to use
+this command.

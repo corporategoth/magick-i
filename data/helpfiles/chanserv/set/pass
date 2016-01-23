@@ -1,0 +1,4 @@
+Syntax: SET channel PASSWORD password
+
+Sets the password used to identify as the founder of the
+channel.

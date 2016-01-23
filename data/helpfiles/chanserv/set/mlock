@@ -1,0 +1,25 @@
+Syntax: SET channel MLOCK modes
+
+Sets the mode-lock parameter for the channel.  ChanServ
+allows you to define certain channel modes to be always
+on (or off).  The modes that can be locked are i, k, l,
+m, n, p, s, and t; each of these modes can be locked on,
+locked off, or not locked.  The <modes> parameter is
+constructed exactly the same way as a /MODE command; that
+is, modes followed by a + are locked on, and modes
+followed by a - are locked off.
+
+Examples:
+
+    SET #channel MLOCK +nt-iklps
+       Forces modes n and t on, and modes i, k, l, p, and
+       s off.  Mode m is left free to be either on or off.
+
+    SET #channel MLOCK +knst-ilmp my-key
+       Forces modes k, n, s, and t on, and modse i, l, m,
+       and p off.  Also forces the channel key to be
+       "my-key".
+
+    SET #channel MLOCK +
+       Removes the mode lock; all channel modes are free
+       to be either on or off.

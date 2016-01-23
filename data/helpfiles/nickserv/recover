@@ -1,0 +1,19 @@
+Syntax: RECOVER nickname
+
+Allows you to recover your nickname if someone else has
+taken it; this does the same thing that NickServ does
+automatically if someone steals a kill-protected nick.
+
+When you give this command, NickServ will bring a fake
+user online with the same nickname as the user you're
+trying to recover your nick from.  This causes the IRC
+servers to disconnect the other user.  NickServ's fake
+user will remain online for one minute to ensure that the
+other user does not immediately reconnect; after that
+minute, you can reclaim your nick.  Alternatively, use
+the RELEASE command (/msg NickServ HELP RELEASE) to get
+the nick back sooner.
+
+In order to use the RECOVER command for a nick, your
+current address as shown in /WHOIS must be on that nick's
+access list.

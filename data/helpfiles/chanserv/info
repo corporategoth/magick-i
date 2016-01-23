@@ -1,0 +1,5 @@
+Syntax: INFO channel
+
+Lists information about the named registered channel,
+including its founder, time of registration, last time
+used, description, and mode lock, if any.

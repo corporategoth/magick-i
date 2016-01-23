@@ -1,0 +1,25 @@
+NickServ allows you to "register" a nickname and
+prevent others from using them.  If the nick is not used
+for 30 days, the registration will expire.  The following
+commands allow for registration and maintenance of
+nicknames; to use them, type /msg NickServ <command>.
+For more information on a specific command, type
+/msg NickServ help <command>.
+
+    REGISTER   Register a nickname
+    IDENTIFY   Identify yourself with your password
+    ACCESS     Modify the list of authorized addresses
+    SET        Set options, including kill protection
+    DROP       Cancel the registration of a nickname
+    RECOVER    Kill another user who has taken your nick
+    RELEASE    Regain custody of your nick after RECOVER
+    IGNORE     Modify the list of memo auto-reject nicks
+
+Other commands: GHOST, INFO, LIST
+
+NOTICE: This service is intended to provide a way for
+IRC users to ensure their identity is not compromised.
+It is NOT intended to facilitate "stealing" of
+nicknames or other malicious actions.  Abuse of NickServ
+will result in, at minimum, loss of the abused
+nickname(s).

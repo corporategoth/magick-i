@@ -1,0 +1,8 @@
+Syntax: SET channel SECURE {ON|OFF}
+
+Enables or disables ChanServ's security features for a
+channel.  When SECURE is set, only users who have
+registered their nicknames with NickServ and IDENTIFY'd
+with their password will be given access to the channel
+as controlled by the access list.  Note that the access
+list may only contain registered nicknames if SECURE is set.

@@ -1,0 +1,6 @@
+Syntax: FORWARD [channel] {num|ALL} {nick|channel}
+
+Sends the text of memo number num to the nick or
+channel specified last.  If a channel is specified,
+first, it sends it from the channels news, if not,
+it sends it of your personal memo's.

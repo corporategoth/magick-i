@@ -1,0 +1,5 @@
+Syntax: LIST mask
+
+Lists all registered channels matching the given mask.
+(Channels with the PRIVATE option set are not listed, of
+course.)

@@ -1,0 +1,4 @@
+Syntax: SET channel DESC description
+
+Sets the description for the channel, which shows up with
+the LIST and INFO commands.

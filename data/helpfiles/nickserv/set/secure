@@ -1,0 +1,9 @@
+Syntax: SET SECURE {ON|OFF}
+
+Turns NickServ's security features on or off for your
+nick.  With SECURE set, you must enter your password
+before you will be recognized as the owner of the nick,
+regardless of whether your address is on the access
+list.  However, if you are on the access list, NickServ
+will not auto-kill you regardless of the setting of the
+KILL option.

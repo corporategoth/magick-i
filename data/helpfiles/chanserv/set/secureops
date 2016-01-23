@@ -1,0 +1,5 @@
+Syntax: SET channel SECUREOPS {ON|OFF}
+
+Enables or disables the secure ops option for a channel.
+When secure-ops is set, users who are not on the userlist
+will not be allowed chanop status.

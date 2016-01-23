@@ -1,0 +1,3 @@
+Syntax: LIST [channel]
+
+Lists any memos you (or channel if defined) currently have.

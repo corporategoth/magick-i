@@ -1,0 +1,7 @@
+Syntax: SET channel JOIN {ON|OFF}
+
+Enables or disables ChanServ's joining a channel.
+This in no way changes the functionality of chanserv,
+it merely makes it join channel.  (I added this by
+popular demand, some think ChanServ is a CyberStud,
+and like it in channel - I think they need a life!).

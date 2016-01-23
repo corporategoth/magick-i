@@ -1,0 +1,5 @@
+Syntax: UNBAN channel
+
+Tells ChanServ to remove all bans preventing you from
+entering the given channel.  Only works if your access
+level on that channel is greater than zero.

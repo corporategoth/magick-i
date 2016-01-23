@@ -1,0 +1,7 @@
+Syntax: SET PRIVMSG {ON|OFF}
+
+Makes all services send you private messages (/msg)
+instead of the standard notice (/notice).  Just a
+nice little convenience thing.  If set on, you will
+only recieve a privmsg when on your nick, and either
+recognised or identified.

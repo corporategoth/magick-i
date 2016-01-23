@@ -1,0 +1,22 @@
+Syntax: LEVEL channel SET type level
+        LEVEL channel RESET {type|ALL}
+        LEVEL channel LIST [type]
+
+Changes the access level required to be able to execute
+certain commands.  This allows a Channel Founder to be
+able to customize their access list to their own channel
+needs.  For a list of the available changable levels,
+type /msg ChanServ HELP LEVEL LIST
+
+The LEVEL SET command changes the level required to
+execute a function for a channel.  If a user satisfies
+the criteria set by this command (ie. the access level),
+then they will be able to do the command or have the
+privilage (depending what the LEVEL your setting is for).
+
+The LEVEL RESET command will set the level specified
+to the default one specified by services.
+
+The LEVEL LIST command displays the current levels; if
+a type is given, only those entries matching the type are
+displayed.

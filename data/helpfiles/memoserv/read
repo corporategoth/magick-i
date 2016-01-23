@@ -1,0 +1,6 @@
+Syntax: READ [channel] {num|ALL}
+
+Sends you the text of memo number num.  If channel
+is specified, it sends it the channels news, if not,
+it sends it from your personal memo's.
+

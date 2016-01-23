@@ -1,0 +1,5 @@
+Syntax: SET channel TOPIC topic
+
+Causes ChanServ to set the channel topic to the one
+specified.  This command is most useful in conjunction
+with SET LOCKTOPIC.

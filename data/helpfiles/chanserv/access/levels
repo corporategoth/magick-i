@@ -1,0 +1,15 @@
+User access levels
+
+These are now settable with the /msg ChanServ LEVEL
+command.  Please ask your channel founder what access
+levels are required for certain commands.
+
+Any user above the 'Allowed ACCESS changing' threshold
+is able to add another user with an access level below
+themselves.  So, for example, a level 10 user can add
+level 5 users, and either a level 10 or a level 5 user
+can add negative-level users.
+Founders can add users at any level they want.
+
+Access levels are capped at -1 and 30.  This means you
+can only add users with access levels BETWEEN this range.

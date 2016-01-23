@@ -1,0 +1,8 @@
+Syntax: DROP
+
+Drops your nickname from the NickServ database.  A nick
+that has been dropped is free for anyone to re-register.
+
+In order to use this command, you must first identify
+with your password (/msg NickServ HELP IDENTIFY for more
+information).

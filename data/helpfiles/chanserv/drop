@@ -1,0 +1,4 @@
+Syntax: DROP channel
+
+Unregisters the named channel.  Can only be used by
+channel founder, who must use the IDENTIFY command first.

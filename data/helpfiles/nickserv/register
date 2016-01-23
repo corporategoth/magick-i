@@ -1,0 +1,19 @@
+Syntax: REGISTER password
+
+Registers your nickname in the NickServ database.  Once
+your nick is registered, you can use the SET and ACCESS
+commands to configure your nick's settings as you like
+them.  Make sure you remember the password you use when
+registering - you'll need it to make changes to your nick
+later.  (Note that case matters!  FIDO, Fido, and fido
+are all different passwords!)
+
+Guidelines on choosing passwords:
+
+Passwords should not be easily guessable.  For example,
+using your real name as a password is a bad idea.  Using
+your nickname as a password is a much worse idea ;) and,
+in fact, NickServ will not allow it.  Also, short
+passwords are vulnerable to trial-and-error searches, so
+you should choose a password at least 5 characters long.
+Finally, the space character cannot be used in passwords.

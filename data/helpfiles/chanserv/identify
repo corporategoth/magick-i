@@ -1,0 +1,6 @@
+Syntax: IDENTIFY channel password
+
+Authenticates you to ChanServ as the founder of the given
+channel.  Many commands require you to use this command
+before using them.  The password should be the same one
+you sent with the REGISTER command.

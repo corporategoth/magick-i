@@ -1,0 +1,22 @@
+ChanServ allows you to register and control various
+aspects of channels.  ChanServ can often prevent
+malicious users from "taking over" channels by limiting
+who is allowed channel operator priviliges.  ChanServ's
+commands are listed below; to use them, type
+/msg ChanServ <command>.  For more information on a
+specific command, type /msg ChanServ help command.
+
+    REGISTER   Register a channel
+    IDENTIFY   Identify yourself with your password
+    SET        Set channel options and information
+    ACCESS     Modify the list of privileged users
+    AKICK      Maintain the AutoKick list
+    DROP       Cancel the registration of a channel
+    LEVEL      Change the level required for functions
+
+Other commands: INFO, LIST, INVITE, CLEAR, UNBAN
+                UNBAN, OP, DEOP, VOICE, DEVOICE
+
+Note that any channel which is not used for two weeks
+(i.e. which no user on the channel's access list enters
+for that period of time) will be automatically dropped.

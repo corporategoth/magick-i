@@ -1,0 +1,4 @@
+Syntax: SET EMAIL {email|NONE}
+
+Sets your E-Mail address, which shows up with the INFO
+command.  (Setting NONE will remove the current E-Mail).

@@ -1,0 +1,9 @@
+**	Add a way to send OperServ (and other?) commands from the shell
+CS	MLOCK +k: users who join an empty channel see the key
+**	Don't keep all records in memory -- only load as needed, page out
+	   when too much memory used
+**	Do something about repeated password failures
+**	Make Services split-aware:
+	   - Nicks that split and rejoined will remain authenticated if
+	     they were before
+NS	Nick linking -- all linked nicks are considered equivalent.

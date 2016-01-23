@@ -1,0 +1,7 @@
+Syntax: SET KILL {ON|OFF}
+
+Turns the automatic kill protection option for your nick
+on or off.  With kill protection on, if another user
+tries to take your nick, they will be given one minute to
+change to another nick, after which they will be forcibly
+removed from IRC by NickServ.

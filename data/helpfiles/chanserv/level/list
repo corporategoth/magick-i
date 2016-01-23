@@ -1,0 +1,19 @@
+LEVEL changable settings
+
+Type       Def   Alteration
+AUTODEOP    -1   Auto mode -v-o
+AUTOVOICE    5   Auto mode +v
+AUTOOP      10   Auto mode +o
+NEWSREAD     0   Allow news read
+NEWSPOST    15   Allow news send
+NEWSDEL     25   Allow news del (for not owned)
+AKICK       15   Allow AKICK modification
+STARAKICK   25   Allow add of @* AKICK
+BOUNCE      10   Bounce server bans
+ACCESS       5   Allow ACCESS modification
+SET         25   Allow changing of SET's
+INVITE       5   /msg ChanServ INVITE
+UNBAN       10   /msg ChanServ UNBAN
+VOICE        5   /msg ChanServ VOICE
+OP          10   /msg ChanServ OP
+CLEAR       20   /msg ChanServ CLEAR

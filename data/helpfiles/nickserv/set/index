@@ -1,0 +1,16 @@
+Syntax: SET option parameters
+
+Sets various nickname options.  option can be one of:
+
+    EMAIL      Set your email (INFO Display)
+    URL        Set your web page (INFO DISPLAY)
+    KILL       Turn kill protection on or off
+    SECURE     Turn nickname security on or off
+    PASSWORD   Set your nickname password
+
+In order to use this command, you must first identify
+with your password (/msg NickServ HELP IDENTIFY for more
+information).
+
+Type /msg NickServ HELP SET option for more information
+on a specific option.

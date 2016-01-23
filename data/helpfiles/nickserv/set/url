@@ -1,0 +1,4 @@
+Syntax: SET URL {url|NONE}
+
+Sets your World Wide Web page (URL), which shows up with
+the INFO command. (Setting NONE will remove current URL).

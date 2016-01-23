@@ -1,0 +1,7 @@
+Syntax: SET channel KEEPTOPIC {ON|OFF}
+
+Enables or disables the topic retention option for a
+channel.  When topic retention is set, the topic for the
+channel will be remembered by ChanServ even after the
+last user leaves the channel, and will be restored the
+next time the channel is created.

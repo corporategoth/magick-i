@@ -1,0 +1,9 @@
+Syntax: RELEASE nickname
+Instructs NickServ to remove any hold on your nickname
+caused by automatic kill protection or use of the RECOVER
+command.  By default, such holds last for one minute;
+this command gets rid of them sooner.
+
+In order to use the RELEASE command for a nick, your
+current address as shown in /WHOIS must be on that nick's
+access list.

@@ -1,0 +1,18 @@
+Syntax: IGNORE ADD nick
+        IGNORE DEL nick
+        IGNORE LIST
+
+Modifies or displays the ignore list for your nick.  This
+is the list of nicks which you will automatically REJECT
+memos from.
+
+Examples:
+
+    IGNORE ADD badboy
+        Ignores memos from badboy.
+
+    IGNORE DEL badboy
+        Reverses the previous command.
+
+    IGNORE LIST
+        Displays the current ignore list.

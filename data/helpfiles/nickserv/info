@@ -1,0 +1,5 @@
+Syntax: INFO nickname
+
+Displays information about the given nickname, such as
+the nick's owner, last seen address and time, and nick
+options.

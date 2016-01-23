@@ -1,0 +1,17 @@
+Syntax: LIST pattern
+
+Lists all registered nicknames which match the given
+pattern, in nick!user@host format.
+
+Examples:
+
+    LIST *!joeuser@foo.com
+        Lists all nicks owned by joeuser@foo.com.
+
+    LIST *Bot*!*
+        Lists all registered nicks with Bot in their
+        names (case insensitive).
+
+    LIST *!*@*.bar.org
+        Lists all nicks owned by users in the bar.org
+        domain.

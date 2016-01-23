@@ -1,0 +1,22 @@
+Syntax: ACCESS ADD mask
+        ACCESS DEL mask
+        ACCESS LIST
+
+Modifies or displays the access list for your nick.  This
+is the list of addresses which will be automatically
+recognized by NickServ as allowed to use the nick.  If
+you want to use the nick from a different address, you
+need to send an IDENTIFY command to make NickServ
+recognize you.
+
+Examples:
+
+    ACCESS ADD *prez@*.srealm.net.au
+        Allows access to user prez from any machine in
+        the srealm.net.au domain.
+
+    ACCESS DEL *prez@*.srealm.net.au
+        Reverses the previous command.
+
+    ACCESS LIST
+        Displays the current access list.

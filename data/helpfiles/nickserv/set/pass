@@ -1,0 +1,4 @@
+Syntax: SET PASSWORD new-password
+
+Changes the password used to identify you as the nick's
+owner.

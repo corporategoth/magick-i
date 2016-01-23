@@ -1,0 +1,4 @@
+Syntax: SET channel FOUNDER nick
+
+Changes the founder of a channel.  The new nickname must
+be a registered one.

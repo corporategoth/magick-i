@@ -1,0 +1,8 @@
+Syntax: SEND {nick|channel} memo-text
+
+Sends nick or channel a memo containing memo-text.
+The recipient will receive a notice that he/she has a new
+memo (if the recipiant is a channel, all on channel will
+revieve a notice of the new News Article).  The recipient's
+nickname/channel must be registered with NickServ/ChanServ.
+If a channel is defined, this funtion is restricted to level 15.

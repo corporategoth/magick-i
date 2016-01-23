@@ -1,0 +1,24 @@
+Syntax: ACCESS channel ADD mask level
+        ACCESS channel DEL {mask | entry-num}
+        ACCESS channel LIST [mask]
+
+Maintains the access list for a channel.  The access
+list specifies which users are allowed chanop status or
+access to ChanServ commands on the channel.  Different
+user levels allow for access to different subsets of
+privileges; /msg ChanServ HELP ACCESS LEVELS for more
+specific information.  By default, any nick not on the
+access list has a user level of 0.
+
+The ACCESS ADD command adds the given nickname or
+usermask to the access list with the given user level; if
+the nick or mask is already present on the list, its
+access level is changed to the level specified in the
+command.
+
+The ACCESS DEL command removes the given nick or mask
+from the access list.
+
+The ACCESS LIST command displays the access list; if
+a mask is given, only those entries matching the mask are
+displayed.

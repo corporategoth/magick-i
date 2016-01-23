@@ -1,0 +1,4 @@
+Syntax: SET channel URL {url|NONE}
+
+Sets the channel World Wide Web page (URL), which shows up
+with the INFO command.  (Setting NONE will remove URL).

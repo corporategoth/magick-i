@@ -1,0 +1,20 @@
+Syntax: SET channel REVENGE {CURRENT|level}
+
+Shows or toggles the current REVENGE setting.  Revenge is
+a way for ChanServ to act like alot of scripts that are
+out these days - bitchy.  The revenge will take action on
+someone who deops, kicks or bans someone of higher level
+than themselves (for ban, equal to aswell).  When CURRENT
+is specified, the current revenge level is displayed.
+
+Levels are:
+  NONE    - Will disable all revenge.
+  DEOP    - Will deop (mode -o) offender.
+  KICK    - Will kick offender.
+  NICKBAN - Will nick ban (user!*@*) offender.
+  MASKBAN - Will mask ban (*!*user@*.host) offender.
+  HOSTBAN - Will host ban (*!*@host) offender.
+  MIRROR  - Will do whatever offender did back to them.
+
+No matter what revenge setting your channel is at, however,
+all action against higher levels will be reversed.

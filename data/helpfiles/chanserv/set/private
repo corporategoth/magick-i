@@ -1,0 +1,5 @@
+Syntax: SET channel PRIVATE {ON|OFF}
+
+Enables or disables the private option for a channel.
+When private is set, a /msg ChanServ LIST will not
+include the channel in any lists.

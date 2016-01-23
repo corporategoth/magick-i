@@ -1,0 +1,5 @@
+Syntax: INVITE channel
+
+Tells ChanServ to invite you into the given channel.
+Only works if your access level on that channel is
+greater than zero.
